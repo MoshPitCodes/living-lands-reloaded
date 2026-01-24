@@ -1,0 +1,59 @@
+// Living Lands - Metabolism HUD
+Group {
+  LayoutMode: Top;
+  Anchor: (Top: 20, Left: 20, Width: 220, Height: 80);
+
+  Group #MetabolismBars {
+    Background: #1a1a1a(0.8);
+    Padding: (Full: 10);
+    LayoutMode: Top;
+
+    // Hunger row
+    Group #HungerRow {
+      LayoutMode: Left;
+
+      Label #HungerLabel {
+        Text: "Hunger";
+        Style: (FontSize: 14, TextColor: #e67e22, RenderBold: true);
+        Anchor: (Width: 60);
+      }
+
+      Label #HungerBar {
+        Text: "[||||||||||] 100";
+        Style: (FontSize: 14, TextColor: #e67e22);
+      }
+    }
+
+    // Thirst row
+    Group #ThirstRow {
+      LayoutMode: Left;
+
+      Label #ThirstLabel {
+        Text: "Thirst";
+        Style: (FontSize: 14, TextColor: #5dade2, RenderBold: true);
+        Anchor: (Width: 60);
+      }
+
+      Label #ThirstBar {
+        Text: "[||||||||||] 100";
+        Style: (FontSize: 14, TextColor: #5dade2);
+      }
+    }
+
+    // Energy row
+    Group #EnergyRow {
+      LayoutMode: Left;
+
+      Label #EnergyLabel {
+        Text: "Energy";
+        Style: (FontSize: 14, TextColor: #f4d03f, RenderBold: true);
+        Anchor: (Width: 60);
+      }
+
+      Label #EnergyBar {
+        Text: "[||||||||||] 100";
+        Style: (FontSize: 14, TextColor: #f4d03f);
+      }
+    }
+  }
+}

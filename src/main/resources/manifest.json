@@ -1,0 +1,17 @@
+{
+  "Name": "LivingLandsReloaded",
+  "Version": "${version}",
+  "Description": "Survival mechanics mod with hunger, thirst, and energy systems",
+  "Authors": [
+    {
+      "Name": "Living Lands Team"
+    }
+  ],
+  "Website": "https://github.com/MoshPitCodes/living-lands-reloaded",
+  "ServerVersion": "*",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "Main": "com.livinglands.LivingLandsPlugin",
+  "IncludesAssetPack": true
+}

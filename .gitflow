@@ -1,0 +1,17 @@
+# .gitflow
+
+# Living Lands Git Flow Configuration
+# Auto-generated configuration for Git Flow workflow
+
+# Branch names
+[gitflow "branch"]
+    master = main
+    develop = develop
+
+# Prefixes
+[gitflow "prefix"]
+    feature = feature/
+    release = release/
+    hotfix = hotfix/
+    support = support/
+    versiontag = v

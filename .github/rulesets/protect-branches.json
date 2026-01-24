@@ -1,0 +1,20 @@
+{
+  "name": "Protect Development Branches",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "refs/heads/main",
+        "refs/heads/develop"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "non_fast_forward"
+    }
+  ],
+  "bypass_actors": []
+}
