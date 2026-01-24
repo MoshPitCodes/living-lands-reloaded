@@ -2,7 +2,7 @@
 <h1 align="center">
    <br>
    <img src="./.github/assets/logo/living-lands-reloaded-logo.png" width="400px" /><br>
-      Living Lands | Hytale RPG Survival Mod
+      Living Lands Reloaded | Hytale RPG Survival Mod
    <br>
    <img src="./.github/assets/pallet/pallet-0.png" width="800px" /> <br>
 
@@ -31,7 +31,7 @@
 
 # Overview
 
-**Living Lands** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands provides per-world player progression with metabolism tracking, profession leveling, land claims, and more.
+**Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands Reloaded provides per-world player progression with metabolism tracking, profession leveling, land claims, and more.
 
 **Current Status:** **Beta (v1.0.0-beta)** - Core infrastructure and metabolism system complete (~90% MVP). Working on buffs, debuffs, and food consumption.
 
@@ -253,7 +253,7 @@ Update configuration files and reload without restarting the server:
 
 # Architecture Overview
 
-Living Lands is built on a modern, scalable architecture designed for multiplayer performance and extensibility.
+Living Lands Reloaded is built on a modern, scalable architecture designed for multiplayer performance and extensibility.
 
 ## System Diagram
 
