@@ -1,7 +1,7 @@
 <!-- DO NOT TOUCH THIS SECTION#1: START -->
 <h1 align="center">
    <br>
-   <img src="./.github/assets/logo/hytale-ll-reloaded-logo.png" width="400px" /><br>
+   <img src="./.github/assets/logo/living-lands-reloaded-logo.png" width="400px" /><br>
       Living Lands Reloaded | Hytale RPG Survival Mod
    <br>
    <img src="./.github/assets/pallet/pallet-0.png" width="800px" /> <br>
