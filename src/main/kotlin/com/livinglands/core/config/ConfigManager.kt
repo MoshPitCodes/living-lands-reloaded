@@ -63,6 +63,10 @@ class ConfigManager(
             isPrettyFlow = true
             indent = 2
             indicatorIndent = 0  // Must be smaller than indent
+            isExplicitStart = false
+            isExplicitEnd = false
+            // Don't add root type tags
+            defaultScalarStyle = DumperOptions.ScalarStyle.PLAIN
         }
         
         val loaderOptions = LoaderOptions().apply {
@@ -72,11 +76,22 @@ class ConfigManager(
             tagInspector = { _ -> true }
         }
         
-        // Use a representer that properly handles data classes
-        val representer = Representer(dumperOptions).apply {
-            propertyUtils.isSkipMissingProperties = true
-            // Treat data classes as JavaBeans (use getters)
-            propertyUtils.setBeanAccess(BeanAccess.FIELD)
+        // Use a representer that properly handles data classes without type tags
+        val representer = object : Representer(dumperOptions) {
+            init {
+                propertyUtils.isSkipMissingProperties = true
+                propertyUtils.setBeanAccess(BeanAccess.FIELD)
+            }
+            
+            // Override to return MAP tag for all custom classes (no !!ClassName type annotation)
+            override fun getTag(clazz: Class<*>?, defaultTag: org.yaml.snakeyaml.nodes.Tag?): org.yaml.snakeyaml.nodes.Tag {
+                // For custom config classes (com.livinglands.*), always use MAP tag
+                return if (clazz != null && clazz.name.startsWith("com.livinglands.")) {
+                    org.yaml.snakeyaml.nodes.Tag.MAP
+                } else {
+                    super.getTag(clazz, defaultTag)
+                }
+            }
         }
         
         yaml = Yaml(Constructor(loaderOptions), representer, dumperOptions, loaderOptions)
