@@ -1,12 +1,11 @@
 package com.livinglands.core.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.hypixel.hytale.logger.HytaleLogger
-import org.yaml.snakeyaml.DumperOptions
-import org.yaml.snakeyaml.LoaderOptions
-import org.yaml.snakeyaml.Yaml
-import org.yaml.snakeyaml.constructor.Constructor
-import org.yaml.snakeyaml.introspector.BeanAccess
-import org.yaml.snakeyaml.representer.Representer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -24,6 +23,7 @@ import kotlin.reflect.KClass
  * - Hot-reload via reload() method
  * - Automatic migration for versioned configs
  * - Backup before migration
+ * - Clean YAML serialization with Jackson
  * 
  * Thread-safe for concurrent access. Configuration changes require reload() to apply.
  */
@@ -32,11 +32,11 @@ class ConfigManager(
     private val logger: HytaleLogger
 ) {
     
-    // YAML parser configured for readable output
-    private val yaml: Yaml
+    // Jackson ObjectMapper configured for clean YAML output
+    private val mapper: ObjectMapper
     
-    // Secondary YAML instance for loading raw maps (no type conversion)
-    private val rawYaml: Yaml
+    // Raw mapper for loading maps without type conversion (for migrations)
+    private val rawMapper: ObjectMapper
     
     // Cached configurations by module ID
     private val configs = ConcurrentHashMap<String, Any>()
@@ -57,47 +57,30 @@ class ConfigManager(
         // Create config directory if it doesn't exist
         Files.createDirectories(configPath)
         
-        // Configure YAML for pretty, readable output
-        val dumperOptions = DumperOptions().apply {
-            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
-            isPrettyFlow = true
-            indent = 2
-            indicatorIndent = 0  // Must be smaller than indent
-            isExplicitStart = false
-            isExplicitEnd = false
-            // Don't add root type tags
-            defaultScalarStyle = DumperOptions.ScalarStyle.PLAIN
-        }
+        // Configure YAML factory for clean, readable output
+        val yamlFactory = YAMLFactory.builder()
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)  // No "---" at start
+            .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)           // Minimize quote usage
+            .build()
         
-        val loaderOptions = LoaderOptions().apply {
-            // Prevent arbitrary code execution via YAML
-            allowRecursiveKeys = false
-            // Allow global tags when loading
-            tagInspector = { _ -> true }
-        }
-        
-        // Use a representer that properly handles data classes without type tags
-        val representer = object : Representer(dumperOptions) {
-            init {
-                propertyUtils.isSkipMissingProperties = true
-                propertyUtils.setBeanAccess(BeanAccess.FIELD)
-            }
+        // Create mapper with Kotlin support
+        mapper = ObjectMapper(yamlFactory).apply {
+            registerKotlinModule()
             
-            // Override to return MAP tag for all custom classes (no !!ClassName type annotation)
-            override fun getTag(clazz: Class<*>?, defaultTag: org.yaml.snakeyaml.nodes.Tag?): org.yaml.snakeyaml.nodes.Tag {
-                // For custom config classes (com.livinglands.*), always use MAP tag
-                return if (clazz != null && clazz.name.startsWith("com.livinglands.")) {
-                    org.yaml.snakeyaml.nodes.Tag.MAP
-                } else {
-                    super.getTag(clazz, defaultTag)
-                }
-            }
+            // Pretty printing with indentation
+            enable(SerializationFeature.INDENT_OUTPUT)
+            
+            // Don't write null values
+            disable(SerializationFeature.WRITE_NULL_MAP_VALUES)
+            
+            // Don't write dates as timestamps
+            disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
         }
         
-        yaml = Yaml(Constructor(loaderOptions), representer, dumperOptions, loaderOptions)
-        
-        // Raw YAML for loading as maps (for migration)
-        rawYaml = Yaml(loaderOptions)
+        // Raw mapper for loading as generic maps (for migration)
+        rawMapper = ObjectMapper(yamlFactory).apply {
+            registerKotlinModule()
+        }
         
         logger.atFine().log("ConfigManager initialized at: $configPath")
     }
@@ -132,8 +115,7 @@ class ConfigManager(
                     logger.atFine().log("Config '$moduleId' was empty, created default")
                     default
                 } else {
-                    @Suppress("UNCHECKED_CAST")
-                    val loaded = yaml.loadAs(content, type.java) as T
+                    val loaded = mapper.readValue(content, type.java)
                     configs[moduleId] = loaded
                     logger.atFine().log("Loaded config '$moduleId'")
                     loaded
@@ -217,7 +199,7 @@ class ConfigManager(
         // Load as raw map to check version
         @Suppress("UNCHECKED_CAST")
         val rawData = try {
-            rawYaml.load<Map<String, Any>>(content)
+            rawMapper.readValue(content, Map::class.java) as Map<String, Any>
         } catch (e: Exception) {
             logger.atWarning().log("Failed to parse config '$moduleId' as map: ${e.message}. Using defaults.")
             createBackup(moduleId, "parse-error")
@@ -232,8 +214,7 @@ class ConfigManager(
         // If already at target version, load normally
         if (currentVersion >= targetVersion) {
             return try {
-                @Suppress("UNCHECKED_CAST")
-                val loaded = yaml.loadAs(content, type.java) as T
+                val loaded = mapper.readValue(content, type.java)
                 configs[moduleId] = loaded
                 logger.atFine().log("Loaded config '$moduleId' (v$currentVersion)")
                 loaded
@@ -281,12 +262,9 @@ class ConfigManager(
             return default
         }
         
-        // Convert migrated map to YAML and reload as typed object
-        val migratedYaml = yaml.dump(migratedData)
-        
+        // Convert migrated map to typed object
         val migrated = try {
-            @Suppress("UNCHECKED_CAST")
-            yaml.loadAs(migratedYaml, type.java) as T
+            mapper.convertValue(migratedData, type.java)
         } catch (e: Exception) {
             logger.atSevere().log("Failed to deserialize migrated config '$moduleId': ${e.message}. Using defaults.")
             save(moduleId, default)
@@ -364,8 +342,7 @@ class ConfigManager(
     fun save(moduleId: String, config: Any) {
         val configFile = configPath.resolve("$moduleId.yml")
         try {
-            val content = yaml.dump(config)
-            Files.writeString(configFile, content)
+            mapper.writeValue(configFile.toFile(), config)
             configs[moduleId] = config
             logger.atFine().log("Saved config '$moduleId'")
         } catch (e: Exception) {
@@ -434,7 +411,7 @@ class ConfigManager(
                 try {
                     val content = Files.readString(configFile)
                     if (content.isNotBlank()) {
-                        val loaded = yaml.loadAs(content, configType.java)
+                        val loaded = mapper.readValue(content, configType.java)
                         if (loaded != null) {
                             configs[id] = loaded
                             reloaded.add(id)

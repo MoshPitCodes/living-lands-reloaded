@@ -37,7 +37,7 @@ data class CoreConfig(
     
     /**
      * No-arg constructor for YAML deserialization.
-     * Required by SnakeYAML for data class instantiation.
+     * Required by Jackson for data class instantiation.
      */
     constructor() : this(
         configVersion = CURRENT_VERSION,

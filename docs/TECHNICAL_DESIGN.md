@@ -1028,21 +1028,33 @@ data class MetabolismStats(
 
 Configuration is file-based (YAML) and supports hot-reloading via command. Config is never stored in the database.
 
+**YAML Library Recommendation:** Use **Jackson YAML** (`com.fasterxml.jackson.dataformat:jackson-dataformat-yaml`) instead of SnakeYAML for better Kotlin data class support, cleaner output, and more intuitive API.
+
 ### ConfigManager
 
 ```kotlin
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+
 /**
  * Manages YAML configuration files with hot-reload support.
  * Config files are stored in LivingLandsReloaded/config/
+ * 
+ * Uses Jackson YAML for clean serialization and excellent Kotlin support.
  */
 class ConfigManager(private val configPath: Path) {
     
-    private val yaml = Yaml(
-        DumperOptions().apply {
-            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
-            isPrettyFlow = true
-        }
-    )
+    private val yamlMapper = ObjectMapper(
+        YAMLFactory()
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER) // No '---'
+            .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)          // Clean output
+            .enable(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR) // Readable arrays
+    ).apply {
+        registerKotlinModule() // Essential for Kotlin data classes
+        // Optional: configure property naming, null handling, etc.
+    }
     
     private val configs = ConcurrentHashMap<String, Any>()
     private val configTypes = ConcurrentHashMap<String, KClass<*>>()
@@ -1061,8 +1073,7 @@ class ConfigManager(private val configPath: Path) {
         
         return if (Files.exists(configFile)) {
             try {
-                val content = Files.readString(configFile)
-                val loaded = yaml.loadAs(content, T::class.java)
+                val loaded = yamlMapper.readValue(configFile.toFile(), T::class.java)
                 configs[moduleId] = loaded
                 loaded
             } catch (e: Exception) {
@@ -1084,8 +1095,7 @@ class ConfigManager(private val configPath: Path) {
      */
     fun save(moduleId: String, config: Any) {
         val configFile = configPath.resolve("$moduleId.yml")
-        val content = yaml.dump(config)
-        Files.writeString(configFile, content)
+        yamlMapper.writeValue(configFile.toFile(), config)
         configs[moduleId] = config
     }
     
@@ -1277,43 +1287,60 @@ interface VersionedConfig {
 /**
  * Defines a migration from one config version to another.
  */
-data class ConfigMigration<T>(
+data class ConfigMigration(
     val fromVersion: Int,
     val toVersion: Int,
     val description: String,
-    val migrate: (old: Map<String, Any>) -> Map<String, Any>
+    val migrate: (old: Map<String, Any>) -> Map<String, Any>?
 )
 
 /**
- * Enhanced ConfigManager with migration support.
+ * Enhanced ConfigManager with migration support using Jackson YAML.
  */
 class ConfigManager(private val configPath: Path, private val logger: HytaleLogger) {
     
-    private val migrations = ConcurrentHashMap<String, List<ConfigMigration<*>>>()
+    private val mapper: ObjectMapper
+    private val rawMapper: ObjectMapper
+    private val migrations = ConfigMigrationRegistry()
+    
+    init {
+        // Configure Jackson YAML for clean, readable output
+        val yamlFactory = YAMLFactory.builder()
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+            .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+            .build()
+        
+        mapper = ObjectMapper(yamlFactory).apply {
+            registerKotlinModule()
+            enable(SerializationFeature.INDENT_OUTPUT)
+            disable(SerializationFeature.WRITE_NULL_MAP_VALUES)
+        }
+        
+        rawMapper = ObjectMapper(yamlFactory).apply {
+            registerKotlinModule()
+        }
+    }
     
     /**
      * Register migrations for a module config.
      */
-    fun <T : VersionedConfig> registerMigrations(
-        moduleId: String, 
-        migrations: List<ConfigMigration<T>>
-    ) {
-        this.migrations[moduleId] = migrations.sortedBy { it.fromVersion }
+    fun registerMigrations(moduleId: String, moduleMigrations: List<ConfigMigration>) {
+        migrations.registerAll(moduleId, moduleMigrations)
     }
     
     /**
      * Load config with automatic migration if needed.
      */
-    inline fun <reified T : VersionedConfig> loadWithMigration(
+    inline fun <reified T> loadWithMigration(
         moduleId: String, 
-        default: T
-    ): T {
+        default: T,
+        targetVersion: Int
+    ): T where T : Any, T : VersionedConfig {
         val configFile = configPath.resolve("$moduleId.yml")
         
         if (!Files.exists(configFile)) {
             // No existing config, save default
             save(moduleId, default)
-            configs[moduleId] = default
             return default
         }
         
@@ -1321,79 +1348,60 @@ class ConfigManager(private val configPath: Path, private val logger: HytaleLogg
             // Load as raw map to check version
             val content = Files.readString(configFile)
             @Suppress("UNCHECKED_CAST")
-            val rawConfig = yaml.load(content) as? Map<String, Any> ?: run {
-                logger.warning("Invalid config format for $moduleId, using defaults")
-                save(moduleId, default)
-                return default
-            }
+            val rawConfig = rawMapper.readValue(content, Map::class.java) as Map<String, Any>
             
-            val currentVersion = (rawConfig["configVersion"] as? Int) ?: 0
-            val targetVersion = default.configVersion
+            val currentVersion = (rawConfig["configVersion"] as? Number)?.toInt() ?: 1
             
             if (currentVersion < targetVersion) {
                 // Migration needed
-                val migrated = migrateConfig(moduleId, rawConfig, currentVersion, targetVersion)
+                createBackup(moduleId, "pre-migration-v$currentVersion")
                 
-                // Backup old config
-                backupConfig(configFile)
+                val migrated = migrations.applyMigrations(
+                    moduleId, rawConfig, currentVersion, targetVersion
+                ) ?: run {
+                    logger.warning("Migration failed for $moduleId, using defaults")
+                    save(moduleId, default)
+                    return default
+                }
                 
-                // Save migrated config
-                val migratedConfig = yaml.loadAs(yaml.dump(migrated), T::class.java)
+                // Convert migrated map to typed object
+                val migratedConfig = mapper.convertValue(migrated, T::class.java)
                 save(moduleId, migratedConfig)
-                configs[moduleId] = migratedConfig
                 
                 logger.info("Migrated $moduleId config from v$currentVersion to v$targetVersion")
                 return migratedConfig
             } else {
                 // No migration needed, load normally
-                val loaded = yaml.loadAs(content, T::class.java)
-                configs[moduleId] = loaded
+                val loaded = mapper.readValue(content, T::class.java)
                 return loaded
             }
         } catch (e: Exception) {
             logger.warning("Failed to load/migrate $moduleId config: ${e.message}")
-            logger.warning("Using default config and backing up old file")
-            backupConfig(configFile)
+            createBackup(configFile, "error")
             save(moduleId, default)
             return default
         }
     }
     
     /**
-     * Apply sequential migrations to upgrade config.
+     * Create timestamped backup of config file.
      */
-    private fun migrateConfig(
-        moduleId: String,
-        config: Map<String, Any>,
-        fromVersion: Int,
-        toVersion: Int
-    ): Map<String, Any> {
-        val moduleMigrations = migrations[moduleId] ?: return config
+    private fun createBackup(moduleId: String, reason: String): Path? {
+        val configFile = configPath.resolve("$moduleId.yml")
+        if (!Files.exists(configFile)) return null
         
-        var current = config
-        var currentVersion = fromVersion
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        val backupName = "$moduleId.$reason.$timestamp.yml.backup"
+        val backupFile = configPath.resolve(backupName)
         
-        while (currentVersion < toVersion) {
-            val migration = moduleMigrations.find { it.fromVersion == currentVersion }
-                ?: throw IllegalStateException(
-                    "No migration path from v$currentVersion for $moduleId"
-                )
-            
-            logger.fine("Applying migration: ${migration.description}")
-            current = migration.migrate(current)
-            currentVersion = migration.toVersion
+        return try {
+            Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING)
+            logger.info("Created backup: $backupName")
+            backupFile
+        } catch (e: Exception) {
+            logger.warning("Failed to create backup: ${e.message}")
+            null
         }
-        
-        return current
-    }
-    
-    /**
-     * Create backup of config file before migration.
-     */
-    private fun backupConfig(configFile: Path) {
-        val backupFile = configFile.parent.resolve("${configFile.fileName}.backup")
-        Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING)
-        logger.fine("Backed up config to ${backupFile.fileName}")
     }
 }
 ```
@@ -1478,8 +1486,12 @@ class MetabolismModule : AbstractModule(/* ... */) {
             )
         )
         
-        // Load with migration support
-        config = CoreModule.config.loadWithMigration("metabolism", MetabolismConfig())
+        // Load with migration support (pass target version)
+        config = CoreModule.config.loadWithMigration(
+            "metabolism", 
+            MetabolismConfig(), 
+            MetabolismConfig.CURRENT_VERSION
+        )
         
         // Rest of setup...
     }
@@ -1525,8 +1537,8 @@ ConfigMigration(2, 3, "Rename depletionRate") { old ->
 **3. Validation After Migration**
 ```kotlin
 try {
-    val migrated = migrateConfig(moduleId, raw, from, to)
-    val validated = yaml.loadAs(yaml.dump(migrated), T::class.java)
+    val migrated = migrations.applyMigrations(moduleId, rawData, from, to)
+    val validated = mapper.convertValue(migrated, T::class.java)
     // If this succeeds, migration worked
 } catch (e: Exception) {
     logger.severe("Migration produced invalid config: ${e.message}")
@@ -1536,8 +1548,9 @@ try {
 
 **4. User Communication**
 - Log migration clearly: `"Migrated metabolism config from v1 to v2"`
-- Create backup: `metabolism.yml.backup`
+- Create timestamped backup: `metabolism.pre-migration-v1.20260125-143022.yml.backup`
 - Document changes in changelog/release notes
+- Backup types: `pre-migration`, `parse-error`, `deserialize-error`, `no-migration-path`
 
 ---
 

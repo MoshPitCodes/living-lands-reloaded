@@ -193,6 +193,7 @@ Config structure changes during development (especially in beta) require migrati
 
 - [x] **3.5.2** Extend ConfigManager with migration support
   - Added `loadWithMigration<T>()` method for versioned configs
+  - Migrated from SnakeYAML to Jackson YAML for cleaner serialization (no type tags)
   - Track config version in YAML files via `configVersion` field
   - Create timestamped backup before migration (e.g., `metabolism.pre-migration-v1.20260125-143022.yml.backup`)
   - Log migration actions with descriptions for transparency

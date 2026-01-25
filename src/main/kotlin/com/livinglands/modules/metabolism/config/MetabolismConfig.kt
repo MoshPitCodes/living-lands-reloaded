@@ -67,7 +67,7 @@ data class MetabolismConfig(
     val saveIntervalSeconds: Int = 60
 ) : VersionedConfig {
     
-    /** No-arg constructor for SnakeYAML deserialization */
+    /** No-arg constructor for Jackson deserialization */
     constructor() : this(configVersion = CURRENT_VERSION, enabled = true)
     
     companion object {
@@ -160,7 +160,7 @@ data class StatConfig(
      */
     val activityMultipliers: Map<String, Double> = emptyMap()
 ) {
-    /** No-arg constructor for SnakeYAML deserialization */
+    /** No-arg constructor for Jackson deserialization */
     constructor() : this(enabled = true)
     
     /**

@@ -30,8 +30,9 @@ dependencies {
     // SQLite JDBC driver
     implementation("org.xerial:sqlite-jdbc:3.45.1.0")
     
-    // YAML parsing for configuration
-    implementation("org.yaml:snakeyaml:2.2")
+    // Jackson for YAML configuration (cleaner serialization than SnakeYAML)
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.0")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0")
 }
 
 java {
@@ -74,7 +75,7 @@ tasks {
         archiveClassifier.set("")
         
         // Relocate dependencies to avoid conflicts (NOT sqlite - it uses JDBC which needs original package)
-        relocate("org.yaml.snakeyaml", "com.livinglands.libs.snakeyaml")
+        relocate("com.fasterxml.jackson", "com.livinglands.libs.jackson")
         relocate("kotlinx.coroutines", "com.livinglands.libs.coroutines")
         
         // Don't minimize - it causes issues with JDBC drivers and coroutines
