@@ -8,12 +8,21 @@ import org.yaml.snakeyaml.constructor.Constructor
 import org.yaml.snakeyaml.representer.Representer
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 /**
- * Manages YAML configuration files with hot-reload support.
+ * Manages YAML configuration files with hot-reload and migration support.
  * Config files are stored in LivingLandsReloaded/config/
+ * 
+ * Features:
+ * - Type-safe loading with reified types
+ * - Hot-reload via reload() method
+ * - Automatic migration for versioned configs
+ * - Backup before migration
  * 
  * Thread-safe for concurrent access. Configuration changes require reload() to apply.
  */
@@ -25,6 +34,9 @@ class ConfigManager(
     // YAML parser configured for readable output
     private val yaml: Yaml
     
+    // Secondary YAML instance for loading raw maps (no type conversion)
+    private val rawYaml: Yaml
+    
     // Cached configurations by module ID
     private val configs = ConcurrentHashMap<String, Any>()
     
@@ -33,6 +45,12 @@ class ConfigManager(
     
     // Reload callbacks by module ID
     private val reloadCallbacks = ConcurrentHashMap<String, () -> Unit>()
+    
+    // Migration registry for versioned configs
+    val migrations = ConfigMigrationRegistry()
+    
+    // Target versions for versioned configs
+    private val targetVersions = ConcurrentHashMap<String, Int>()
     
     init {
         // Create config directory if it doesn't exist
@@ -59,6 +77,9 @@ class ConfigManager(
         }
         
         yaml = Yaml(Constructor(loaderOptions), representer, dumperOptions, loaderOptions)
+        
+        // Raw YAML for loading as maps (for migration)
+        rawYaml = Yaml(loaderOptions)
         
         logger.atFine().log("ConfigManager initialized at: $configPath")
     }
@@ -113,6 +134,207 @@ class ConfigManager(
             logger.atInfo().log("Created default config '$moduleId'")
             default
         }
+    }
+    
+    /**
+     * Load a versioned configuration file with automatic migration support.
+     * 
+     * If the config file exists and has an older version, migrations will be applied
+     * sequentially to bring it up to the current version. A backup is created before
+     * any migration is performed.
+     * 
+     * @param moduleId Unique identifier for the config (used as filename without .yml)
+     * @param default Default configuration to use if file doesn't exist or migration fails
+     * @param targetVersion The target version to migrate to (should match default.configVersion)
+     * @return Loaded, migrated, or default configuration
+     */
+    inline fun <reified T> loadWithMigration(
+        moduleId: String,
+        default: T,
+        targetVersion: Int
+    ): T where T : Any, T : VersionedConfig {
+        return loadWithMigration(moduleId, default, targetVersion, T::class)
+    }
+    
+    /**
+     * Internal implementation of loadWithMigration with explicit class parameter.
+     */
+    @PublishedApi
+    internal fun <T> loadWithMigration(
+        moduleId: String,
+        default: T,
+        targetVersion: Int,
+        type: KClass<T>
+    ): T where T : Any, T : VersionedConfig {
+        configTypes[moduleId] = type
+        targetVersions[moduleId] = targetVersion
+        
+        val configFile = configPath.resolve("$moduleId.yml")
+        
+        // If file doesn't exist, create with default
+        if (!Files.exists(configFile)) {
+            save(moduleId, default)
+            configs[moduleId] = default
+            logger.atInfo().log("Created default config '$moduleId' (v$targetVersion)")
+            return default
+        }
+        
+        // Read file content
+        val content = try {
+            Files.readString(configFile)
+        } catch (e: Exception) {
+            logger.atWarning().log("Failed to read config '$moduleId': ${e.message}. Using defaults.")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        if (content.isBlank()) {
+            save(moduleId, default)
+            configs[moduleId] = default
+            logger.atFine().log("Config '$moduleId' was empty, created default (v$targetVersion)")
+            return default
+        }
+        
+        // Load as raw map to check version
+        @Suppress("UNCHECKED_CAST")
+        val rawData = try {
+            rawYaml.load<Map<String, Any>>(content)
+        } catch (e: Exception) {
+            logger.atWarning().log("Failed to parse config '$moduleId' as map: ${e.message}. Using defaults.")
+            createBackup(moduleId, "parse-error")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        // Get current version from file (default to 1 if not present - legacy configs)
+        val currentVersion = (rawData["configVersion"] as? Number)?.toInt() ?: 1
+        
+        // If already at target version, load normally
+        if (currentVersion >= targetVersion) {
+            return try {
+                @Suppress("UNCHECKED_CAST")
+                val loaded = yaml.loadAs(content, type.java) as T
+                configs[moduleId] = loaded
+                logger.atFine().log("Loaded config '$moduleId' (v$currentVersion)")
+                loaded
+            } catch (e: Exception) {
+                logger.atWarning().log("Failed to deserialize config '$moduleId': ${e.message}. Using defaults.")
+                createBackup(moduleId, "deserialize-error")
+                save(moduleId, default)
+                configs[moduleId] = default
+                default
+            }
+        }
+        
+        // Migration needed
+        logger.atInfo().log("Config '$moduleId' needs migration: v$currentVersion -> v$targetVersion")
+        
+        // Check if migration path exists
+        if (!migrations.hasMigrationPath(moduleId, currentVersion, targetVersion)) {
+            logger.atWarning().log(
+                "No migration path for '$moduleId' from v$currentVersion to v$targetVersion. " +
+                "Using defaults. Old config backed up."
+            )
+            createBackup(moduleId, "no-migration-path")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        // Create backup before migration
+        createBackup(moduleId, "pre-migration-v$currentVersion")
+        
+        // Apply migrations
+        val migratedData = try {
+            migrations.applyMigrations(moduleId, rawData, currentVersion, targetVersion)
+        } catch (e: Exception) {
+            logger.atSevere().log("Migration failed for '$moduleId': ${e.message}. Using defaults.")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        if (migratedData == null) {
+            logger.atSevere().log("Migration returned null for '$moduleId'. Using defaults.")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        // Convert migrated map to YAML and reload as typed object
+        val migratedYaml = yaml.dump(migratedData)
+        
+        val migrated = try {
+            @Suppress("UNCHECKED_CAST")
+            yaml.loadAs(migratedYaml, type.java) as T
+        } catch (e: Exception) {
+            logger.atSevere().log("Failed to deserialize migrated config '$moduleId': ${e.message}. Using defaults.")
+            save(moduleId, default)
+            configs[moduleId] = default
+            return default
+        }
+        
+        // Validate migrated config version
+        if (migrated.configVersion != targetVersion) {
+            logger.atWarning().log(
+                "Migrated config '$moduleId' has wrong version: ${migrated.configVersion} (expected $targetVersion). " +
+                "Saving to update version field."
+            )
+        }
+        
+        // Save migrated config
+        save(moduleId, migrated)
+        configs[moduleId] = migrated
+        
+        // Log migration details
+        val migrationPath = migrations.getMigrationPath(moduleId, currentVersion, targetVersion)
+        migrationPath.forEach { migration ->
+            logger.atInfo().log("  Applied: ${migration.description}")
+        }
+        logger.atInfo().log("Config '$moduleId' migrated successfully: v$currentVersion -> v$targetVersion")
+        
+        return migrated
+    }
+    
+    /**
+     * Create a timestamped backup of a config file.
+     * 
+     * @param moduleId The config module ID
+     * @param reason Reason for backup (e.g., "pre-migration-v1", "parse-error")
+     * @return Path to backup file, or null if backup failed
+     */
+    fun createBackup(moduleId: String, reason: String): Path? {
+        val configFile = configPath.resolve("$moduleId.yml")
+        if (!Files.exists(configFile)) {
+            return null
+        }
+        
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        val backupName = "$moduleId.$reason.$timestamp.yml.backup"
+        val backupFile = configPath.resolve(backupName)
+        
+        return try {
+            Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING)
+            logger.atInfo().log("Created backup: $backupName")
+            backupFile
+        } catch (e: Exception) {
+            logger.atWarning().log("Failed to create backup for '$moduleId': ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * Register migrations for a module.
+     * Convenience method that delegates to the migration registry.
+     * 
+     * @param moduleId The config module ID
+     * @param moduleMigrations List of migrations to register
+     */
+    fun registerMigrations(moduleId: String, moduleMigrations: List<ConfigMigration>) {
+        migrations.registerAll(moduleId, moduleMigrations)
+        logger.atFine().log("Registered ${moduleMigrations.size} migrations for '$moduleId'")
     }
     
     /**

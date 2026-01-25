@@ -178,7 +178,7 @@ Config files created on first run, editable, and reloadable via command.
 
 ---
 
-## Phase 3.5: Configuration Migration System (1-2 days)
+## Phase 3.5: Configuration Migration System (1-2 days) - COMPLETE
 
 **Goal:** Automatic config versioning and migration for breaking changes
 
@@ -187,48 +187,43 @@ Config structure changes during development (especially in beta) require migrati
 
 ### Tasks
 
-- [ ] **3.5.1** Add version tracking to config base interface
-  ```kotlin
-  interface VersionedConfig {
-      val configVersion: Int
-  }
-  ```
+- [x] **3.5.1** Add version tracking to config base interface
+  - `VersionedConfig` interface at `src/main/kotlin/com/livinglands/core/config/VersionedConfig.kt`
+  - Interface already existed, verified it defines `configVersion: Int`
 
-- [ ] **3.5.2** Extend ConfigManager with migration support
-  - Add `loadWithMigration<T>()` method
-  - Track config version in YAML files
-  - Create backup before migration (`.yml.backup`)
-  - Log migration actions for transparency
+- [x] **3.5.2** Extend ConfigManager with migration support
+  - Added `loadWithMigration<T>()` method for versioned configs
+  - Track config version in YAML files via `configVersion` field
+  - Create timestamped backup before migration (e.g., `metabolism.pre-migration-v1.20260125-143022.yml.backup`)
+  - Log migration actions with descriptions for transparency
 
-- [ ] **3.5.3** Implement migration registry
-  ```kotlin
-  class ConfigMigration<T>(
-      val fromVersion: Int,
-      val toVersion: Int,
-      val migrate: (Map<String, Any>) -> Map<String, Any>
-  )
-  ```
+- [x] **3.5.3** Implement migration registry
+  - Created `ConfigMigration` data class at `src/main/kotlin/com/livinglands/core/config/ConfigMigration.kt`
+  - Created `ConfigMigrationRegistry` for managing module migrations
+  - Thread-safe with ConcurrentHashMap
+  - Supports sequential migration paths (v1→v2→v3 etc.)
 
-- [ ] **3.5.4** Update MetabolismConfig with version
-  - Add `configVersion = 2` field
-  - Create migration from v1 (old rates) to v2 (new balanced rates)
-  - Example: 480s → 1440s for hunger baseDepletionRateSeconds
+- [x] **3.5.4** Update MetabolismConfig with version
+  - Moved to `src/main/kotlin/com/livinglands/modules/metabolism/config/MetabolismConfig.kt`
+  - Implements `VersionedConfig` interface
+  - Added `configVersion = 2` field (CURRENT_VERSION constant)
+  - Added `MODULE_ID = "metabolism"` constant
+  - Created v1→v2 migration for depletion rate updates
 
-- [ ] **3.5.5** Implement automatic migration flow
-  - On load, check `configVersion` field
-  - If version < current, apply sequential migrations
-  - Save migrated config with new version
-  - Log: "Migrated metabolism config from v1 to v2"
+- [x] **3.5.5** Implement automatic migration flow
+  - `loadWithMigration<T>()` checks `configVersion` field
+  - If version < target, applies sequential migrations from registry
+  - Saves migrated config with updated version
+  - Logs: "Config 'metabolism' migrated successfully: v1 -> v2"
 
-- [ ] **3.5.6** Add validation and fallback
-  - Validate migrated config structure
-  - Fall back to defaults if migration fails
-  - Preserve backup for manual recovery
+- [x] **3.5.6** Add validation and fallback
+  - Validates migrated config can deserialize to target class
+  - Falls back to defaults if migration fails (with logging)
+  - Preserves backup for manual recovery
+  - Multiple backup types: `pre-migration`, `parse-error`, `deserialize-error`, `no-migration-path`
 
 - [ ] **3.5.7** Document migration creation for developers
-  - Add migration guide to `docs/TECHNICAL_DESIGN.md`
-  - Example migrations for reference
-  - Best practices for preserving user settings
+  - Skipped per user request (user will handle documentation separately)
 
 ### Deliverable
 Config files automatically upgrade when plugin updates, preserving customizations where possible.

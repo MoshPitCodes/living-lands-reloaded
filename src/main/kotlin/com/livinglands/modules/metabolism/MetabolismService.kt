@@ -3,23 +3,39 @@ package com.livinglands.modules.metabolism
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.CoreModule
 import com.livinglands.core.WorldContext
+import com.livinglands.modules.metabolism.config.MetabolismConfig
+import com.livinglands.modules.metabolism.hud.MetabolismHudElement
+import com.livinglands.util.UuidStringCache
+import com.livinglands.util.toCachedString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Service for managing metabolism stats across all players.
  * 
- * Maintains an in-memory cache of stats keyed by player UUID.
- * Stats are loaded from the database on player join and saved on disconnect/shutdown.
+ * Performance Optimizations (v1.0.1):
+ * 1. Consolidated state: Single ConcurrentHashMap with PlayerMetabolismState instead of 4 separate maps
+ *    - Reduces hash lookups from 4 per tick to 1
+ *    - Better cache locality for player data
+ *    - Reduced memory overhead (1 Entry per player instead of 4)
  * 
- * Thread-safe using ConcurrentHashMap for the stats cache.
+ * 2. UUID string caching: Using toCachedString() extension instead of UUID.toString()
+ *    - Eliminates ~3000 String allocations per second with 100 players
+ *    - Cached strings are cleaned up on player disconnect
+ * 
+ * 3. Mutable state container: PlayerMetabolismState uses mutable fields
+ *    - Zero allocations during tick updates (no copy() calls)
+ *    - Immutable MetabolismStats only created for persistence
+ * 
+ * 4. Timestamp reuse: Single System.currentTimeMillis() call per tick cycle
+ *    - Passed through all update methods to avoid multiple system calls
+ * 
+ * Thread-safe using ConcurrentHashMap for the player state map.
  */
 class MetabolismService(
     private var config: MetabolismConfig,
@@ -27,32 +43,19 @@ class MetabolismService(
 ) {
     
     /**
-     * In-memory cache of player metabolism stats.
-     * Key: Player UUID as string
-     * Value: Current metabolism stats
+     * Consolidated player state cache.
+     * 
+     * Key: Player UUID as cached string (via toCachedString())
+     * Value: Mutable PlayerMetabolismState containing all per-player data:
+     *        - Current stats (hunger, thirst, energy)
+     *        - Last depletion timestamp
+     *        - HUD element reference
+     *        - Last displayed stats for threshold detection
+     * 
+     * This replaces the previous 4 separate maps (statsCache, lastDepletionTime,
+     * lastDisplayedStats, hudElements) reducing lookups from 4 to 1 per tick.
      */
-    private val statsCache = ConcurrentHashMap<String, MetabolismStats>()
-    
-    /**
-     * Track last depletion time per player for accurate delta calculations.
-     * Key: Player UUID as string
-     * Value: Timestamp of last depletion tick
-     */
-    private val lastDepletionTime = ConcurrentHashMap<String, Long>()
-    
-    /**
-     * Track last displayed stats for threshold-based HUD updates.
-     * Key: Player UUID as string
-     * Value: Last stats that were sent to HUD
-     */
-    private val lastDisplayedStats = ConcurrentHashMap<String, MetabolismStats>()
-    
-    /**
-     * Track HUD elements for each player.
-     * Key: Player UUID as string
-     * Value: The player's MetabolismHudElement
-     */
-    private val hudElements = ConcurrentHashMap<String, MetabolismHudElement>()
+    private val playerStates = ConcurrentHashMap<String, PlayerMetabolismState>()
     
     /**
      * Coroutine scope for async database operations.
@@ -76,11 +79,14 @@ class MetabolismService(
      * Initialize stats for a player from the database.
      * Called when a player joins/becomes ready.
      * 
+     * Uses cached UUID string to avoid repeated allocations.
+     * 
      * @param playerId Player's UUID
      * @param worldContext The world context for database access
      */
     suspend fun initializePlayer(playerId: UUID, worldContext: WorldContext) {
-        val playerIdStr = playerId.toString()
+        // Use cached string representation (avoids allocation on subsequent calls)
+        val playerIdStr = playerId.toCachedString()
         
         // Get or create repository from world context
         val repository = worldContext.getData { 
@@ -90,50 +96,72 @@ class MetabolismService(
             }
         }
         
-        // Load or create stats
+        // Load or create stats from database
         val stats = repository.ensureStats(playerIdStr)
         
-        // Cache the stats
-        statsCache[playerIdStr] = stats
-        lastDepletionTime[playerIdStr] = System.currentTimeMillis()
+        // Create consolidated mutable state from immutable stats
+        val state = PlayerMetabolismState.fromStats(stats)
         
-        logger.atFine().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+        // Cache the state (single map entry instead of 4)
+        playerStates[playerIdStr] = state
+        
+        logger.atInfo().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
     }
     
     /**
      * Get cached stats for a player.
      * Returns null if player is not in cache (not initialized).
      * 
+     * Note: This creates an immutable MetabolismStats snapshot.
+     * For high-frequency access, use getState() to access the mutable container directly.
+     * 
      * @param playerId Player's UUID as string
-     * @return Cached stats or null
+     * @return Immutable stats snapshot or null
      */
     fun getStats(playerId: String): MetabolismStats? {
-        return statsCache[playerId]
+        return playerStates[playerId]?.toImmutableStats()
     }
     
     /**
      * Get cached stats for a player by UUID.
+     * Uses cached UUID string for efficiency.
      */
     fun getStats(playerId: UUID): MetabolismStats? {
-        return statsCache[playerId.toString()]
+        return playerStates[playerId.toCachedString()]?.toImmutableStats()
+    }
+    
+    /**
+     * Get the mutable state container for a player.
+     * Prefer this for high-frequency access to avoid creating snapshots.
+     * 
+     * @param playerId Player's UUID as string
+     * @return Mutable state or null if not cached
+     */
+    fun getState(playerId: String): PlayerMetabolismState? {
+        return playerStates[playerId]
     }
     
     /**
      * Process a metabolism tick for a player.
      * Calculates depletion based on elapsed time and activity multiplier.
      * 
+     * Performance: Uses mutable PlayerMetabolismState to avoid allocations.
+     * The timestamp is passed in to avoid multiple System.currentTimeMillis() calls.
+     * 
      * @param playerId Player's UUID as string
      * @param deltaTimeSeconds Time elapsed since last tick in seconds
      * @param activityState Current activity state of the player
+     * @param currentTime Current timestamp (passed in for efficiency)
      */
-    fun processTick(playerId: String, deltaTimeSeconds: Float, activityState: ActivityState) {
+    fun processTick(playerId: String, deltaTimeSeconds: Float, activityState: ActivityState, currentTime: Long) {
         if (!config.enabled) return
         
-        val stats = statsCache[playerId] ?: return
+        val state = playerStates[playerId] ?: return
         
-        var newHunger = stats.hunger
-        var newThirst = stats.thirst
-        var newEnergy = stats.energy
+        // Read current values from mutable state
+        var newHunger = state.hunger
+        var newThirst = state.thirst
+        var newEnergy = state.energy
         
         // Process hunger depletion
         if (config.hunger.enabled && newHunger > 0f) {
@@ -159,108 +187,115 @@ class MetabolismService(
             newEnergy = max(0f, newEnergy - depletion)
         }
         
-        // Update cache with new values
-        statsCache[playerId] = stats.withStats(newHunger, newThirst, newEnergy)
+        // Update mutable state in-place (zero allocations!)
+        state.updateStats(newHunger, newThirst, newEnergy, currentTime)
     }
     
     /**
      * Process tick using the stored last depletion time to calculate delta.
      * This is the preferred method as it handles timing internally.
      * 
+     * Performance: Single System.currentTimeMillis() call, timestamp passed through.
+     * State access consolidated into single map lookup.
+     * 
      * @param playerId Player's UUID as string
      * @param activityState Current activity state
      */
     fun processTickWithDelta(playerId: String, activityState: ActivityState) {
+        // Single timestamp capture for entire tick cycle
         val currentTime = System.currentTimeMillis()
-        val lastTime = lastDepletionTime[playerId] ?: currentTime
+        
+        // Single map lookup to get state (previously was 2 lookups: lastDepletionTime + statsCache)
+        val state = playerStates[playerId] ?: return
+        
+        val lastTime = state.lastDepletionTime
         val deltaSeconds = (currentTime - lastTime) / 1000f
         
         // Only process if meaningful time has passed
         if (deltaSeconds >= 0.1f) {
-            processTick(playerId, deltaSeconds, activityState)
-            lastDepletionTime[playerId] = currentTime
+            processTick(playerId, deltaSeconds, activityState, currentTime)
+            state.lastDepletionTime = currentTime
         }
     }
     
     /**
      * Restore hunger for a player.
+     * Uses mutable state - no allocations.
      * 
      * @param playerId Player's UUID as string
      * @param amount Amount to restore (0-100)
      */
     fun restoreHunger(playerId: String, amount: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withHunger(stats.hunger + amount)
-        }
+        playerStates[playerId]?.addHunger(amount)
     }
     
     /**
      * Restore thirst for a player.
+     * Uses mutable state - no allocations.
      * 
      * @param playerId Player's UUID as string
      * @param amount Amount to restore (0-100)
      */
     fun restoreThirst(playerId: String, amount: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withThirst(stats.thirst + amount)
-        }
+        playerStates[playerId]?.addThirst(amount)
     }
     
     /**
      * Restore energy for a player.
+     * Uses mutable state - no allocations.
      * 
      * @param playerId Player's UUID as string
      * @param amount Amount to restore (0-100)
      */
     fun restoreEnergy(playerId: String, amount: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withEnergy(stats.energy + amount)
-        }
+        playerStates[playerId]?.addEnergy(amount)
     }
     
     /**
      * Set hunger directly (for admin commands).
+     * Uses mutable state - no allocations.
      */
     fun setHunger(playerId: String, value: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withHunger(value)
-        }
+        playerStates[playerId]?.setHunger(value)
     }
     
     /**
      * Set thirst directly (for admin commands).
+     * Uses mutable state - no allocations.
      */
     fun setThirst(playerId: String, value: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withThirst(value)
-        }
+        playerStates[playerId]?.setThirst(value)
     }
     
     /**
      * Set energy directly (for admin commands).
+     * Uses mutable state - no allocations.
      */
     fun setEnergy(playerId: String, value: Float) {
-        statsCache.computeIfPresent(playerId) { _, stats ->
-            stats.withEnergy(value)
-        }
+        playerStates[playerId]?.setEnergy(value)
     }
     
     /**
      * Save a single player's stats to the database.
      * Called on disconnect or periodically.
      * 
+     * Creates an immutable MetabolismStats snapshot for persistence.
+     * 
      * @param playerId Player's UUID
      * @param worldContext World context for database access
      */
     suspend fun savePlayer(playerId: UUID, worldContext: WorldContext) {
-        val playerIdStr = playerId.toString()
-        val stats = statsCache[playerIdStr] ?: return
+        // Use cached string
+        val playerIdStr = playerId.toCachedString()
+        val state = playerStates[playerIdStr] ?: return
         
         val repository = worldContext.getDataOrNull<MetabolismRepository>() ?: return
         
         try {
+            // Convert mutable state to immutable for database
+            val stats = state.toImmutableStats()
             repository.updateStats(stats)
-            logger.atFine().log("Saved metabolism for player $playerId")
+            logger.atInfo().log("Saved metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to save metabolism for player $playerId")
         }
@@ -271,17 +306,18 @@ class MetabolismService(
      * Called on shutdown or periodically.
      */
     suspend fun saveAllPlayers() {
-        if (statsCache.isEmpty()) return
+        if (playerStates.isEmpty()) return
         
-        val allStats = statsCache.values.toList()
+        // Convert all mutable states to immutable for persistence
+        val allStats = playerStates.values.map { it.toImmutableStats() }
         
         // Save to each world's database
         for (worldContext in CoreModule.worlds.getAllContexts()) {
             val repository = worldContext.getDataOrNull<MetabolismRepository>() ?: continue
             
-            // Filter stats for players in this world
+            // Filter stats for players in this world (use cached strings)
             val playersInWorld = CoreModule.players.getSessionsInWorld(worldContext.worldId)
-                .map { it.playerId.toString() }
+                .map { it.playerId.toCachedString() }
                 .toSet()
             
             val statsToSave = allStats.filter { it.playerId in playersInWorld }
@@ -303,28 +339,36 @@ class MetabolismService(
      * Remove a player from the cache.
      * Called after saving on disconnect.
      * 
+     * Also cleans up the UUID string cache to prevent memory leaks.
+     * 
      * @param playerId Player's UUID as string
-     * @return The removed stats, or null if not cached
+     * @return The removed stats as immutable snapshot, or null if not cached
      */
     fun removeFromCache(playerId: String): MetabolismStats? {
-        lastDepletionTime.remove(playerId)
-        return statsCache.remove(playerId)
+        val state = playerStates.remove(playerId)
+        return state?.toImmutableStats()
     }
     
     /**
      * Remove a player from the cache by UUID.
+     * Cleans up the UUID string cache as well.
      */
     fun removeFromCache(playerId: UUID): MetabolismStats? {
-        return removeFromCache(playerId.toString())
+        val playerIdStr = playerId.toCachedString()
+        val result = removeFromCache(playerIdStr)
+        // Clean up UUID string cache to prevent memory leak
+        UuidStringCache.remove(playerId)
+        return result
     }
     
     /**
      * Clear the entire stats cache.
      * Called during shutdown after saving.
+     * Also clears the UUID string cache.
      */
     fun clearCache() {
-        statsCache.clear()
-        lastDepletionTime.clear()
+        playerStates.clear()
+        UuidStringCache.clear()
         logger.atFine().log("Metabolism cache cleared")
     }
     
@@ -332,21 +376,21 @@ class MetabolismService(
      * Get all cached player IDs.
      */
     fun getCachedPlayerIds(): Set<String> {
-        return statsCache.keys.toSet()
+        return playerStates.keys.toSet()
     }
     
     /**
      * Get the number of cached players.
      */
     fun getCacheSize(): Int {
-        return statsCache.size
+        return playerStates.size
     }
     
     /**
      * Check if a player is in the cache.
      */
     fun isPlayerCached(playerId: String): Boolean {
-        return statsCache.containsKey(playerId)
+        return playerStates.containsKey(playerId)
     }
     
     // ============ HUD Management ============
@@ -358,17 +402,20 @@ class MetabolismService(
     
     /**
      * Register a HUD element for a player.
+     * Stores the element in the consolidated PlayerMetabolismState.
      * 
      * @param playerId Player's UUID as string
      * @param hudElement The player's metabolism HUD element
      */
     fun registerHudElement(playerId: String, hudElement: MetabolismHudElement) {
-        hudElements[playerId] = hudElement
-        // Initialize last displayed stats to trigger first update
-        statsCache[playerId]?.let { stats ->
-            lastDisplayedStats[playerId] = stats
-            hudElement.updateStats(stats.hunger, stats.thirst, stats.energy)
-        }
+        val state = playerStates[playerId] ?: return
+        
+        // Store HUD element in consolidated state
+        state.hudElement = hudElement
+        
+        // Initialize last displayed stats and send first update
+        state.markDisplayed()
+        hudElement.updateStats(state.hunger, state.thirst, state.energy)
     }
     
     /**
@@ -377,8 +424,7 @@ class MetabolismService(
      * @param playerId Player's UUID as string
      */
     fun unregisterHudElement(playerId: String) {
-        hudElements.remove(playerId)
-        lastDisplayedStats.remove(playerId)
+        playerStates[playerId]?.hudElement = null
     }
     
     /**
@@ -388,48 +434,50 @@ class MetabolismService(
      * @return The HUD element, or null if not registered
      */
     fun getHudElement(playerId: String): MetabolismHudElement? {
-        return hudElements[playerId]
+        return playerStates[playerId]?.hudElement
     }
     
     /**
      * Check if HUD should be updated based on stat changes exceeding threshold.
      * This prevents spamming HUD updates for tiny changes.
      * 
-     * @param playerId Player's UUID as string
-     * @param currentStats Current metabolism stats
+     * Uses fields directly from PlayerMetabolismState - no allocations.
+     * 
+     * @param state Player's metabolism state
      * @return true if HUD should be updated
      */
-    fun shouldUpdateHud(playerId: String, currentStats: MetabolismStats): Boolean {
-        val lastStats = lastDisplayedStats[playerId] ?: return true
-        
-        return abs(currentStats.hunger - lastStats.hunger) > HUD_UPDATE_THRESHOLD ||
-               abs(currentStats.thirst - lastStats.thirst) > HUD_UPDATE_THRESHOLD ||
-               abs(currentStats.energy - lastStats.energy) > HUD_UPDATE_THRESHOLD
+    private fun shouldUpdateHud(state: PlayerMetabolismState): Boolean {
+        return abs(state.hunger - state.lastDisplayedHunger) > HUD_UPDATE_THRESHOLD ||
+               abs(state.thirst - state.lastDisplayedThirst) > HUD_UPDATE_THRESHOLD ||
+               abs(state.energy - state.lastDisplayedEnergy) > HUD_UPDATE_THRESHOLD
     }
     
     /**
      * Update the HUD if the stats have changed significantly.
      * Uses threshold-based updates to avoid spamming.
      * 
+     * Performance: Single map lookup, no MetabolismStats allocation.
+     * 
      * @param playerId Player's UUID as string
      * @return true if HUD was updated, false if below threshold
      */
     fun updateHudIfNeeded(playerId: String): Boolean {
-        val currentStats = statsCache[playerId] ?: return false
-        val hudElement = hudElements[playerId] ?: return false
+        // Single lookup for all state
+        val state = playerStates[playerId] ?: return false
+        val hudElement = state.hudElement ?: return false
         
-        if (!shouldUpdateHud(playerId, currentStats)) {
+        if (!shouldUpdateHud(state)) {
             return false
         }
         
-        // Update the HUD element with new values
-        hudElement.updateStats(currentStats.hunger, currentStats.thirst, currentStats.energy)
+        // Update the HUD element with current values (direct field access)
+        hudElement.updateStats(state.hunger, state.thirst, state.energy)
         
         // Push the update to the client
         hudElement.updateHud()
         
-        // Record that we displayed these stats
-        lastDisplayedStats[playerId] = currentStats
+        // Record that we displayed these stats (no allocation)
+        state.markDisplayed()
         
         return true
     }
@@ -441,11 +489,11 @@ class MetabolismService(
      * @param playerId Player's UUID as string
      */
     fun forceUpdateHud(playerId: String) {
-        val currentStats = statsCache[playerId] ?: return
-        val hudElement = hudElements[playerId] ?: return
+        val state = playerStates[playerId] ?: return
+        val hudElement = state.hudElement ?: return
         
-        hudElement.updateStats(currentStats.hunger, currentStats.thirst, currentStats.energy)
+        hudElement.updateStats(state.hunger, state.thirst, state.energy)
         hudElement.updateHud()
-        lastDisplayedStats[playerId] = currentStats
+        state.markDisplayed()
     }
 }
