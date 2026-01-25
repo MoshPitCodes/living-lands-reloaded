@@ -5,6 +5,7 @@ import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
+import org.yaml.snakeyaml.introspector.BeanAccess
 import org.yaml.snakeyaml.representer.Representer
 import java.nio.file.Files
 import java.nio.file.Path
@@ -71,9 +72,11 @@ class ConfigManager(
             tagInspector = { _ -> true }
         }
         
-        // Use a representer that doesn't add type tags
+        // Use a representer that properly handles data classes
         val representer = Representer(dumperOptions).apply {
             propertyUtils.isSkipMissingProperties = true
+            // Treat data classes as JavaBeans (use getters)
+            propertyUtils.setBeanAccess(BeanAccess.FIELD)
         }
         
         yaml = Yaml(Constructor(loaderOptions), representer, dumperOptions, loaderOptions)
