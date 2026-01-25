@@ -49,8 +49,9 @@ class MetabolismService(
      * Value: Mutable PlayerMetabolismState containing all per-player data:
      *        - Current stats (hunger, thirst, energy)
      *        - Last depletion timestamp
-     *        - HUD element reference
      *        - Last displayed stats for threshold detection
+     * 
+     * Note: HUD elements are now stored in CoreModule.hudManager (single source of truth).
      * 
      * This replaces the previous 4 separate maps (statsCache, lastDepletionTime,
      * lastDisplayedStats, hudElements) reducing lookups from 4 to 1 per tick.
@@ -433,43 +434,6 @@ class MetabolismService(
     }
     
     /**
-     * Register a HUD element for a player.
-     * Stores the element in the consolidated PlayerMetabolismState.
-     * 
-     * @param playerId Player's UUID as string
-     * @param hudElement The player's metabolism HUD element
-     */
-    fun registerHudElement(playerId: String, hudElement: MetabolismHudElement) {
-        val state = playerStates[playerId] ?: return
-        
-        // Store HUD element in consolidated state
-        state.hudElement = hudElement
-        
-        // Initialize last displayed stats and send first update
-        state.markDisplayed()
-        hudElement.updateStats(state.hunger, state.thirst, state.energy)
-    }
-    
-    /**
-     * Unregister a HUD element for a player.
-     * 
-     * @param playerId Player's UUID as string
-     */
-    fun unregisterHudElement(playerId: String) {
-        playerStates[playerId]?.hudElement = null
-    }
-    
-    /**
-     * Get a player's HUD element.
-     * 
-     * @param playerId Player's UUID as string
-     * @return The HUD element, or null if not registered
-     */
-    fun getHudElement(playerId: String): MetabolismHudElement? {
-        return playerStates[playerId]?.hudElement
-    }
-    
-    /**
      * Check if HUD should be updated based on stat changes exceeding threshold.
      * This prevents spamming HUD updates for tiny changes.
      * 
@@ -488,19 +452,26 @@ class MetabolismService(
      * Update the HUD if the stats have changed significantly.
      * Uses threshold-based updates to avoid spamming.
      * 
-     * Performance: Single map lookup, no MetabolismStats allocation.
+     * Gets HUD from MultiHudManager (single source of truth).
+     * Performance: Two map lookups (state + HUD), no MetabolismStats allocation.
      * 
      * @param playerId Player's UUID as string
+     * @param playerUuid Player's UUID (for MultiHudManager lookup)
      * @return true if HUD was updated, false if below threshold
      */
-    fun updateHudIfNeeded(playerId: String): Boolean {
+    fun updateHudIfNeeded(playerId: String, playerUuid: UUID): Boolean {
         // Single lookup for all state
         val state = playerStates[playerId] ?: return false
-        val hudElement = state.hudElement ?: return false
         
         if (!shouldUpdateHud(state)) {
             return false
         }
+        
+        // Get HUD from MultiHudManager (single source of truth)
+        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
+            playerUuid,
+            MetabolismHudElement.NAMESPACE
+        ) ?: return false
         
         // Update the HUD element with current values (direct field access)
         hudElement.updateStats(state.hunger, state.thirst, state.energy)
@@ -519,10 +490,16 @@ class MetabolismService(
      * Useful for initial display or manual refresh.
      * 
      * @param playerId Player's UUID as string
+     * @param playerUuid Player's UUID (for MultiHudManager lookup)
      */
-    fun forceUpdateHud(playerId: String) {
+    fun forceUpdateHud(playerId: String, playerUuid: UUID) {
         val state = playerStates[playerId] ?: return
-        val hudElement = state.hudElement ?: return
+        
+        // Get HUD from MultiHudManager
+        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
+            playerUuid,
+            MetabolismHudElement.NAMESPACE
+        ) ?: return
         
         hudElement.updateStats(state.hunger, state.thirst, state.energy)
         hudElement.updateHud()

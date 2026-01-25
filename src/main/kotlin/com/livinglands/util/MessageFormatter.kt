@@ -171,4 +171,44 @@ object MessageFormatter {
     fun raw(playerRef: PlayerRef, message: String) {
         playerRef.sendMessage(Message.raw(message))
     }
+    
+    /**
+     * Send a buff activation/deactivation message.
+     * 
+     * Format: [Living Lands] Buff: <BuffName> (activated/deactivated)
+     * 
+     * @param playerRef Target player
+     * @param buffName Name of the buff
+     * @param activated True if buff activated, false if deactivated
+     */
+    fun buff(playerRef: PlayerRef, buffName: String, activated: Boolean) {
+        val message = createPrefix()
+            .insert(Message.raw(" Buff: ").color(GREEN))
+            .insert(Message.raw(buffName).color(YELLOW))
+            .insert(Message.raw(" (").color(DARK_GRAY))
+            .insert(Message.raw(if (activated) "activated" else "deactivated").color(if (activated) GREEN else RED))
+            .insert(Message.raw(")").color(DARK_GRAY))
+        
+        playerRef.sendMessage(message)
+    }
+    
+    /**
+     * Send a debuff activation/deactivation message.
+     * 
+     * Format: [Living Lands] Debuff: <DebuffName> (activated/deactivated)
+     * 
+     * @param playerRef Target player
+     * @param debuffName Name of the debuff
+     * @param activated True if debuff activated, false if deactivated
+     */
+    fun debuff(playerRef: PlayerRef, debuffName: String, activated: Boolean) {
+        val message = createPrefix()
+            .insert(Message.raw(" Debuff: ").color(RED))
+            .insert(Message.raw(debuffName).color(YELLOW))
+            .insert(Message.raw(" (").color(DARK_GRAY))
+            .insert(Message.raw(if (activated) "activated" else "deactivated").color(if (activated) RED else GREEN))
+            .insert(Message.raw(")").color(DARK_GRAY))
+        
+        playerRef.sendMessage(message)
+    }
 }

@@ -238,4 +238,13 @@ class FoodEffectDetector(
         previousEffects.remove(playerId)
         processedEffectIndexes.remove(playerId)
     }
+    
+    /**
+     * Alias for removePlayer() for consistency with other systems.
+     * 
+     * @param playerId The player's UUID
+     */
+    fun cleanup(playerId: UUID) {
+        removePlayer(playerId)
+    }
 }

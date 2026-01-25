@@ -31,14 +31,16 @@ import java.util.concurrent.ConcurrentHashMap
  * @see CompositeHud
  */
 class MultiHudManager(
-    private val logger: HytaleLogger
+    @PublishedApi
+    internal val logger: HytaleLogger
 ) {
     
     /** Track composite HUDs by player UUID for cleanup on disconnect */
     private val playerHuds = ConcurrentHashMap<UUID, CompositeHud>()
     
     /** Track individual HUD elements by player UUID and namespace for updates */
-    private val hudElements = ConcurrentHashMap<UUID, ConcurrentHashMap<String, CustomUIHud>>()
+    @PublishedApi
+    internal val hudElements = ConcurrentHashMap<UUID, ConcurrentHashMap<String, CustomUIHud>>()
     
     /**
      * Reflection cache for calling the protected build() method on CustomUIHud.
@@ -232,6 +234,43 @@ class MultiHudManager(
     }
     
     /**
+     * Update a HUD element with type-safe access using reified generics.
+     * Returns true if update was applied, false if HUD not found or type mismatch.
+     * 
+     * This is the recommended pattern for HUD updates from services:
+     * ```kotlin
+     * CoreModule.hudManager.updateHud<MetabolismHudElement>(playerId, namespace) { hud ->
+     *     hud.updateStats(hunger, thirst, energy)
+     *     hud.updateHud()
+     * }
+     * ```
+     * 
+     * @param playerId The player's UUID
+     * @param namespace The namespace of the HUD to update
+     * @param update Lambda to apply updates to the HUD element
+     * @return true if HUD was found and updated, false otherwise
+     */
+    @PublishedApi
+    internal inline fun <reified T : CustomUIHud> updateHud(
+        playerId: UUID,
+        namespace: String,
+        update: (T) -> Unit
+    ): Boolean {
+        val hud = hudElements[playerId]?.get(namespace) ?: return false
+        
+        return if (hud is T) {
+            update(hud)
+            true
+        } else {
+            logger.atWarning().log(
+                "HUD type mismatch for $namespace: expected ${T::class.simpleName}, " +
+                "got ${hud::class.simpleName}"
+            )
+            false
+        }
+    }
+    
+    /**
      * Get all registered HUD namespaces for a player.
      * 
      * @param playerId The player's UUID
@@ -270,6 +309,89 @@ class MultiHudManager(
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
         }
+    }
+    
+    /**
+     * Verify composite integrity and restore if external mod overwrote it.
+     * 
+     * If another mod calls player.hudManager.setCustomHud() directly, it will
+     * overwrite our composite. This method detects that and restores our composite,
+     * preserving the external HUD if possible.
+     * 
+     * Call this periodically (e.g., every 100 ticks) from a tick system.
+     * 
+     * @param player The player entity
+     * @param playerRef The player reference
+     * @return true if composite is still valid, false if it was restored
+     */
+    fun verifyAndRestoreComposite(player: Player, playerRef: PlayerRef): Boolean {
+        @Suppress("DEPRECATION")
+        val playerId = playerRef.uuid
+        val expected = playerHuds[playerId] ?: return true  // No composite expected
+        
+        val current = player.hudManager.customHud
+        if (current !== expected) {
+            logger.atWarning().log("Composite HUD overwritten for $playerId by external mod, restoring...")
+            
+            // Preserve the external HUD if it's not our composite
+            if (current != null && current !is CompositeHud) {
+                expected.addHud("_external_restored", current)
+            }
+            
+            try {
+                player.hudManager.setCustomHud(playerRef, expected)
+                expected.show()
+                logger.atInfo().log("Restored composite HUD for $playerId")
+                return false  // Was overwritten, now restored
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Failed to restore composite HUD for $playerId")
+                return false
+            }
+        }
+        return true  // Still ours
+    }
+    
+    /**
+     * Verify composite integrity for all online players.
+     * 
+     * This should be called periodically (e.g., every 5 seconds) from a tick system
+     * to detect and recover from external mod conflicts.
+     * 
+     * Returns the number of composites that were restored.
+     */
+    fun verifyAllComposites(): Int {
+        var restoredCount = 0
+        
+        playerHuds.forEach { (playerId, composite) ->
+            // Need Player and PlayerRef - require session
+            val session = com.livinglands.core.CoreModule.players.getSession(playerId)
+            if (session != null) {
+                session.world.execute {
+                    try {
+                        val player = session.store.getComponent(
+                            session.entityRef,
+                            Player.getComponentType()
+                        ) ?: return@execute
+                        
+                        @Suppress("DEPRECATION")
+                        val playerRef = player.playerRef ?: return@execute
+                        
+                        if (!verifyAndRestoreComposite(player, playerRef)) {
+                            restoredCount++
+                        }
+                    } catch (e: Exception) {
+                        logger.atWarning().withCause(e)
+                            .log("Error verifying composite for player $playerId")
+                    }
+                }
+            }
+        }
+        
+        if (restoredCount > 0) {
+            logger.atWarning().log("Restored $restoredCount composite HUDs")
+        }
+        
+        return restoredCount
     }
     
     /**
