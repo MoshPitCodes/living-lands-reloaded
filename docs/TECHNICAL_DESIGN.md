@@ -82,11 +82,13 @@ LivingLandsReloaded/
 │   ├── metabolism.yml               # Metabolism module settings
 │   ├── leveling.yml                 # Leveling module settings
 │   └── claims.yml                   # Claims module settings
-├── data/                            # Per-world SQLite databases
+├── data/                            # SQLite databases
+│   ├── global/
+│   │   └── livinglands.db           # Global player data (metabolism stats)
 │   ├── {world-uuid-1}/
-│   │   └── livinglands.db
+│   │   └── livinglands.db           # World 1 module data (claims, etc.)
 │   ├── {world-uuid-2}/
-│   │   └── livinglands.db
+│   │   └── livinglands.db           # World 2 module data (claims, etc.)
 │   └── ...
 └── logs/                            # Debug logs (optional)
 ```
@@ -685,9 +687,132 @@ class MyModPlugin : JavaPlugin(init) {
 
 ## Persistence Layer
 
-Living Lands uses SQLite for per-world player data persistence. Each world has its own database file.
+Living Lands uses SQLite for player data persistence with a **dual-database architecture**:
 
-### PersistenceService
+1. **Global Database** (`data/global/livinglands.db`) - Stores player stats that follow players across worlds (e.g., metabolism stats)
+2. **Per-World Databases** (`data/{world-uuid}/livinglands.db`) - Stores world-specific module data (e.g., land claims)
+
+### Global vs Per-World Persistence
+
+**When to Use Global Persistence:**
+- Player progression that should follow across worlds (metabolism, XP, skills)
+- Player preferences (HUD settings, notifications)
+- Account-wide data (achievements, unlocks)
+
+**When to Use Per-World Persistence:**
+- World-specific gameplay (land claims, placed structures)
+- Server-specific data (permissions, bans)
+- Data that should reset when changing worlds
+
+**Implementation:**
+```kotlin
+// Global persistence (metabolism stats)
+class MetabolismRepository(private val globalPersistence: GlobalPersistenceService) {
+    suspend fun ensureStats(playerId: UUID): MetabolismStats {
+        // Loads from data/global/livinglands.db
+        // Stats follow player across all worlds
+    }
+}
+
+// Per-world persistence (land claims)
+class ClaimsRepository(private val worldPersistence: PersistenceService) {
+    suspend fun getClaims(playerId: UUID): List<Claim> {
+        // Loads from data/{world-uuid}/livinglands.db
+        // Claims are isolated per world
+    }
+}
+```
+
+### GlobalPersistenceService
+
+```kotlin
+/**
+ * Server-wide SQLite database service for global player data.
+ * Location: LivingLandsReloaded/data/global/livinglands.db
+ * 
+ * Used for stats that follow players across worlds (metabolism, XP, etc.)
+ */
+class GlobalPersistenceService(private val dataPath: Path) {
+    
+    private val dbPath = dataPath.resolve("global").resolve("livinglands.db")
+    private var connection: Connection? = null
+    
+    init {
+        // Ensure directory exists
+        Files.createDirectories(dbPath.parent)
+        
+        // Initialize SQLite connection
+        connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
+        
+        // Enable WAL mode for better concurrency
+        connection?.createStatement()?.execute("PRAGMA journal_mode=WAL")
+        
+        // Initialize core tables
+        initializeTables()
+    }
+    
+    private fun initializeTables() {
+        connection?.createStatement()?.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS module_schemas (
+                module_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+    }
+    
+    /**
+     * Execute a database operation on IO dispatcher.
+     */
+    suspend fun <T> execute(block: (Connection) -> T): T {
+        return withContext(Dispatchers.IO) {
+            val conn = connection ?: throw IllegalStateException("Connection closed")
+            synchronized(conn) {
+                block(conn)
+            }
+        }
+    }
+    
+    /**
+     * Execute a transactional database operation.
+     */
+    suspend fun <T> transaction(block: (Connection) -> T): T {
+        return withContext(Dispatchers.IO) {
+            val conn = connection ?: throw IllegalStateException("Connection closed")
+            synchronized(conn) {
+                conn.autoCommit = false
+                try {
+                    val result = block(conn)
+                    conn.commit()
+                    result
+                } catch (e: Exception) {
+                    conn.rollback()
+                    throw e
+                } finally {
+                    conn.autoCommit = true
+                }
+            }
+        }
+    }
+    
+    /**
+     * Close the database connection.
+     */
+    suspend fun close() {
+        withContext(Dispatchers.IO) {
+            connection?.let { conn ->
+                synchronized(conn) {
+                    if (!conn.isClosed) {
+                        conn.close()
+                    }
+                }
+            }
+            connection = null
+        }
+    }
+}
+```
+
+### PersistenceService (Per-World)
 
 ```kotlin
 /**
@@ -924,44 +1049,45 @@ data class PlayerData(
 )
 ```
 
-### Module Repository Example
+### Module Repository Examples
+
+#### Global Repository (Metabolism)
 
 ```kotlin
 /**
- * Example: Metabolism data repository.
+ * Metabolism data repository using global persistence.
+ * Stats are stored in data/global/livinglands.db and follow players across worlds.
  */
 class MetabolismRepository(
-    private val persistence: PersistenceService
+    private val globalPersistence: GlobalPersistenceService
 ) {
     companion object {
         const val SCHEMA_VERSION = 1
     }
     
     /**
-     * Initialize metabolism tables.
+     * Initialize metabolism tables in global database.
      */
     suspend fun initialize() {
-        val currentVersion = persistence.getModuleSchemaVersion("metabolism")
+        val currentVersion = globalPersistence.getModuleSchemaVersion("metabolism")
         
         if (currentVersion < SCHEMA_VERSION) {
-            persistence.executeRaw("""
+            globalPersistence.executeRaw("""
                 CREATE TABLE IF NOT EXISTS metabolism_stats (
                     player_uuid TEXT PRIMARY KEY,
                     hunger REAL NOT NULL DEFAULT 100.0,
                     thirst REAL NOT NULL DEFAULT 100.0,
                     energy REAL NOT NULL DEFAULT 100.0,
-                    last_updated INTEGER NOT NULL,
-                    FOREIGN KEY (player_uuid) REFERENCES players(uuid)
-                        ON DELETE CASCADE
+                    last_updated INTEGER NOT NULL
                 )
             """)
             
-            persistence.setModuleSchemaVersion("metabolism", SCHEMA_VERSION)
+            globalPersistence.setModuleSchemaVersion("metabolism", SCHEMA_VERSION)
         }
     }
     
     suspend fun getStats(playerId: UUID): MetabolismStats? {
-        return persistence.execute { conn ->
+        return globalPersistence.execute { conn ->
             val stmt = conn.prepareStatement("""
                 SELECT hunger, thirst, energy, last_updated 
                 FROM metabolism_stats WHERE player_uuid = ?
@@ -982,7 +1108,7 @@ class MetabolismRepository(
     }
     
     suspend fun saveStats(stats: MetabolismStats) {
-        persistence.execute { conn ->
+        globalPersistence.execute { conn ->
             val stmt = conn.prepareStatement("""
                 INSERT INTO metabolism_stats (player_uuid, hunger, thirst, energy, last_updated)
                 VALUES (?, ?, ?, ?, ?)
@@ -1003,7 +1129,7 @@ class MetabolismRepository(
     }
     
     suspend fun deleteStats(playerId: UUID) {
-        persistence.execute { conn ->
+        globalPersistence.execute { conn ->
             val stmt = conn.prepareStatement(
                 "DELETE FROM metabolism_stats WHERE player_uuid = ?"
             )
@@ -1019,6 +1145,94 @@ data class MetabolismStats(
     val thirst: Double,
     val energy: Double,
     val lastUpdated: Instant
+)
+```
+
+#### Per-World Repository (Claims)
+
+```kotlin
+/**
+ * Claims data repository using per-world persistence.
+ * Claims are stored in data/{world-uuid}/livinglands.db and are isolated per world.
+ */
+class ClaimsRepository(
+    private val worldPersistence: PersistenceService
+) {
+    companion object {
+        const val SCHEMA_VERSION = 1
+    }
+    
+    /**
+     * Initialize claims tables in per-world database.
+     */
+    suspend fun initialize() {
+        val currentVersion = worldPersistence.getModuleSchemaVersion("claims")
+        
+        if (currentVersion < SCHEMA_VERSION) {
+            worldPersistence.executeRaw("""
+                CREATE TABLE IF NOT EXISTS land_claims (
+                    claim_id TEXT PRIMARY KEY,
+                    player_uuid TEXT NOT NULL,
+                    world_id TEXT NOT NULL,
+                    chunk_x INTEGER NOT NULL,
+                    chunk_z INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    FOREIGN KEY (player_uuid) REFERENCES players(uuid)
+                        ON DELETE CASCADE
+                )
+            """)
+            
+            worldPersistence.setModuleSchemaVersion("claims", SCHEMA_VERSION)
+        }
+    }
+    
+    suspend fun getClaims(playerId: UUID): List<Claim> {
+        return worldPersistence.execute { conn ->
+            val stmt = conn.prepareStatement("""
+                SELECT claim_id, chunk_x, chunk_z, created_at
+                FROM land_claims WHERE player_uuid = ?
+            """)
+            stmt.setString(1, playerId.toString())
+            val rs = stmt.executeQuery()
+            
+            val claims = mutableListOf<Claim>()
+            while (rs.next()) {
+                claims.add(Claim(
+                    claimId = UUID.fromString(rs.getString("claim_id")),
+                    playerId = playerId,
+                    chunkX = rs.getInt("chunk_x"),
+                    chunkZ = rs.getInt("chunk_z"),
+                    createdAt = Instant.ofEpochMilli(rs.getLong("created_at"))
+                ))
+            }
+            claims
+        }
+    }
+    
+    suspend fun saveClaim(claim: Claim) {
+        worldPersistence.execute { conn ->
+            val stmt = conn.prepareStatement("""
+                INSERT INTO land_claims (claim_id, player_uuid, world_id, chunk_x, chunk_z, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """)
+            stmt.setString(1, claim.claimId.toString())
+            stmt.setString(2, claim.playerId.toString())
+            stmt.setString(3, claim.worldId.toString())
+            stmt.setInt(4, claim.chunkX)
+            stmt.setInt(5, claim.chunkZ)
+            stmt.setLong(6, claim.createdAt.toEpochMilli())
+            stmt.executeUpdate()
+        }
+    }
+}
+
+data class Claim(
+    val claimId: UUID,
+    val playerId: UUID,
+    val worldId: UUID,
+    val chunkX: Int,
+    val chunkZ: Int,
+    val createdAt: Instant
 )
 ```
 

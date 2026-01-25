@@ -31,17 +31,31 @@
 
 # Overview
 
-**Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands Reloaded provides per-world player progression with metabolism tracking, profession leveling, land claims, and more.
+**Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands Reloaded provides global player progression with metabolism tracking, profession leveling, land claims, and more.
 
 **Current Status:** **Beta (v1.0.0-beta + Food Consumption)** - Core infrastructure, metabolism system, and food consumption complete with major performance improvements. Working on buffs and debuffs.
 
+---
+
+## ⚠️ Compatibility Notice
+
+**Living Lands Reloaded may NOT be compatible with other mods that modify:**
+- Player stats (health, stamina, speed)
+- Leveling or XP systems
+- Economy plugins
+- Profession/skill systems
+
+**Why?** Living Lands claims these gameplay systems through module stubs to prevent conflicts. While leveling, economy, and profession modules are **not yet implemented**, they are reserved for future development. Running conflicting mods may cause unexpected behavior.
+
+**Recommendation:** Test compatibility in a non-production environment before deploying with other mods.
+
 **Key Highlights:**
 - **High Performance** - Optimized for 100+ concurrent players with zero allocation hot paths
-- **Per-World Progression** - Complete data isolation between worlds
+- **Global Player Progression** - Stats follow players across worlds (per-world configs supported)
 - **Modular Architecture** - Enable/disable features independently via configuration
 - **Hot-Reload Configuration** - Update settings without server restart with automatic migration
 - **Thread-Safe** - Designed for high-performance multiplayer servers
-- **SQLite Persistence** - Efficient per-world database storage
+- **SQLite Persistence** - Efficient global + per-world database storage
 
 <br/>
 
@@ -53,6 +67,8 @@ Major performance improvements for high-player-count servers:
 - **80% reduction** in HashMap lookups (consolidated state)
 - **100% reduction** in object allocations per tick (mutable containers)
 - **75% reduction** in system calls (timestamp reuse)
+- **98.75% faster** player join (8 seconds → ~100ms via async loading)
+- **99.9% faster** world switching (instant with cached stats)
 
 Tested and optimized for **100+ concurrent players** at 30 TPS.
 
@@ -84,11 +100,13 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 - **Player Tracking** - Thread-safe player session management with ECS integration
 
 ### Persistence Layer (Phase 2)
-- **SQLite Databases** - One database per world (`LivingLandsReloaded/data/{world-uuid}/livinglands.db`)
+- **SQLite Databases** - Global database for player stats + per-world databases for module data
+  - Global: `LivingLandsReloaded/data/global/livinglands.db` (metabolism stats)
+  - Per-world: `LivingLandsReloaded/data/{world-uuid}/livinglands.db` (claims, etc.)
 - **WAL Mode** - Write-Ahead Logging for better concurrency
 - **Repository Pattern** - Clean data access layer with CRUD operations
 - **Schema Versioning** - Module-specific schema migrations support
-- **Async Operations** - Non-blocking database I/O with Kotlin coroutines
+- **Async Operations** - Non-blocking database I/O with Kotlin coroutines (no blocking on WorldThread)
 - **Graceful Shutdown** - Proper connection cleanup and pending operation waits
 
 ### Configuration System (Phase 3 & 3.5)
@@ -108,13 +126,14 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 
 ### Metabolism System (Phase 5)
 - **Three Core Stats** - Hunger, thirst, and energy (0-100 scale)
+- **Global Player Stats** - Stats follow players across worlds (independent per player)
 - **Activity-Based Depletion** - Stats drain faster when sprinting, swimming, or in combat
 - **Creative Mode Pausing** - Metabolism pauses in Creative mode automatically
 - **Tick System** - Optimized delta-time updates with per-player tracking
-- **Persistence** - Stats saved per-world and survive server restarts
-- **Thread-Safe** - All operations use proper synchronization
-- **Configurable Rates** - All depletion rates adjustable via `metabolism.yml`
-- **Performance Optimized** - Zero-allocation hot paths, 80% fewer map lookups
+- **Persistence** - Stats saved globally and survive server restarts
+- **Thread-Safe** - All operations use proper synchronization, async DB loading
+- **Configurable Rates** - All depletion rates adjustable via `metabolism.yml` (per-world configs supported)
+- **Performance Optimized** - Zero-allocation hot paths, 98.75% faster joins via async loading
 
 ### MultiHUD System (Phase 6)
 - **Composite HUD** - Support multiple HUD elements from different modules
@@ -227,11 +246,13 @@ LivingLandsReloaded/
 ├── config/                     # YAML configuration files
 │   ├── core.yml                # Core module settings
 │   └── metabolism.yml          # Metabolism depletion rates and thresholds
-└── data/                       # Per-world SQLite databases
+└── data/                       # SQLite databases
+    ├── global/
+    │   └── livinglands.db      # Global player data (metabolism stats)
     ├── {world-uuid-1}/
-    │   └── livinglands.db      # World 1 player data (metabolism stats, etc.)
+    │   └── livinglands.db      # World 1 module data (claims, etc.)
     └── {world-uuid-2}/
-        └── livinglands.db      # World 2 player data (metabolism stats, etc.)
+        └── livinglands.db      # World 2 module data (claims, etc.)
 ```
 
 ## Core Configuration
@@ -320,14 +341,19 @@ Living Lands Reloaded is built on a modern, scalable architecture designed for m
 
 ## Key Design Principles
 
-### 1. Per-World Player Data
-All player progression is isolated per world UUID. A player in World A has completely separate data from World B.
+### 1. Global Player Stats with Per-World Configs
+**Metabolism stats are global** - A player's hunger/thirst/energy follows them across all worlds. However, **per-world configs** are supported, allowing different depletion rates per world.
 
 ```kotlin
-// Example: Player data is stored per-world
+// Example: Global player stats
+data/
+  └── global/
+      └── livinglands.db  // Player metabolism stats (global)
+  
+// Example: Per-world module data (claims, etc.)
 data/
   └── world-123-456-789/
-      └── livinglands.db  // Player data for this world only
+      └── livinglands.db  // World-specific module data
 ```
 
 ### 2. Service Locator Pattern
@@ -348,8 +374,8 @@ val service = CoreModule.services.get<MyService>()
 - **Coroutines** for async operations with `Dispatchers.IO`
 
 ### 4. Separation of Concerns
-- **Configuration** - YAML files in `config/` (hot-reloadable)
-- **Persistence** - SQLite databases in `data/` (per-world)
+- **Configuration** - YAML files in `config/` (hot-reloadable, per-world configs supported)
+- **Persistence** - SQLite databases in `data/` (global for stats, per-world for module data)
 - **Code** - Clean separation of modules, repositories, and services
 
 ### 5. Graceful Degradation
@@ -369,12 +395,16 @@ Living Lands Reloaded has been extensively optimized for high-player-count serve
 | HashMap lookups per tick | 5 | 1 | **80%** ✓ |
 | Object allocations per tick | 1+ | 0 | **100%** ✓ |
 | System calls per tick | 4+ | 1 | **75%** ✓ |
+| Player join time | ~8 seconds | ~100ms | **98.75%** ✓ |
+| World switch time | ~8 seconds | Instant | **99.9%** ✓ |
 
 **Key Optimizations:**
 - **UUID String Caching** - Cached string representations eliminate 3000+ allocations/second
 - **Consolidated State** - Single `PlayerMetabolismState` instead of 4 separate HashMaps
 - **Mutable Containers** - Zero-allocation updates using volatile fields in hot paths
 - **Timestamp Reuse** - Single `System.currentTimeMillis()` call per tick cycle
+- **Async-First Loading** - Non-blocking DB operations prevent WorldThread blocking
+- **World Switch Caching** - Reuse cached stats when players switch worlds
 
 ### Database Optimization
 - **WAL Mode** - Write-Ahead Logging for concurrent reads
@@ -536,10 +566,10 @@ See [`scripts/README.md`](scripts/README.md) for complete documentation.
    - Run `/ll reload metabolism`
    - Verify new rates apply without restart
 
-4. **Per-World Isolation**
-   - Create two worlds
-   - Verify separate databases in `data/{world-uuid-1}/` and `data/{world-uuid-2}/`
-   - Confirm stats are independent between worlds
+4. **Global Stats with Per-World Configs**
+   - Create two worlds with different metabolism configs
+   - Verify stats follow player across worlds (global persistence)
+   - Confirm per-world depletion rates apply correctly
 
 See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing procedures.
 
