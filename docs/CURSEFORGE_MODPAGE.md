@@ -4,6 +4,8 @@
 
 Add realistic hunger, thirst, and energy systems to your Hytale server with per-world customization and smooth gameplay integration.
 
+> ⚠️ **Compatibility Warning:** This mod includes its own leveling, economy, and profession systems. Not compatible with other mods that modify player stats, XP, or economy. See [Compatibility Notice](#️-compatibility-notice) for details.
+
 ---
 
 ## 🎮 What is Living Lands?
@@ -50,10 +52,11 @@ Living Lands Reloaded brings survival mechanics to Hytale servers. Players must 
 - Use `/ll reload` to apply config changes instantly
 - Players stay connected, no interruptions
 
-**Per-World Progression**
-- Player stats are separate for each world
-- Enter World A hungry, World B full
-- Perfect for multi-world setups
+**Global Player Stats**
+- Metabolism stats follow players across all worlds
+- Enter World A at 50% hunger, switch to World B still at 50%
+- Per-world configs still work (different depletion rates per world)
+- Perfect for multi-world setups with consistent progression
 
 ---
 
@@ -100,6 +103,20 @@ When you join a Living Lands server, you'll see a HUD display showing your metab
 **Requirements:**
 - Hytale Server (latest build)
 - Java 25+
+
+### ⚠️ Compatibility Notice
+
+**This mod is NOT compatible with:**
+- Mods that manipulate player stats (health, stamina, speed)
+- Leveling or XP systems
+- Economy plugins
+- Profession/skill systems
+
+Living Lands Reloaded manages its own leveling, economy, and profession systems. Running multiple mods that modify the same player stats can cause conflicts, duplicate effects, or unexpected behavior.
+
+**If you're using another survival/RPG mod, choose one:**
+- Use Living Lands Reloaded for complete survival mechanics
+- OR use the other mod and disable Living Lands
 
 ### Configuration
 
@@ -302,17 +319,25 @@ Living Lands Reloaded is optimized for large servers:
 - ⏳ Buffs for high stats
 - ⏳ Polish and optimization pass
 
-### Future Versions
+### Planned Features (Not Yet Implemented)
 
-**Leveling Module**
+> 🚧 **Note:** The features below are planned for future releases but are NOT currently available in v1.0.0-beta. If you need these features now, use a different mod.
+
+**Leveling Module** (Planned)
 - XP system with professions (Mining, Logging, Combat)
 - Skill progression and rewards
+- ⚠️ Until released, this mod is compatible with other leveling mods
 
-**Claims Module**
+**Claims Module** (Planned)
 - Land protection system
 - Trust management for players
 
-**Advanced Features**
+**Economy Module** (Planned)
+- Currency system
+- Trading and shops
+- ⚠️ Until released, this mod is compatible with other economy mods
+
+**Advanced Metabolism** (Planned)
 - Poison effects
 - Custom food recipes
 - Seasonal depletion rates
