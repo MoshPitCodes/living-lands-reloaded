@@ -71,7 +71,7 @@ tasks {
     }
     
     shadowJar {
-        archiveBaseName.set("livinglands")
+        archiveBaseName.set("livinglands-reloaded")
         archiveClassifier.set("")
         
         // Relocate dependencies to avoid conflicts (NOT sqlite - it uses JDBC which needs original package)
