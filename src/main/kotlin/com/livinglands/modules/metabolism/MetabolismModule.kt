@@ -414,20 +414,27 @@ class MetabolismModule : AbstractModule(
             // Remove from service tracking (use cached string, will be cleaned up in removeFromCache)
             metabolismService.unregisterHudElement(playerId.toCachedString())
             
-            // Get player from our tracked refs for HUD cleanup
-            // Note: playerRefs entry was already removed in onPlayerDisconnect, so get from session
+            // Get session to access world for thread-safe ECS operations
             val session = CoreModule.players.getSession(playerId)
             if (session != null) {
-                val store = session.store
-                val entityRef = session.entityRef
-                val player = store.getComponent(entityRef, Player.getComponentType())
-                if (player != null) {
-                    // Remove from MultiHudManager
-                    CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
+                // Execute HUD cleanup on the world thread (required for ECS access)
+                session.world.execute {
+                    try {
+                        val store = session.store
+                        val entityRef = session.entityRef
+                        val player = store.getComponent(entityRef, Player.getComponentType())
+                        if (player != null) {
+                            // Remove from MultiHudManager
+                            CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
+                        }
+                    } catch (e: Exception) {
+                        logger.atWarning().withCause(e)
+                            .log("Error removing HUD from MultiHudManager for player $playerId")
+                    }
                 }
             }
             
-            // Notify MultiHudManager about disconnect
+            // Notify MultiHudManager about disconnect (doesn't need world thread)
             CoreModule.hudManager.onPlayerDisconnect(playerId)
             
             debug("Cleaned up metabolism HUD for player $playerId")
