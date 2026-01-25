@@ -13,8 +13,8 @@ import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
 import com.livinglands.modules.metabolism.food.FoodDetectionTickSystem
 import com.livinglands.modules.metabolism.food.FoodEffectDetector
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
-import com.livinglands.util.SpeedManager
-import com.livinglands.util.toCachedString
+import com.livinglands.core.SpeedManager
+import com.livinglands.core.toCachedString
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineName

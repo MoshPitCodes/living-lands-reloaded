@@ -15,8 +15,8 @@ import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
-import com.livinglands.util.SpeedManager
-import com.livinglands.util.toCachedString
+import com.livinglands.core.SpeedManager
+import com.livinglands.core.toCachedString
 
 /**
  * ECS system that processes metabolism ticks for all players.

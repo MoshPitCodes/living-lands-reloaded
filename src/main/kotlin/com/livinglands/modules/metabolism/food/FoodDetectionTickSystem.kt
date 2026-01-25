@@ -12,7 +12,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.config.FoodConsumptionConfig
-import com.livinglands.util.toCachedString
+import com.livinglands.core.toCachedString
 import java.util.UUID
 
 /**

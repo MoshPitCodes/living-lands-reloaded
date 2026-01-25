@@ -1,4 +1,4 @@
-package com.livinglands.util
+package com.livinglands.core
 
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store

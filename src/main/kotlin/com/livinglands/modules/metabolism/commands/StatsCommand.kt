@@ -1,11 +1,11 @@
 package com.livinglands.modules.metabolism.commands
 
-import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.hypixel.hytale.server.core.universe.PlayerRef
-import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.MetabolismService
+import com.livinglands.core.MessageFormatter
+import java.awt.Color
 
 /**
  * Command to display current metabolism stats.
@@ -26,13 +26,13 @@ class StatsCommand(
     override fun executeSync(ctx: CommandContext) {
         // Check if sender is a player
         if (!ctx.isPlayer) {
-            ctx.sendMessage(Message.raw("[Living Lands] This command can only be used by players"))
+            MessageFormatter.commandError(ctx, "This command can only be used by players")
             return
         }
         
         // Get player entity reference
         val entityRef = ctx.senderAsPlayerRef() ?: run {
-            ctx.sendMessage(Message.raw("[Living Lands] Unable to get player reference"))
+            MessageFormatter.commandError(ctx, "Unable to get player reference")
             return
         }
         
@@ -41,7 +41,7 @@ class StatsCommand(
         val playerRefComponent = store.getComponent(entityRef, PlayerRef.getComponentType())
         
         if (playerRefComponent == null) {
-            ctx.sendMessage(Message.raw("[Living Lands] Unable to get player component"))
+            MessageFormatter.commandError(ctx, "Unable to get player component")
             return
         }
         
@@ -53,7 +53,7 @@ class StatsCommand(
         val stats = metabolismService.getStats(playerId)
         
         if (stats == null) {
-            ctx.sendMessage(Message.raw("[Living Lands] Metabolism data not loaded. Please wait a moment and try again."))
+            MessageFormatter.commandError(ctx, "Metabolism data not loaded. Please wait a moment and try again.")
             return
         }
         
@@ -62,15 +62,21 @@ class StatsCommand(
         val thirstBar = formatStatBar(stats.thirst)
         val energyBar = formatStatBar(stats.energy)
         
+        // Colors for stats
+        val orange = Color(255, 170, 85)
+        val lightAqua = Color(170, 255, 255)
+        val yellow = Color(255, 255, 85)
+        val gray = Color(170, 170, 170)
+        
         // Build and send the message
-        ctx.sendMessage(Message.raw(""))  // Empty line for spacing
-        ctx.sendMessage(Message.raw("--- Metabolism Stats ---"))
-        ctx.sendMessage(Message.raw(""))
-        ctx.sendMessage(Message.raw("Hunger:  ${formatValue(stats.hunger)} / 100  $hungerBar"))
-        ctx.sendMessage(Message.raw("Thirst:  ${formatValue(stats.thirst)} / 100  $thirstBar"))
-        ctx.sendMessage(Message.raw("Energy:  ${formatValue(stats.energy)} / 100  $energyBar"))
-        ctx.sendMessage(Message.raw(""))
-        ctx.sendMessage(Message.raw("------------------------"))
+        MessageFormatter.commandRaw(ctx, "")  // Empty line for spacing
+        MessageFormatter.commandRaw(ctx, "--- Metabolism Stats ---", yellow)
+        MessageFormatter.commandRaw(ctx, "")
+        MessageFormatter.commandRaw(ctx, "Hunger:  ${formatValue(stats.hunger)} / 100  $hungerBar", orange)
+        MessageFormatter.commandRaw(ctx, "Thirst:  ${formatValue(stats.thirst)} / 100  $thirstBar", lightAqua)
+        MessageFormatter.commandRaw(ctx, "Energy:  ${formatValue(stats.energy)} / 100  $energyBar", yellow)
+        MessageFormatter.commandRaw(ctx, "")
+        MessageFormatter.commandRaw(ctx, "------------------------", gray)
     }
     
     /**
