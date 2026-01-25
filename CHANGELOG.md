@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Critical: Debug Logging in Production** - Removed 5 `println()` statements from `MetabolismHudElement`
+  - Statements were spamming console ~30 times per second per player
+  - Eliminated performance degradation and console pollution
+- **Critical: Race Condition in Database Initialization** - Fixed async schema creation in `MetabolismService.initializePlayer()`
+  - Changed from `scope.launch { it.initialize() }` to `runBlocking { it.initialize() }`
+  - Prevents "table not found" SQL errors on first player join
+- **Critical: Memory Leak in Coroutine Cleanup** - Improved `WorldContext.cleanup()` safety
+  - Coroutine scope now cancelled FIRST to prevent new operations
+  - Added try-catch wrapper and proper error logging
+  - Prevents resource leaks on plugin shutdown
+- **Logging Standardization** - Converted all `java.util.logging.Logger` usage to `HytaleLogger`
+  - Updated 6 files: DebuffsSystem, BuffsSystem, SpeedManager, FoodEffectDetector, FoodConsumptionProcessor, MetabolismModule
+  - Converted 31+ logger calls to `.atFine().log()`, `.atInfo().log()`, etc.
+  - Ensures consistent logging across entire codebase
+
 ## [1.0.0-beta] - 2026-01-25
 
 ### Added
