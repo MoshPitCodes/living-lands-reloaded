@@ -7,6 +7,9 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.commands.StatsCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
+import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
+import com.livinglands.modules.metabolism.food.FoodDetectionTickSystem
+import com.livinglands.modules.metabolism.food.FoodEffectDetector
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 import com.livinglands.util.toCachedString
 import kotlinx.coroutines.CancellationException
@@ -49,6 +52,12 @@ class MetabolismModule : AbstractModule(
     
     /** Service for managing metabolism stats */
     private lateinit var metabolismService: MetabolismService
+    
+    /** Food effect detector */
+    private lateinit var foodEffectDetector: FoodEffectDetector
+    
+    /** Food consumption processor */
+    private lateinit var foodConsumptionProcessor: FoodConsumptionProcessor
     
     /**
      * Module-level coroutine scope for async persistence operations.
@@ -116,6 +125,24 @@ class MetabolismModule : AbstractModule(
             val tickSystem = MetabolismTickSystem(metabolismService, logger)
             registerSystem(tickSystem)
             logger.atFine().log("Registered MetabolismTickSystem")
+        }
+        
+        // Initialize food consumption system
+        if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
+            // Create food detection components (need java.util.logging.Logger)
+            val javaLogger = java.util.logging.Logger.getLogger(javaClass.name)
+            foodEffectDetector = FoodEffectDetector(javaLogger)
+            foodConsumptionProcessor = FoodConsumptionProcessor(metabolismService, metabolismConfig.foodConsumption, javaLogger)
+            
+            // Register food detection tick system
+            val foodTickSystem = FoodDetectionTickSystem(
+                foodEffectDetector,
+                foodConsumptionProcessor,
+                metabolismConfig.foodConsumption,
+                logger
+            )
+            registerSystem(foodTickSystem)
+            logger.atFine().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
         }
         
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
@@ -201,6 +228,11 @@ class MetabolismModule : AbstractModule(
                 // Register HUD after stats are loaded
                 registerHudForPlayer(player, playerRef, playerId)
                 
+                // Initialize food detection tracker to prevent false detections of existing effects
+                if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
+                    foodEffectDetector.initializePlayer(playerId, session)
+                }
+                
             } catch (e: Exception) {
                 logger.atSevere().withCause(e)
                     .log("Failed to initialize metabolism for player $playerId")
@@ -241,6 +273,11 @@ class MetabolismModule : AbstractModule(
         } finally {
             // Always cleanup cache
             metabolismService.removeFromCache(playerId)
+            
+            // Cleanup food effect detector tracking
+            if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
+                foodEffectDetector.removePlayer(playerId)
+            }
         }
     }
     

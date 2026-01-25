@@ -33,7 +33,7 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands Reloaded provides per-world player progression with metabolism tracking, profession leveling, land claims, and more.
 
-**Current Status:** **Beta (v1.0.0-beta + Performance Optimizations)** - Core infrastructure and metabolism system complete with major performance improvements. Working on buffs, debuffs, and food consumption.
+**Current Status:** **Beta (v1.0.0-beta + Food Consumption)** - Core infrastructure, metabolism system, and food consumption complete with major performance improvements. Working on buffs and debuffs.
 
 **Key Highlights:**
 - **High Performance** - Optimized for 100+ concurrent players with zero allocation hot paths
@@ -129,19 +129,22 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 
 <br/>
 
-## 🚧 In Progress (Phases 7-8)
+### Food Consumption System (Phase 8) - ✅ COMPLETE
+- **Effect-Based Detection** - Monitors entity effects at 30 TPS (every 2 ticks = 66.66ms)
+- **Automatic Stat Restoration** - Eating food restores hunger, thirst, and energy
+- **Tier-Based System** - T1/T2/T3 food provides different restoration amounts
+- **Food Type Classification** - Meat, fruits, bread, potions recognized automatically
+- **Smart Multipliers** - Meat = high hunger, water = high thirst, stamina food = energy
+- **Performance Optimized** - Batched processing (10 players/tick), catches 100ms instant effects
+- **Configurable** - Detection interval and batch size adjustable via config
+
+## 🚧 In Progress (Phase 7)
 
 ### Phase 7: Buffs & Debuffs (Next)
 - **High-Stat Buffs** - Speed, defense bonuses when stats are high (90%+)
 - **Low-Stat Debuffs** - Penalties when stats are low (starvation, dehydration, exhaustion)
 - **Hysteresis** - Anti-flicker system prevents rapid on/off toggling
 - **ECS Integration** - Apply buffs/debuffs as entity components
-
-### Phase 8: Food Consumption
-- **Native Integration** - Detect vanilla Hytale food items
-- **Stat Restoration** - Eating restores hunger/thirst/energy appropriately
-- **Effect Detection** - Monitor entity effects to detect consumption
-- **Custom Food Values** - Configurable restoration amounts per food type
 
 ### Phase 9: Polish & Optimization
 - **Performance Tuning** - Optimize tick systems and database queries
@@ -569,7 +572,7 @@ See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing p
 | Phase 5 | Metabolism Core | ✅ Complete |
 | Phase 6 | MultiHUD System | ✅ Complete |
 | Phase 7 | Buffs & Debuffs | 🚧 Next (1-2 days) |
-| Phase 8 | Food Consumption | 📋 Planned (2-3 days) |
+| Phase 8 | Food Consumption | ✅ Complete |
 | Phase 9 | Polish & Optimization | 📋 Planned (1-2 days) |
 
 ## Post-MVP (Future Versions)
@@ -583,7 +586,7 @@ See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing p
 | **Poison** | Consumable poison effects | 📋 Planned |
 | **Native Effects** | Hytale debuff integration | 📋 Planned |
 
-**Progress:** Phases 0-6 complete (~90% MVP). Estimated 4-7 days to complete MVP (buffs, debuffs, food consumption, polish).
+**Progress:** Phases 0-6 + 8 complete (~95% MVP). Estimated 2-3 days to complete MVP (buffs, debuffs, polish).
 
 <br/>
 

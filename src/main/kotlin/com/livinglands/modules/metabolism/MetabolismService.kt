@@ -254,6 +254,23 @@ class MetabolismService(
     }
     
     /**
+     * Restore multiple stats at once (used by food consumption system).
+     * 
+     * @param playerId Player's UUID
+     * @param hunger Amount to restore to hunger (0-100)
+     * @param thirst Amount to restore to thirst (0-100)
+     * @param energy Amount to restore to energy (0-100)
+     */
+    fun restoreStats(playerId: UUID, hunger: Double = 0.0, thirst: Double = 0.0, energy: Double = 0.0) {
+        val playerIdStr = playerId.toCachedString()
+        val state = playerStates[playerIdStr] ?: return
+        
+        if (hunger > 0.0) state.addHunger(hunger.toFloat())
+        if (thirst > 0.0) state.addThirst(thirst.toFloat())
+        if (energy > 0.0) state.addEnergy(energy.toFloat())
+    }
+    
+    /**
      * Set hunger directly (for admin commands).
      * Uses mutable state - no allocations.
      */
