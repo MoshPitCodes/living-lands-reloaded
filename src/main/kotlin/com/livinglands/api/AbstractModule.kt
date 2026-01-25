@@ -6,6 +6,8 @@ import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.AbstractCommand
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
+import com.livinglands.core.PlayerSession
+import java.util.UUID
 
 /**
  * Base implementation for modules with common functionality.
@@ -213,5 +215,30 @@ abstract class AbstractModule(
         if (isDebug()) {
             logger.atFine().log("[$id] $message")
         }
+    }
+    
+    // ============ Player Lifecycle Hooks ============
+    
+    /**
+     * Called when a player joins the server.
+     * Override to handle player join. Default implementation does nothing.
+     * 
+     * @param playerId The player's UUID
+     * @param session The registered player session with entityRef and worldId
+     */
+    override suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {
+        // Default: no-op - subclasses can override
+    }
+    
+    /**
+     * Called when a player disconnects from the server.
+     * Override to save player data. Default implementation does nothing.
+     * The session will be unregistered AFTER all modules return.
+     * 
+     * @param playerId The player's UUID
+     * @param session The player session (still valid during this call)
+     */
+    override suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {
+        // Default: no-op - subclasses can override
     }
 }

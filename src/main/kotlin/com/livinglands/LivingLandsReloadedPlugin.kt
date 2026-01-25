@@ -262,7 +262,8 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
             playerId = playerId,
             entityRef = entityRef,
             store = entityRef.store,
-            worldId = worldId
+            worldId = worldId,
+            world = world
         )
         
         try {
@@ -281,43 +282,53 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         val playerName = playerRef?.username ?: "Unknown"
         worldContext.onPlayerJoin(playerId.toString(), playerName)
         logger.atInfo().log("Player joined: $playerName ($playerId) in world ${world.name}")
+        
+        // Notify all modules of player join (after session is registered)
+        runBlocking {
+            CoreModule.notifyPlayerJoin(playerId, session)
+        }
+        logger.atInfo().log("All modules notified of player join: $playerId")
     }
     
     /**
-     * Handle player disconnect event - persist leave and cleanup.
+     * Handle player disconnect event - notify modules and cleanup.
      * 
-     * IMPORTANT: We do NOT unregister the session immediately here!
-     * Modules (like MetabolismModule) need to access the session to get worldId
-     * for saving data. Since event handler ordering is not guaranteed, we must
-     * keep the session available during the disconnect event processing.
-     * 
-     * Session cleanup happens:
-     * 1. During module shutdown (saveAllPlayers uses sessions)
-     * 2. During plugin shutdown (CoreModule.shutdown clears sessions)
-     * 
-     * The session will be naturally cleaned up, and keeping it around briefly
-     * doesn't cause issues since it's keyed by UUID and will be replaced on rejoin.
+     * Session lifecycle:
+     * 1. Get session (must exist)
+     * 2. Notify all modules via CoreModule.notifyPlayerDisconnect() - modules save data
+     * 3. Persist player leave to database
+     * 4. Unregister session AFTER all modules have completed
      */
     private fun onPlayerDisconnect(event: PlayerDisconnectEvent) {
         val playerRef = event.getPlayerRef()
         @Suppress("DEPRECATION")
         val playerId = playerRef.getUuid()
         
-        // Get session WITHOUT removing it - modules still need access
+        // Get session - must exist for proper cleanup
         val session = CoreModule.players.getSession(playerId)
-        if (session != null) {
-            // Persist player leave to database
-            val worldContext = CoreModule.worlds.getContext(session.worldId)
-            if (worldContext != null) {
-                worldContext.onPlayerLeave(playerId.toString())
-            }
-            
-            logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId} (session kept for module cleanup)")
-        } else {
+        if (session == null) {
             logger.atWarning().log("No session found for disconnecting player $playerId")
+            return
         }
         
-        // NOTE: Session unregister is now handled by MetabolismModule after saving
-        // or during module shutdown via saveAllPlayers()
+        logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId}")
+        
+        // Notify all modules FIRST (they save their data)
+        // This is blocking - all modules must complete before we continue
+        runBlocking {
+            CoreModule.notifyPlayerDisconnect(playerId, session)
+        }
+        logger.atInfo().log("All modules notified of player disconnect: $playerId")
+        
+        // Persist player leave to database
+        val worldContext = CoreModule.worlds.getContext(session.worldId)
+        if (worldContext != null) {
+            worldContext.onPlayerLeave(playerId.toString())
+            logger.atInfo().log("Persisted player leave to database: $playerId")
+        }
+        
+        // Unregister session AFTER all modules have saved
+        CoreModule.players.unregister(playerId)
+        logger.atInfo().log("Unregistered player session: $playerId")
     }
 }
