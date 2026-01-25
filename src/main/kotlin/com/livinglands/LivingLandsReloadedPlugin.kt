@@ -149,11 +149,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // World lifecycle events
         events.register(AddWorldEvent::class.java) { event ->
             logger.atInfo().log("=== ADD WORLD EVENT FIRED ===")
-            logger.atInfo().log("World: ${event?.world?.worldConfig?.uuid}")
+            logger.atInfo().log("World: ${event.world.worldConfig.uuid}")
             try {
-                if (event != null && event.world != null) {
-                    CoreModule.worlds.onWorldAdded(event)
-                }
+                CoreModule.worlds.onWorldAdded(event)
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Error in AddWorldEvent")
             }
@@ -162,11 +160,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         
         events.register(RemoveWorldEvent::class.java) { event ->
             logger.atInfo().log("=== REMOVE WORLD EVENT FIRED ===")
-            logger.atInfo().log("World: ${event?.world?.worldConfig?.uuid}")
+            logger.atInfo().log("World: ${event.world.worldConfig.uuid}")
             try {
-                if (event != null && event.world != null) {
-                    CoreModule.worlds.onWorldRemoved(event)
-                }
+                CoreModule.worlds.onWorldRemoved(event)
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Error in RemoveWorldEvent")
             }
