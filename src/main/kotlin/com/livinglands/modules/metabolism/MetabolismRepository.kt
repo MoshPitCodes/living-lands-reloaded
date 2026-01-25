@@ -75,12 +75,13 @@ class MetabolismRepository(
             val existing = findByIdInternal(conn, playerId)
             
             if (existing != null) {
+                logger.atInfo().log("Loaded existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
                 existing
             } else {
                 // Create default stats
                 val stats = MetabolismStats.createDefault(playerId)
                 insertInternal(conn, stats)
-                logger.atFine().log("Created default metabolism stats for player: $playerId")
+                logger.atInfo().log("Created default metabolism stats for player: $playerId (H=100, T=100, E=100)")
                 stats
             }
         }

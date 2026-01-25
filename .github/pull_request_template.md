@@ -1,116 +1,159 @@
-## Description
+## Summary
 
-<!-- Provide a clear and concise description of your changes -->
+<!-- Provide a clear overview of what this PR accomplishes -->
+
+### [Feature/Fix/Performance/Refactor] Category 1
+
+**Key Changes:**
+- Change 1
+- Change 2
+
+**Impact/Benefits:**
+<!-- For performance improvements, include metrics table -->
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+|        |        |       |             |
+
+### [Optional] Additional Categories
+
+**Features/Changes:**
+- Item 1
+- Item 2
 
 ## Type of Change
 
-<!-- Mark the relevant option with an 'x' -->
+<!-- Mark relevant options with 'x' -->
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Configuration change
-- [ ] Refactoring (no functional changes)
-- [ ] Performance improvement
-- [ ] CI/CD workflow update
+- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
+- [ ] ✨ New feature (non-breaking change which adds functionality)
+- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] 📚 Documentation update
+- [ ] ⚙️ Configuration change
+- [ ] ♻️ Refactoring (no functional changes)
+- [ ] ⚡ Performance improvement
+- [ ] 🧪 Test updates
 
-## Changes Made
+## Files Changed
 
-<!-- List the specific changes in this PR -->
+**New Files:**
+- `path/to/file.kt` - Description of what this file does
 
--
--
--
+**Modified Files:**
+- `path/to/file.kt` - What was changed and why
 
-## Related Issues
-
-<!-- Link to related issues using keywords like "Fixes #123" or "Relates to #456" -->
-
-Fixes #
-Relates to #
+**Deleted Files:**
+- `path/to/file.kt` - Reason for deletion
 
 ## Testing
 
 <!-- Describe the testing you've performed -->
 
-### Test Environment
+### Build & Compilation
 
-- [ ] Tested on Windows 11
-- [ ] Tested on WSL2 Ubuntu
-- [ ] PowerShell version:
-- [ ] Ansible version:
+- [ ] ✅ Build successful: `./gradlew build`
+- [ ] ✅ No new warnings
+- [ ] ✅ ShadowJar generated successfully
 
-### Test Steps
+### Manual Testing
 
-1.
-2.
-3.
+- [ ] ✅ Deployed JAR to test server
+- [ ] ✅ Server starts without errors
+- [ ] ✅ Plugin loads correctly
+- [ ] ✅ Config files generate/migrate properly
 
-### Test Results
+### Specific Feature Testing
 
-<!-- Describe the results of your testing -->
+<!-- List specific tests performed for this PR's features -->
 
-## Checklist
+1. Test case 1
+2. Test case 2
+3. Test case 3
 
-<!-- Mark completed items with an 'x' -->
+### Performance Testing (if applicable)
+
+- [ ] Tested with X concurrent players
+- [ ] No performance regressions
+- [ ] Performance improvements verified with metrics
+
+## Documentation
+
+<!-- Mark completed items with 'x' -->
+
+- [ ] README.md updated (if user-facing changes)
+- [ ] CHANGELOG.md updated with version entry
+- [ ] TECHNICAL_DESIGN.md updated (if architecture changes)
+- [ ] IMPLEMENTATION_PLAN.md phase marked complete
+- [ ] KDoc comments added for public APIs
+- [ ] Migration guide provided (if breaking changes)
+
+## Code Quality Checklist
 
 ### General
 
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] My changes generate no new warnings
-- [ ] I have updated the documentation accordingly
+- [ ] Code follows Kotlin coding conventions
+- [ ] Self-review completed
+- [ ] Proper error handling with try/catch
+- [ ] No hardcoded values (use config)
+- [ ] Thread-safe operations (synchronized, ConcurrentHashMap)
 
-### PowerShell Scripts
+### Hytale API Integration
 
-- [ ] Scripts pass PSScriptAnalyzer checks
-- [ ] Scripts have proper error handling
-- [ ] Scripts include help comments and examples
-- [ ] Scripts tested on Windows 11 with PowerShell 7.5+
+- [ ] ECS access wrapped in `world.execute { }`
+- [ ] Event handlers have error handling
+- [ ] Commands extend `CommandBase`
+- [ ] API verified against `docs/HYTALE_API_REFERENCE.md`
 
-### Ansible Configuration
+### Performance
 
-- [ ] Playbooks pass `ansible-lint` checks
-- [ ] Playbooks pass syntax check (`ansible-playbook --syntax-check`)
-- [ ] YAML files pass `yamllint` validation
-- [ ] Roles have proper task organization and tags
-- [ ] Variables are properly documented in `vars/user_environment.yml.template`
-- [ ] Tested with `ansible-playbook --check` (dry run)
-- [ ] Tested with full playbook execution
+- [ ] No unnecessary allocations in hot paths
+- [ ] Database operations are async (Dispatchers.IO)
+- [ ] Proper resource cleanup (connections, caches)
+- [ ] Logging uses appropriate levels (FINE/INFO/SEVERE)
 
-### Documentation
+### Architecture
 
-- [ ] README.md updated if needed
-- [ ] QUICK_START.md updated if needed
-- [ ] Inline documentation added for new features
-- [ ] Markdown files pass markdownlint validation
-- [ ] All links in documentation are valid
-- [ ] Version numbers match `ansible/vars/user_environment.yml.template`
+- [ ] Per-world data isolation maintained
+- [ ] Service registry used for cross-module communication
+- [ ] Config stored in YAML, not database
+- [ ] Module lifecycle properly implemented
 
-### GitHub Workflows
+## Related Issues
 
-- [ ] Workflow syntax is valid
-- [ ] Workflow tested (if applicable)
-- [ ] Workflow permissions are minimal and appropriate
+<!-- Link to related issues -->
+
+Closes #
+Relates to #
+Phase: <!-- e.g., Phase 7: Buffs & Debuffs -->
 
 ## Breaking Changes
 
-<!-- If this PR includes breaking changes, describe them here -->
-
 - [ ] No breaking changes
 
-<!-- If there are breaking changes, list them: -->
+<!-- If there are breaking changes, describe them: -->
+
+**Migration Path:**
+<!-- Describe how users should migrate from old version -->
+
+1. Step 1
+2. Step 2
 
 ## Additional Notes
 
-<!-- Add any additional notes, concerns, or context about the PR -->
+<!-- Add any additional context, concerns, or implementation notes -->
 
-## Screenshots (if applicable)
+### Known Issues/Limitations
 
-<!-- Add screenshots to help explain your changes -->
+<!-- List any known issues or limitations -->
+
+### Future Work
+
+<!-- List any follow-up work or improvements planned -->
 
 ## Reviewer Notes
 
 <!-- Any specific areas you'd like reviewers to focus on? -->
+
+---
+
+**Version:** 1.0.0-beta  
+**Branch:** <!-- feature/fix/perf/refactor name -->

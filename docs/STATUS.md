@@ -224,7 +224,7 @@ cd libs && java -jar HytaleServer.jar
 ./scripts/watch_logs.sh
 
 # Or manually:
-tail -f libs/*.log | grep -E "(LivingLands|===|>>>)"
+tail -f libs/*.log | grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"|===|>>>)"
 ```
 
 **Files:**

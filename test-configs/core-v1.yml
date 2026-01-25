@@ -1,0 +1,6 @@
+# Test config: CoreConfig v1
+# Expected behavior: Should load without migration (no migrations defined yet)
+configVersion: 1
+debug: false
+enabledModules:
+- metabolism

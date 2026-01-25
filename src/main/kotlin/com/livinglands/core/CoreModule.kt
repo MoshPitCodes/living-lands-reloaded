@@ -1,7 +1,7 @@
 package com.livinglands.core
 
 import com.hypixel.hytale.logger.HytaleLogger
-import com.livinglands.LivingLandsPlugin
+import com.livinglands.LivingLandsReloadedPlugin
 import com.livinglands.api.Module
 import com.livinglands.api.ModuleContext
 import com.livinglands.api.ModuleState
@@ -46,7 +46,7 @@ object CoreModule {
         private set
     
     // Plugin reference
-    lateinit var plugin: LivingLandsPlugin
+    lateinit var plugin: LivingLandsReloadedPlugin
         private set
     
     // Data directory for persistence
@@ -72,7 +72,7 @@ object CoreModule {
      * Initialize the core module with plugin reference.
      * Called during plugin setup phase.
      */
-    fun initialize(plugin: LivingLandsPlugin) {
+    fun initialize(plugin: LivingLandsReloadedPlugin) {
         if (initialized) {
             plugin.logger.atWarning().log("CoreModule already initialized, skipping")
             return
@@ -98,15 +98,23 @@ object CoreModule {
         // Initialize configuration manager first
         config = ConfigManager(configDir.toPath(), logger)
         
-        // Load core configuration
-        coreConfig = config.load("core", CoreConfig())
+        // Load core configuration with migration support
+        // CoreConfig is at v1, no migrations yet, but using loadWithMigration for consistency
+        coreConfig = config.loadWithMigration(
+            CoreConfig.MODULE_ID,
+            CoreConfig(),
+            CoreConfig.CURRENT_VERSION
+        )
         
         // Register callback to update cached coreConfig on reload
-        config.onReload("core") {
-            config.get<CoreConfig>("core")?.let { reloaded ->
-                coreConfig = reloaded
-                logger.atFine().log("Core config reloaded: debug=${coreConfig.debug}")
-            }
+        config.onReload(CoreConfig.MODULE_ID) {
+            // Reload with migration support in case file was manually edited to older version
+            coreConfig = config.loadWithMigration(
+                CoreConfig.MODULE_ID,
+                CoreConfig(),
+                CoreConfig.CURRENT_VERSION
+            )
+            logger.atFine().log("Core config reloaded: debug=${coreConfig.debug}, version=${coreConfig.configVersion}")
             
             // Notify all modules of config reload
             notifyModulesConfigReload()

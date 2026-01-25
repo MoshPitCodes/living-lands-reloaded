@@ -1,4 +1,5 @@
 {
+  "Group": "MPC",
   "Name": "LivingLandsReloaded",
   "Version": "${version}",
   "Description": "Survival mechanics mod with hunger, thirst, and energy systems",
@@ -12,6 +13,6 @@
   "Dependencies": {},
   "OptionalDependencies": {},
   "DisabledByDefault": false,
-  "Main": "com.livinglands.LivingLandsPlugin",
+  "Main": "com.livinglands.LivingLandsReloadedPlugin",
   "IncludesAssetPack": true
 }

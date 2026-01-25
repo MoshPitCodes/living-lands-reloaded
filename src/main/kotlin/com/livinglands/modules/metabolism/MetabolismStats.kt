@@ -2,7 +2,14 @@ package com.livinglands.modules.metabolism
 
 /**
  * Represents the metabolism stats for a single player.
- * Stored in the database and cached in memory.
+ * 
+ * This is an IMMUTABLE data class used for:
+ * - Database persistence (loading/saving)
+ * - Snapshots for external callers
+ * - Initial state transfer
+ * 
+ * For hot-path tick updates, use PlayerMetabolismState which provides
+ * mutable fields to avoid allocations on every tick.
  * 
  * All stat values range from 0.0 to 100.0.
  */
@@ -25,57 +32,82 @@ data class MetabolismStats(
     
     /**
      * Create a copy with updated hunger value (clamped to 0-100).
+     * 
+     * Note: For high-frequency updates, prefer PlayerMetabolismState.setHunger()
+     * which mutates in-place without allocations.
+     * 
+     * @param value New hunger value
+     * @param timestamp Optional timestamp (defaults to current time, but passing it avoids extra System call)
      */
-    fun withHunger(value: Float): MetabolismStats {
+    fun withHunger(value: Float, timestamp: Long = System.currentTimeMillis()): MetabolismStats {
         return copy(
             hunger = value.coerceIn(0f, 100f),
-            lastUpdated = System.currentTimeMillis()
+            lastUpdated = timestamp
         )
     }
     
     /**
      * Create a copy with updated thirst value (clamped to 0-100).
+     * 
+     * @param value New thirst value
+     * @param timestamp Optional timestamp (defaults to current time)
      */
-    fun withThirst(value: Float): MetabolismStats {
+    fun withThirst(value: Float, timestamp: Long = System.currentTimeMillis()): MetabolismStats {
         return copy(
             thirst = value.coerceIn(0f, 100f),
-            lastUpdated = System.currentTimeMillis()
+            lastUpdated = timestamp
         )
     }
     
     /**
      * Create a copy with updated energy value (clamped to 0-100).
+     * 
+     * @param value New energy value
+     * @param timestamp Optional timestamp (defaults to current time)
      */
-    fun withEnergy(value: Float): MetabolismStats {
+    fun withEnergy(value: Float, timestamp: Long = System.currentTimeMillis()): MetabolismStats {
         return copy(
             energy = value.coerceIn(0f, 100f),
-            lastUpdated = System.currentTimeMillis()
+            lastUpdated = timestamp
         )
     }
     
     /**
      * Create a copy with all stats updated.
+     * 
+     * @param hunger New hunger value
+     * @param thirst New thirst value
+     * @param energy New energy value
+     * @param timestamp Optional timestamp (defaults to current time)
      */
-    fun withStats(hunger: Float, thirst: Float, energy: Float): MetabolismStats {
+    fun withStats(
+        hunger: Float,
+        thirst: Float,
+        energy: Float,
+        timestamp: Long = System.currentTimeMillis()
+    ): MetabolismStats {
         return copy(
             hunger = hunger.coerceIn(0f, 100f),
             thirst = thirst.coerceIn(0f, 100f),
             energy = energy.coerceIn(0f, 100f),
-            lastUpdated = System.currentTimeMillis()
+            lastUpdated = timestamp
         )
     }
     
     /**
      * Create default stats for a new player.
+     * 
+     * @param playerId Player UUID as string
+     * @param timestamp Optional timestamp (defaults to current time)
      */
     companion object {
-        fun createDefault(playerId: String): MetabolismStats {
+        fun createDefault(playerId: String, timestamp: Long = System.currentTimeMillis()): MetabolismStats {
             return MetabolismStats(
                 playerId = playerId,
                 hunger = 100f,
                 thirst = 100f,
                 energy = 100f,
-                lastUpdated = System.currentTimeMillis()
+                lastUpdated = timestamp
             )
         }
     }

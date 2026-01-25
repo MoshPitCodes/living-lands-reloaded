@@ -231,7 +231,7 @@ cd /home/moshpitcodes/Development/living-lands-reloaded
 tail -100 "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log
 
 # Filter for Living Lands
-grep "LivingLands" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | tail -50
+grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | tail -50
 ```
 
 ---
@@ -256,7 +256,7 @@ After testing, please share:
 ### 1. Server Startup Logs
 
 ```bash
-grep "LivingLands" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | head -30
+grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | head -30
 ```
 
 Look for:
@@ -283,7 +283,7 @@ Look for:
 ### 4. Any Errors
 
 ```bash
-grep -i "error\|exception\|failed" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | grep "LivingLands"
+grep --line-buffered -E "(LivingLandsReloaded|===|>>>)""
 ```
 
 ---

@@ -1,0 +1,31 @@
+# Test config: MetabolismConfig without version field (assumes v1)
+# Expected behavior: Should be treated as v1, migrate to v2
+enabled: true
+hunger:
+  enabled: true
+  baseDepletionRateSeconds: 480.0
+  activityMultipliers:
+    idle: 1.0
+    walking: 1.3
+    sprinting: 2.0
+    swimming: 1.8
+    combat: 2.5
+thirst:
+  enabled: true
+  baseDepletionRateSeconds: 360.0
+  activityMultipliers:
+    idle: 1.0
+    walking: 1.2
+    sprinting: 1.8
+    swimming: 1.3
+    combat: 2.2
+energy:
+  enabled: true
+  baseDepletionRateSeconds: 600.0
+  activityMultipliers:
+    idle: 0.3
+    walking: 1.0
+    sprinting: 2.0
+    swimming: 1.6
+    combat: 2.2
+saveIntervalSeconds: 60

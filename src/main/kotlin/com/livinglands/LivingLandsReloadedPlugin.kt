@@ -14,21 +14,21 @@ import com.livinglands.modules.metabolism.MetabolismModule
 import kotlinx.coroutines.runBlocking
 
 /**
- * Living Lands - Survival mechanics mod for Hytale.
+ * Living Lands Reloaded - Survival mechanics mod for Hytale.
  * 
  * Implements hunger, thirst, and energy systems with per-world player progression.
  */
-class LivingLandsPlugin(init: JavaPluginInit) : JavaPlugin(init) {
+class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
     
     companion object {
-        const val PLUGIN_ID = "livinglands"
-        const val PLUGIN_NAME = "Living Lands"
+        const val PLUGIN_ID = "livinglandsreloaded"
+        const val PLUGIN_NAME = "Living Lands Reloaded"
         const val VERSION = "1.0.0-beta"
         
         @Volatile
-        private var instance: LivingLandsPlugin? = null
+        private var instance: LivingLandsReloadedPlugin? = null
         
-        fun getInstance(): LivingLandsPlugin? = instance
+        fun getInstance(): LivingLandsReloadedPlugin? = instance
     }
     
     override fun setup() {

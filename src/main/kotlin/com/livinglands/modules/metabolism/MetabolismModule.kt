@@ -7,7 +7,10 @@ import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.commands.StatsCommand
+import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
+import com.livinglands.util.UuidStringCache
+import com.livinglands.util.toCachedString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,9 +59,20 @@ class MetabolismModule : AbstractModule(
     override suspend fun onSetup() {
         logger.atInfo().log("Metabolism module setting up...")
         
-        // Load configuration
-        metabolismConfig = CoreModule.config.load("metabolism", MetabolismConfig())
-        logger.atFine().log("Loaded metabolism config: enabled=${metabolismConfig.enabled}")
+        // Register migrations first
+        CoreModule.config.registerMigrations(
+            MetabolismConfig.MODULE_ID,
+            MetabolismConfig.getMigrations()
+        )
+        logger.atFine().log("Registered ${MetabolismConfig.getMigrations().size} metabolism config migrations")
+        
+        // Load configuration with migration support
+        metabolismConfig = CoreModule.config.loadWithMigration(
+            MetabolismConfig.MODULE_ID,
+            MetabolismConfig(),
+            MetabolismConfig.CURRENT_VERSION
+        )
+        logger.atFine().log("Loaded metabolism config: enabled=${metabolismConfig.enabled}, version=${metabolismConfig.configVersion}")
         
         // Create service
         metabolismService = MetabolismService(metabolismConfig, logger)
@@ -126,12 +140,15 @@ class MetabolismModule : AbstractModule(
      * Handle config reload - update service with new config.
      */
     private fun onConfigReloaded() {
-        val newConfig = CoreModule.config.get<MetabolismConfig>("metabolism")
-        if (newConfig != null) {
-            metabolismConfig = newConfig
-            metabolismService.updateConfig(newConfig)
-            logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}")
-        }
+        // Reload with migration support in case the file was manually edited
+        val newConfig = CoreModule.config.loadWithMigration(
+            MetabolismConfig.MODULE_ID,
+            MetabolismConfig(),
+            MetabolismConfig.CURRENT_VERSION
+        )
+        metabolismConfig = newConfig
+        metabolismService.updateConfig(newConfig)
+        logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
     }
     
     /**
@@ -269,8 +286,8 @@ class MetabolismModule : AbstractModule(
                 // Create the HUD element
                 val hudElement = MetabolismHudElement(playerRef)
                 
-                // Register with the service for updates
-                metabolismService.registerHudElement(playerId.toString(), hudElement)
+                // Register with the service for updates (use cached string)
+                metabolismService.registerHudElement(playerId.toCachedString(), hudElement)
                 
                 // Set HUD directly on player's HudManager
                 logger.atInfo().log("Setting HUD on world thread...")
@@ -334,8 +351,8 @@ class MetabolismModule : AbstractModule(
      */
     private fun cleanupHudForPlayer(playerId: UUID, playerRef: PlayerRef) {
         try {
-            // Remove from service tracking
-            metabolismService.unregisterHudElement(playerId.toString())
+            // Remove from service tracking (use cached string, will be cleaned up in removeFromCache)
+            metabolismService.unregisterHudElement(playerId.toCachedString())
             
             // Remove from MultiHudManager - need the Player entity
             val refs = playerRefs.remove(playerId)
