@@ -90,15 +90,6 @@ class SpeedManager(private val logger: HytaleLogger) {
     }
     
     /**
-     * Clear all speed multipliers for a player.
-     * 
-     * @param playerId Player UUID
-     */
-    fun clearMultipliers(playerId: UUID) {
-        multipliers.remove(playerId)
-    }
-    
-    /**
      * Calculate combined speed multiplier for a player.
      * 
      * **Algorithm:**

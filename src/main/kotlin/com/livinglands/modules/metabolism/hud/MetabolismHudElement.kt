@@ -169,24 +169,6 @@ class MetabolismHudElement(
     }
     
     /**
-     * Get the current stat values.
-     * 
-     * @return Current StatValues
-     */
-    fun getStats(): StatValues {
-        return currentStats.get()
-    }
-    
-    /**
-     * Format a stat value for display.
-     * Shows one decimal place.
-     */
-    private fun formatStatValue(value: Float): String {
-        return String.format("%.1f", value)
-    }
-    
-
-    /**
      * Update the buffs display labels.
      * Controls container visibility - hidden when empty.
      */

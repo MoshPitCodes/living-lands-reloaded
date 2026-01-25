@@ -36,24 +36,21 @@ class HudToggleCommand(
             return
         }
         
-        // Get player entity reference
+        // Get player entity reference (just to identify the player)
         val entityRef = ctx.senderAsPlayerRef() ?: run {
             MessageFormatter.commandError(ctx, "Unable to get player reference")
             return
         }
         
-        // Get the PlayerRef component from the entity to access UUID
-        val store = entityRef.store
-        val playerRefComponent = store.getComponent(entityRef, PlayerRef.getComponentType())
-        
-        if (playerRefComponent == null) {
-            MessageFormatter.commandError(ctx, "Unable to get player component")
+        // Find player session by entity ref (no ECS access, just registry lookup)
+        val session = CoreModule.players.getAllSessions().find { it.entityRef == entityRef }
+        if (session == null) {
+            MessageFormatter.commandError(ctx, "Player session not found")
             return
         }
         
-        // Get player UUID from PlayerRef component
-        @Suppress("DEPRECATION")
-        val playerId = playerRefComponent.uuid
+        // Get player UUID from session
+        val playerId = session.playerId
         
         // Get HUD element from MultiHudManager
         val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(

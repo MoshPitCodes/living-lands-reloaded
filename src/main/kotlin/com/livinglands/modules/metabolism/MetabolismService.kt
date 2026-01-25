@@ -114,30 +114,64 @@ class MetabolismService(
     }
     
     /**
-     * Initialize stats for a player from the database.
+     * Reset a player's metabolism stats to default values.
+     * Called on respawn to restore full hunger/thirst/energy.
+     * 
+     * **ARCHITECTURE CHANGE:** Now uses global repository.
+     * 
+     * @param playerId Player's UUID
+     * @param repository The global metabolism repository
+     */
+    suspend fun resetStats(playerId: UUID, repository: MetabolismRepository) {
+        val playerIdStr = playerId.toCachedString()
+        
+        logger.atInfo().log("Resetting metabolism stats for player $playerId (respawn)")
+        
+        // Get current state (if exists)
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            // Player not in cache - initialize instead
+            logger.atWarning().log("Player $playerId not in cache during reset - initializing instead")
+            initializePlayer(playerId, repository)
+            return
+        }
+        
+        // Reset to default values (100/100/100)
+        val currentTime = System.currentTimeMillis()
+        state.updateStats(100f, 100f, 100f, currentTime)
+        state.lastDepletionTime = currentTime
+        
+        logger.atInfo().log("Reset metabolism for player $playerId to defaults (H=100, T=100, E=100)")
+        
+        // Save immediately to global database to persist reset
+        try {
+            val stats = state.toImmutableStats()
+            repository.updateStats(stats)
+            logger.atFine().log("Persisted reset metabolism stats for $playerId")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Failed to persist reset stats for $playerId")
+        }
+    }
+    
+    /**
+     * Initialize stats for a player from the global database.
      * Called when a player joins/becomes ready.
+     * 
+     * **ARCHITECTURE CHANGE:** Now uses global database instead of per-world.
+     * Stats follow the player across all worlds on the server.
      * 
      * Uses cached UUID string to avoid repeated allocations.
      * 
      * @param playerId Player's UUID
-     * @param worldContext The world context for database access
+     * @param repository The global metabolism repository
      */
-    suspend fun initializePlayer(playerId: UUID, worldContext: WorldContext) {
+    suspend fun initializePlayer(playerId: UUID, repository: MetabolismRepository) {
         // Use cached string representation (avoids allocation on subsequent calls)
         val playerIdStr = playerId.toCachedString()
         
         logger.atInfo().log("🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr")
         
-        // Get or create repository from world context
-        val repository = worldContext.getData { 
-            MetabolismRepository(worldContext.persistence, logger).also {
-                // Initialize schema synchronously on first access to prevent race condition
-                // This ensures the schema exists before ensureStats() is called
-                runBlocking { it.initialize() }
-            }
-        }
-        
-        // Load or create stats from database
+        // Load or create stats from global database
         val stats = repository.ensureStats(playerIdStr)
         
         // Create consolidated mutable state from immutable stats
@@ -147,6 +181,44 @@ class MetabolismService(
         playerStates[playerIdStr] = state
         
         logger.atInfo().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+    }
+    
+    /**
+     * Initialize player with default values immediately (non-blocking).
+     * Actual stats will be loaded from database asynchronously later.
+     * 
+     * This allows the HUD to display immediately without blocking the WorldThread.
+     * 
+     * @param playerId Player's UUID
+     */
+    fun initializePlayerWithDefaults(playerId: UUID) {
+        val playerIdStr = playerId.toCachedString()
+        
+        // Create default stats (100/100/100)
+        val defaultStats = MetabolismStats.createDefault(playerIdStr)
+        val state = PlayerMetabolismState.fromStats(defaultStats)
+        
+        // Cache immediately
+        playerStates[playerIdStr] = state
+        
+        logger.atFine().log("Initialized metabolism with defaults for $playerId (H=100, T=100, E=100)")
+    }
+    
+    /**
+     * Update player state with loaded stats from database.
+     * Called asynchronously after initializePlayerWithDefaults().
+     * 
+     * @param playerId Player's UUID
+     * @param stats Loaded stats from database
+     */
+    fun updatePlayerState(playerId: UUID, stats: MetabolismStats) {
+        val playerIdStr = playerId.toCachedString()
+        val state = playerStates[playerIdStr] ?: return
+        
+        // Update the mutable state with loaded values
+        state.updateStats(stats.hunger, stats.thirst, stats.energy, stats.lastUpdated)
+        
+        logger.atFine().log("Updated metabolism state from database for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
     }
     
     /**
@@ -342,15 +414,17 @@ class MetabolismService(
     }
     
     /**
-     * Save a single player's stats to the database.
-     * Called on disconnect or periodically.
+     * Save a player's stats to the global database.
+     * Called on player disconnect or periodic saves.
+     * 
+     * **ARCHITECTURE CHANGE:** Now uses global repository.
      * 
      * Creates an immutable MetabolismStats snapshot for persistence.
      * 
      * @param playerId Player's UUID
-     * @param worldContext World context for database access
+     * @param repository The global metabolism repository
      */
-    suspend fun savePlayer(playerId: UUID, worldContext: WorldContext) {
+    suspend fun savePlayer(playerId: UUID, repository: MetabolismRepository) {
         // Use cached string
         val playerIdStr = playerId.toCachedString()
         
@@ -359,12 +433,6 @@ class MetabolismService(
         val state = playerStates[playerIdStr]
         if (state == null) {
             logger.atWarning().log("No state found in cache for player $playerId - cannot save")
-            return
-        }
-        
-        val repository = worldContext.getDataOrNull<MetabolismRepository>()
-        if (repository == null) {
-            logger.atWarning().log("No MetabolismRepository found for world ${worldContext.worldId} - cannot save player $playerId")
             return
         }
         
@@ -381,37 +449,27 @@ class MetabolismService(
     }
     
     /**
-     * Save all cached players' stats to the database.
+     * Save all cached players' stats to the global database.
      * Called on shutdown or periodically.
+     * 
+     * **ARCHITECTURE CHANGE:** Now uses global repository - all stats saved to one database.
+     * 
+     * @param repository The global metabolism repository
      */
-    suspend fun saveAllPlayers() {
+    suspend fun saveAllPlayers(repository: MetabolismRepository) {
         if (playerStates.isEmpty()) return
         
         // Convert all mutable states to immutable for persistence
         val allStats = playerStates.values.map { it.toImmutableStats() }
         
-        // Save to each world's database
-        for (worldContext in CoreModule.worlds.getAllContexts()) {
-            val repository = worldContext.getDataOrNull<MetabolismRepository>() ?: continue
-            
-            // Filter stats for players in this world (use cached strings)
-            val playersInWorld = CoreModule.players.getSessionsInWorld(worldContext.worldId)
-                .map { it.playerId.toCachedString() }
-                .toSet()
-            
-            val statsToSave = allStats.filter { it.playerId in playersInWorld }
-            
-            if (statsToSave.isNotEmpty()) {
-                try {
-                    repository.saveAll(statsToSave)
-                } catch (e: Exception) {
-                    logger.atWarning().withCause(e)
-                        .log("Failed to save metabolism stats for world ${worldContext.worldId}")
-                }
-            }
+        try {
+            // Save all stats to global database in one transaction
+            repository.saveAll(allStats)
+            logger.atInfo().log("Saved metabolism for ${allStats.size} players to global database")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e)
+                .log("Failed to save metabolism stats to global database")
         }
-        
-        logger.atFine().log("Saved metabolism for ${allStats.size} players")
     }
     
     /**
