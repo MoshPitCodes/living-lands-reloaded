@@ -298,18 +298,18 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      * 2. Notify all modules via CoreModule.notifyPlayerDisconnect() - modules save data
      * 3. Persist player leave to database
      * 4. Unregister session AFTER all modules have completed
+     * 
+     * Note: PlayerDisconnectEvent may fire multiple times (e.g., during server shutdown).
+     * This handler is idempotent - if session doesn't exist, it silently returns.
      */
     private fun onPlayerDisconnect(event: PlayerDisconnectEvent) {
         val playerRef = event.getPlayerRef()
         @Suppress("DEPRECATION")
         val playerId = playerRef.getUuid()
         
-        // Get session - must exist for proper cleanup
-        val session = CoreModule.players.getSession(playerId)
-        if (session == null) {
-            logger.atWarning().log("No session found for disconnecting player $playerId")
-            return
-        }
+        // Get session - if it doesn't exist, player already disconnected
+        // This is normal for duplicate events (e.g., server shutdown)
+        val session = CoreModule.players.getSession(playerId) ?: return
         
         logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId}")
         
