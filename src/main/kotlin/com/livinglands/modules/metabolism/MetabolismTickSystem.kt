@@ -87,6 +87,14 @@ class MetabolismTickSystem(
             if (state != null) {
                 state.lastDepletionTime = System.currentTimeMillis()
             }
+            
+            // Force HUD update to show current (frozen) values
+            // This ensures the HUD displays the correct values while in creative mode
+            if (metabolismService.updateHudIfNeeded(playerIdStr)) {
+                val hudElement = metabolismService.getHudElement(playerIdStr)
+                hudElement?.show()
+            }
+            
             return
         }
         
