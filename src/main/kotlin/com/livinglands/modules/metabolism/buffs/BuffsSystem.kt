@@ -11,8 +11,8 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.MetabolismStats
 import com.livinglands.modules.metabolism.config.BuffsConfig
-import com.livinglands.util.MessageFormatter
-import com.livinglands.util.SpeedManager
+import com.livinglands.core.MessageFormatter
+import com.livinglands.core.SpeedManager
 import java.util.UUID
 import java.util.logging.Logger
 

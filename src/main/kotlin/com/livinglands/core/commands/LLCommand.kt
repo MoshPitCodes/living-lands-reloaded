@@ -1,9 +1,10 @@
 package com.livinglands.core.commands
 
 import com.hypixel.hytale.protocol.GameMode
-import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
+import com.livinglands.core.MessageFormatter
+import java.awt.Color
 
 /**
  * Main Living Lands command - /ll
@@ -26,8 +27,12 @@ class LLCommand : CommandBase(
     
     override fun executeSync(ctx: CommandContext) {
         // When /ll is typed without subcommand, show help
-        ctx.sendMessage(Message.raw("=== Living Lands v1.0.0-beta ==="))
-        ctx.sendMessage(Message.raw("/ll reload [module] - Reload configuration"))
-        ctx.sendMessage(Message.raw("/ll stats - Show your metabolism stats (coming soon)"))
+        val gold = Color(255, 170, 0)
+        val aqua = Color(85, 255, 255)
+        val gray = Color(170, 170, 170)
+        
+        MessageFormatter.commandRaw(ctx, "=== Living Lands v1.0.0-beta ===", gold)
+        MessageFormatter.commandRaw(ctx, "/ll reload [module] --confirm true - Reload configuration", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll stats - Show your metabolism stats", aqua)
     }
 }

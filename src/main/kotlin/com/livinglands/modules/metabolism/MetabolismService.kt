@@ -5,8 +5,8 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.WorldContext
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
-import com.livinglands.util.UuidStringCache
-import com.livinglands.util.toCachedString
+import com.livinglands.core.UuidStringCache
+import com.livinglands.core.toCachedString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

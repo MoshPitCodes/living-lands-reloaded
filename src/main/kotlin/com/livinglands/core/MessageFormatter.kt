@@ -1,4 +1,4 @@
-package com.livinglands.util
+package com.livinglands.core
 
 import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.universe.PlayerRef
@@ -173,20 +173,97 @@ object MessageFormatter {
     }
     
     /**
+     * Send a command success message (for CommandContext).
+     * Format: [Living Lands] ✓ <message>
+     * 
+     * @param ctx Command context
+     * @param text Main message text
+     */
+    fun commandSuccess(ctx: com.hypixel.hytale.server.core.command.system.CommandContext, text: String) {
+        val msg = createPrefix()
+            .insert(Message.raw(" ✓ $text").color(GREEN))
+        ctx.sendMessage(msg)
+    }
+    
+    /**
+     * Send a command error message (for CommandContext).
+     * Format: [Living Lands] ✗ <message>
+     * 
+     * @param ctx Command context
+     * @param text Main message text
+     */
+    fun commandError(ctx: com.hypixel.hytale.server.core.command.system.CommandContext, text: String) {
+        val msg = createPrefix()
+            .insert(Message.raw(" ✗ $text").color(RED))
+        ctx.sendMessage(msg)
+    }
+    
+    /**
+     * Send a command info message (for CommandContext).
+     * Format: [Living Lands] <message>
+     * 
+     * @param ctx Command context
+     * @param text Main message text
+     * @param color Optional color (defaults to AQUA)
+     */
+    fun commandInfo(
+        ctx: com.hypixel.hytale.server.core.command.system.CommandContext, 
+        text: String,
+        color: Color = AQUA
+    ) {
+        val msg = createPrefix()
+            .insert(Message.raw(" $text").color(color))
+        ctx.sendMessage(msg)
+    }
+    
+    /**
+     * Send a command warning message (for CommandContext).
+     * Format: [Living Lands] <message>
+     * 
+     * @param ctx Command context
+     * @param text Main message text
+     */
+    fun commandWarning(ctx: com.hypixel.hytale.server.core.command.system.CommandContext, text: String) {
+        val msg = createPrefix()
+            .insert(Message.raw(" $text").color(YELLOW))
+        ctx.sendMessage(msg)
+    }
+    
+    /**
+     * Send a raw command message (no prefix, for special formatting like headers).
+     * 
+     * @param ctx Command context
+     * @param message Raw message text
+     * @param color Optional color
+     */
+    fun commandRaw(
+        ctx: com.hypixel.hytale.server.core.command.system.CommandContext,
+        message: String,
+        color: Color? = null
+    ) {
+        val msg = if (color != null) {
+            Message.raw(message).color(color)
+        } else {
+            Message.raw(message)
+        }
+        ctx.sendMessage(msg)
+    }
+    
+    /**
      * Send a buff activation/deactivation message.
      * 
-     * Format: [Living Lands] Buff: <BuffName> (activated/deactivated)
+     * Format: [Living Lands] Buff: <BuffName> (applied/removed)
      * 
      * @param playerRef Target player
      * @param buffName Name of the buff
-     * @param activated True if buff activated, false if deactivated
+     * @param activated True if buff applied, false if removed
      */
     fun buff(playerRef: PlayerRef, buffName: String, activated: Boolean) {
         val message = createPrefix()
             .insert(Message.raw(" Buff: ").color(GREEN))
             .insert(Message.raw(buffName).color(YELLOW))
             .insert(Message.raw(" (").color(DARK_GRAY))
-            .insert(Message.raw(if (activated) "activated" else "deactivated").color(if (activated) GREEN else RED))
+            .insert(Message.raw(if (activated) "applied" else "removed").color(if (activated) GREEN else RED))
             .insert(Message.raw(")").color(DARK_GRAY))
         
         playerRef.sendMessage(message)
@@ -195,18 +272,18 @@ object MessageFormatter {
     /**
      * Send a debuff activation/deactivation message.
      * 
-     * Format: [Living Lands] Debuff: <DebuffName> (activated/deactivated)
+     * Format: [Living Lands] Debuff: <DebuffName> (applied/removed)
      * 
      * @param playerRef Target player
      * @param debuffName Name of the debuff
-     * @param activated True if debuff activated, false if deactivated
+     * @param activated True if debuff applied, false if removed
      */
     fun debuff(playerRef: PlayerRef, debuffName: String, activated: Boolean) {
         val message = createPrefix()
             .insert(Message.raw(" Debuff: ").color(RED))
             .insert(Message.raw(debuffName).color(YELLOW))
             .insert(Message.raw(" (").color(DARK_GRAY))
-            .insert(Message.raw(if (activated) "activated" else "deactivated").color(if (activated) RED else GREEN))
+            .insert(Message.raw(if (activated) "applied" else "removed").color(if (activated) RED else GREEN))
             .insert(Message.raw(")").color(DARK_GRAY))
         
         playerRef.sendMessage(message)

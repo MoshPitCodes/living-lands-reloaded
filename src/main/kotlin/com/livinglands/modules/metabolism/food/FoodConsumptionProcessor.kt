@@ -4,7 +4,7 @@ import com.hypixel.hytale.server.core.entity.entities.Player
 import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.metabolism.config.FoodConsumptionConfig
-import com.livinglands.util.MessageFormatter
+import com.livinglands.core.MessageFormatter
 import java.util.UUID
 import java.util.logging.Logger
 

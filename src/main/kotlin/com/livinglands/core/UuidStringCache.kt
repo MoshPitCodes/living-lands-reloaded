@@ -1,4 +1,4 @@
-package com.livinglands.util
+package com.livinglands.core
 
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
