@@ -185,6 +185,119 @@ Use `architecture-review` when:
 
 **Important:** The error-detective agent should be used PROACTIVELY when debugging issues as it specializes in log analysis and pattern recognition.
 
+## Pull Request Guidelines
+
+When creating pull requests for Living Lands Reloaded, follow these practices:
+
+### PR Creation Process
+
+1. **Branch Naming**
+   - Feature: `feature/short-description`
+   - Bug fix: `fix/short-description`
+   - Performance: `perf/optimization-name`
+   - Refactor: `refactor/component-name`
+
+2. **Commit Messages**
+   - Follow conventional commits: `type: description`
+   - Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`
+   - Example: `feat: add UUID string caching for performance`
+
+3. **PR Title Format**
+   - Clear, descriptive summary of all changes
+   - Example: "Performance Optimizations, Config Migration System, and Jackson YAML Migration"
+
+4. **PR Description Template**
+   ```markdown
+   ## Summary
+   Brief overview of what this PR accomplishes
+   
+   ### [Feature/Fix/Performance] Category 1
+   **Key Changes:**
+   - Bullet point 1
+   - Bullet point 2
+   
+   **Impact:**
+   | Metric | Before | After | Improvement |
+   |--------|--------|-------|-------------|
+   
+   ### [Feature/Fix] Category 2
+   **Features:**
+   - Feature 1
+   - Feature 2
+   
+   ### Documentation
+   - Updated file 1
+   - Updated file 2
+   
+   ### Files Changed
+   **New Files:**
+   - File path - Description
+   
+   **Modified Files:**
+   - File path - Changes made
+   
+   ### Testing
+   ✅ Build successful
+   ✅ Manual testing performed
+   ✅ Config migration tested
+   
+   ---
+   
+   **Closes:** #issue or Phase reference
+   **Version:** 1.0.0-beta
+   ```
+
+5. **Before Creating PR**
+   - ✅ Code compiles without warnings: `./gradlew build`
+   - ✅ All tests pass (when applicable)
+   - ✅ Documentation updated (README.md, CHANGELOG.md, TECHNICAL_DESIGN.md)
+   - ✅ Self-review completed
+   - ✅ Performance impact assessed (if applicable)
+   - ✅ Migration path tested (for config changes)
+
+6. **Using git-flow-manager Agent**
+   The `git-flow-manager` agent can help create PRs:
+   - Automatically analyzes full commit history
+   - Generates comprehensive PR description
+   - Includes all changes since branch diverged from main
+   - Formats with proper markdown structure
+
+   Example: Simply ask "create a PR" and the agent will handle the rest.
+
+### PR Review Checklist
+
+**Code Quality:**
+- [ ] Follows Kotlin coding conventions
+- [ ] Proper error handling with try/catch
+- [ ] Thread-safe operations (synchronized, ConcurrentHashMap)
+- [ ] ECS access wrapped in `world.execute { }`
+- [ ] Appropriate logging levels (FINE for debug, INFO for events)
+
+**Performance:**
+- [ ] No unnecessary allocations in hot paths
+- [ ] Database operations are async (Dispatchers.IO)
+- [ ] Proper resource cleanup (close connections, clear caches)
+- [ ] Metrics documented (if performance-related)
+
+**Architecture:**
+- [ ] Per-world data isolation maintained
+- [ ] Service registry used for cross-module communication
+- [ ] Config in YAML, not database
+- [ ] Module lifecycle properly implemented
+
+**Testing:**
+- [ ] Manual testing performed on Hytale server
+- [ ] Config hot-reload tested
+- [ ] Per-world isolation verified
+- [ ] Migration paths tested (if config changes)
+
+**Documentation:**
+- [ ] KDoc comments for public APIs
+- [ ] README.md updated (if user-facing changes)
+- [ ] CHANGELOG.md updated with version entry
+- [ ] TECHNICAL_DESIGN.md updated (if architecture changes)
+- [ ] IMPLEMENTATION_PLAN.md phase marked complete
+
 ## Current Phase
 
 See `docs/IMPLEMENTATION_PLAN.md` for detailed task breakdown.
