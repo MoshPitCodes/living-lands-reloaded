@@ -14,4 +14,4 @@ echo "=== Filtering for Living Lands messages ==="
 echo ""
 
 # Tail the log and filter for our debug markers
-tail -f "$LOGFILE" | grep --line-buffered -E "(LivingLands|===|>>>)"
+tail -f "$LOGFILE" | grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"|===|>>>)"

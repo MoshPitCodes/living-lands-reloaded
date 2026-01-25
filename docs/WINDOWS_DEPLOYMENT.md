@@ -156,7 +156,7 @@ cd /home/moshpitcodes/Development/living-lands-reloaded
 cat "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | tail -100
 
 # Filter for Living Lands only
-grep "LivingLands" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | tail -50
+grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"" "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/"*.log | tail -50
 ```
 
 ### Check Config Files

@@ -135,7 +135,7 @@ If Hytale uses different field names, update `plugin.json` to match working plug
 Verify the main class exists and extends `JavaPlugin`:
 
 ```bash
-jar tf build/libs/livinglands-1.0.0-beta.jar | grep LivingLandsPlugin
+jar tf build/libs/livinglands-1.0.0-beta.jar | grep --line-buffered -E "(LivingLandsReloaded|===|>>>)"Plugin
 ```
 
 Should show: `com/livinglands/LivingLandsPlugin.class`
