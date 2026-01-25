@@ -88,6 +88,8 @@ class MetabolismService(
         // Use cached string representation (avoids allocation on subsequent calls)
         val playerIdStr = playerId.toCachedString()
         
+        logger.atInfo().log("🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr")
+        
         // Get or create repository from world context
         val repository = worldContext.getData { 
             MetabolismRepository(worldContext.persistence, logger).also {
@@ -287,17 +289,30 @@ class MetabolismService(
     suspend fun savePlayer(playerId: UUID, worldContext: WorldContext) {
         // Use cached string
         val playerIdStr = playerId.toCachedString()
-        val state = playerStates[playerIdStr] ?: return
         
-        val repository = worldContext.getDataOrNull<MetabolismRepository>() ?: return
+        logger.atInfo().log("savePlayer() called for $playerId")
+        
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            logger.atWarning().log("No state found in cache for player $playerId - cannot save")
+            return
+        }
+        
+        val repository = worldContext.getDataOrNull<MetabolismRepository>()
+        if (repository == null) {
+            logger.atWarning().log("No MetabolismRepository found for world ${worldContext.worldId} - cannot save player $playerId")
+            return
+        }
         
         try {
             // Convert mutable state to immutable for database
             val stats = state.toImmutableStats()
+            logger.atInfo().log("About to save stats for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
             repository.updateStats(stats)
-            logger.atInfo().log("Saved metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+            logger.atInfo().log("Successfully saved metabolism for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to save metabolism for player $playerId")
+            throw e  // Re-throw so caller knows save failed
         }
     }
     

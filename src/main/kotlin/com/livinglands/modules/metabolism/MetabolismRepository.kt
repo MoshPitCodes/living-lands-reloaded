@@ -72,16 +72,17 @@ class MetabolismRepository(
      */
     suspend fun ensureStats(playerId: String): MetabolismStats {
         return persistence.execute { conn ->
+            logger.atInfo().log("ensureStats() called for player: $playerId")
             val existing = findByIdInternal(conn, playerId)
             
             if (existing != null) {
-                logger.atInfo().log("Loaded existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
+                logger.atInfo().log("✅ LOADED existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
                 existing
             } else {
                 // Create default stats
                 val stats = MetabolismStats.createDefault(playerId)
                 insertInternal(conn, stats)
-                logger.atInfo().log("Created default metabolism stats for player: $playerId (H=100, T=100, E=100)")
+                logger.atInfo().log("✅ CREATED default metabolism stats for player: $playerId (H=100, T=100, E=100)")
                 stats
             }
         }
@@ -152,22 +153,27 @@ class MetabolismRepository(
     }
     
     /**
-     * Update stats (only if player exists).
-     * More efficient than save() when we know the record exists.
+     * Update stats for a player.
+     * 
+     * Uses INSERT OR REPLACE for robustness - if the record doesn't exist
+     * for some reason (e.g., database was cleared), it will create it.
+     * This ensures saves always succeed even in edge cases.
      */
     suspend fun updateStats(stats: MetabolismStats) {
         persistence.execute { conn ->
+            // Use INSERT OR REPLACE for robustness - handles both update and insert cases
             conn.prepareStatement("""
-                UPDATE metabolism_stats 
-                SET hunger = ?, thirst = ?, energy = ?, last_updated = ?
-                WHERE player_id = ?
+                INSERT OR REPLACE INTO metabolism_stats 
+                (player_id, hunger, thirst, energy, last_updated)
+                VALUES (?, ?, ?, ?, ?)
             """.trimIndent()).use { stmt ->
-                stmt.setFloat(1, stats.hunger)
-                stmt.setFloat(2, stats.thirst)
-                stmt.setFloat(3, stats.energy)
-                stmt.setLong(4, stats.lastUpdated)
-                stmt.setString(5, stats.playerId)
-                stmt.executeUpdate()
+                stmt.setString(1, stats.playerId)
+                stmt.setFloat(2, stats.hunger)
+                stmt.setFloat(3, stats.thirst)
+                stmt.setFloat(4, stats.energy)
+                stmt.setLong(5, stats.lastUpdated)
+                val rowsAffected = stmt.executeUpdate()
+                logger.atInfo().log("SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
             }
         }
     }

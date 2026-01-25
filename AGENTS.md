@@ -311,6 +311,95 @@ See `docs/IMPLEMENTATION_PLAN.md` for detailed task breakdown.
 # Output: build/libs/livinglands-*.jar
 ```
 
+## Deploying
+
+```bash
+# Build and deploy to global mods folder
+./gradlew build && ./scripts/deploy_windows.sh
+
+# Or just deploy (if already built)
+./scripts/deploy_windows.sh
+```
+
+**Deployment Location:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods/livinglands-1.0.0-beta.jar`
+
+**Important:** 
+- Always deploy to the **global mods folder** (`UserData/Mods`)
+- Never deploy to the per-server mods folder (`Test1/mods/`) to avoid duplicate plugin errors
+- The deploy script automatically handles this
+
+## Server Paths (Windows)
+
+**Test Server Location:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1`
+
+### Key Paths
+- **Global Mods Directory:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods` - **Deploy JARs here** (applies to all servers)
+- **Server Config:** `Test1/config.json` - Controls which mods are enabled/disabled
+- **Server Logs:** `Test1/logs/YYYY-MM-DD_HH-MM-SS_server.log` - Latest server log files
+- **Client Logs:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Logs/YYYY-MM-DD_HH-MM-SS_client.log` - Latest client log files
+- **Plugin Data:** `Test1/mods/MPC_LivingLandsReloaded/` - Runtime plugin data (config and databases)
+  - `config/core.yml` - Core plugin configuration
+  - `config/metabolism.yml` - Metabolism module configuration
+  - `data/{world-uuid}/livinglands.db` - Per-world SQLite databases
+
+**Important:** Hytale loads mods from two locations:
+1. **Global:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods` (applies to all servers) ✅ **Use this**
+2. **Per-server:** `Saves/{world}/mods/` (specific to each world) ❌ **Don't use** (causes duplicates)
+
+### Linux Mount Paths (WSL)
+When accessing from WSL/Linux development environment:
+- **Global Mods:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods/`
+- **Server Root:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/`
+- **Server Logs:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/` (find newest .log file)
+- **Client Logs:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Logs/` (find newest .log file)
+- **Plugin JAR:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods/livinglands-1.0.0-beta.jar`
+- **Plugin Config:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/mods/MPC_LivingLandsReloaded/config/`
+- **Database:** `/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/mods/MPC_LivingLandsReloaded/data/6bd4ef4e-4cd2-4486-9fd1-5794a1015596/livinglands.db`
+
+### Server Configuration
+
+**Enable/Disable Plugin:**
+Edit `Test1/config.json`:
+```json
+{
+  "Mods": {
+    "MPC:LivingLandsReloaded": {
+      "Enabled": true    // Set to true to enable, false to disable
+    }
+  }
+}
+```
+
+**Important:** The server will NOT load the plugin if `Enabled: false`. Check logs for:
+```
+[WARN] [PluginManager] Skipping mod MPC:LivingLandsReloaded (Disabled by server config)
+```
+
+### Debugging Commands
+
+```bash
+# Find latest server log file
+ls -lt /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/*.log | head -1
+
+# Find latest client log file
+ls -lt /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Logs/*.log | head -1
+
+# Watch logs in real-time (if script exists)
+./scripts/watch_windows_logs.sh
+
+# Search for plugin errors in server logs
+grep -i "livinglands\|metabolism\|error\|exception" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/2026-01-25_*_server.log
+
+# Search for plugin errors in client logs
+grep -i "livinglands\|metabolism\|hud\|error\|exception" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Logs/2026-01-25_*_client.log
+
+# Query metabolism database
+nix develop --command sqlite3 "/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/mods/MPC_LivingLandsReloaded/data/6bd4ef4e-4cd2-4486-9fd1-5794a1015596/livinglands.db" "SELECT * FROM metabolism_stats;"
+
+# Check if plugin is loaded
+grep "LivingLandsReloaded" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Saves/Test1/logs/*.log
+```
+
 ## Hytale Server Resources
 
 ### Compile Dependencies

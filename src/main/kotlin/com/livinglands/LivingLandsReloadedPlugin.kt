@@ -284,14 +284,27 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
     }
     
     /**
-     * Handle player disconnect event - remove session.
+     * Handle player disconnect event - persist leave and cleanup.
+     * 
+     * IMPORTANT: We do NOT unregister the session immediately here!
+     * Modules (like MetabolismModule) need to access the session to get worldId
+     * for saving data. Since event handler ordering is not guaranteed, we must
+     * keep the session available during the disconnect event processing.
+     * 
+     * Session cleanup happens:
+     * 1. During module shutdown (saveAllPlayers uses sessions)
+     * 2. During plugin shutdown (CoreModule.shutdown clears sessions)
+     * 
+     * The session will be naturally cleaned up, and keeping it around briefly
+     * doesn't cause issues since it's keyed by UUID and will be replaced on rejoin.
      */
     private fun onPlayerDisconnect(event: PlayerDisconnectEvent) {
         val playerRef = event.getPlayerRef()
         @Suppress("DEPRECATION")
         val playerId = playerRef.getUuid()
         
-        val session = CoreModule.players.unregister(playerId)
+        // Get session WITHOUT removing it - modules still need access
+        val session = CoreModule.players.getSession(playerId)
         if (session != null) {
             // Persist player leave to database
             val worldContext = CoreModule.worlds.getContext(session.worldId)
@@ -299,7 +312,12 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
                 worldContext.onPlayerLeave(playerId.toString())
             }
             
-            logger.atFine().log("Player disconnected: $playerId from world ${session.worldId}")
+            logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId} (session kept for module cleanup)")
+        } else {
+            logger.atWarning().log("No session found for disconnecting player $playerId")
         }
+        
+        // NOTE: Session unregister is now handled by MetabolismModule after saving
+        // or during module shutdown via saveAllPlayers()
     }
 }
