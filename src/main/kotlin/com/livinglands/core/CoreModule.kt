@@ -8,6 +8,7 @@ import com.livinglands.api.ModuleState
 import com.livinglands.core.config.ConfigManager
 import com.livinglands.core.config.CoreConfig
 import com.livinglands.core.hud.MultiHudManager
+import com.livinglands.core.persistence.GlobalPersistenceService
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -40,6 +41,10 @@ object CoreModule {
     
     // Multi-HUD support (MHUD pattern)
     lateinit var hudManager: MultiHudManager
+        private set
+    
+    // Global persistence service for server-wide data (e.g., metabolism stats)
+    lateinit var globalPersistence: GlobalPersistenceService
         private set
     
     // Main command for subcommand registration
@@ -126,12 +131,14 @@ object CoreModule {
         
         // Initialize core components
         services = ServiceRegistry()
+        globalPersistence = GlobalPersistenceService(dataDir, logger)
         worlds = WorldRegistry(dataDir, logger)
         players = PlayerRegistry()
         hudManager = MultiHudManager(logger)
         
         // Register core services
         services.register<ConfigManager>(config)
+        services.register<GlobalPersistenceService>(globalPersistence)
         services.register<WorldRegistry>(worlds)
         services.register<PlayerRegistry>(players)
         services.register<MultiHudManager>(hudManager)
@@ -154,13 +161,20 @@ object CoreModule {
         modules.clear()
         moduleOrder.clear()
         
-        // Cleanup world contexts - closes all DB connections
+        // Cleanup world contexts - closes all per-world DB connections
         worlds.getAllContexts().forEach { context ->
             try {
                 context.cleanup()
             } catch (e: Exception) {
                 logger.atInfo().log("Error cleaning up world ${context.worldId}: ${e.message}")
             }
+        }
+        
+        // Close global database connection
+        try {
+            globalPersistence.close()
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Error closing global database")
         }
         
         // Clear config manager

@@ -115,7 +115,7 @@ object MessageFormatter {
     /**
      * Send a food consumption message (specialized format).
      * 
-     * Format: [Living Lands] You consumed <Food> (T<tier>) → +stats
+     * Format: [Living Lands] You consumed <Food> (T<tier>) -> +stats
      * 
      * @param playerRef Target player
      * @param foodName Name of the food
@@ -133,7 +133,7 @@ object MessageFormatter {
         energyRestore: Double
     ) {
         val message = createPrefix()
-            .insert(Message.raw(" You consumed "))
+            .insert(Message.raw(" You consumed ").color(AQUA))
             .insert(Message.raw(foodName).color(YELLOW))
             .insert(Message.raw(" (T$tier)").color(DARK_GRAY))
         
@@ -150,7 +150,7 @@ object MessageFormatter {
         }
         
         if (parts.isNotEmpty()) {
-            message.insert(Message.raw(" → ").color(GREEN))
+            message.insert(Message.raw(" -> ").color(GREEN))
             for (i in parts.indices) {
                 message.insert(parts[i])
                 if (i < parts.size - 1) {

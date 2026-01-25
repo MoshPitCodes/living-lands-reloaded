@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.core.MessageFormatter
+import com.livinglands.core.CoreModule
 import java.awt.Color
 
 /**
@@ -32,26 +33,23 @@ class StatsCommand(
             return
         }
         
-        // Get player entity reference
+        // Get player entity reference (just to identify the player)
         val entityRef = ctx.senderAsPlayerRef() ?: run {
             MessageFormatter.commandError(ctx, "Unable to get player reference")
             return
         }
         
-        // Get the PlayerRef component from the entity to access UUID
-        val store = entityRef.store
-        val playerRefComponent = store.getComponent(entityRef, PlayerRef.getComponentType())
-        
-        if (playerRefComponent == null) {
-            MessageFormatter.commandError(ctx, "Unable to get player component")
+        // Find player session by entity ref (no ECS access, just registry lookup)
+        val session = CoreModule.players.getAllSessions().find { it.entityRef == entityRef }
+        if (session == null) {
+            MessageFormatter.commandError(ctx, "Player session not found")
             return
         }
         
-        // Get player UUID from PlayerRef component
-        @Suppress("DEPRECATION")
-        val playerId = playerRefComponent.uuid.toString()
+        // Get player UUID from session (cached string)
+        val playerId = session.playerId.toString()
         
-        // Get metabolism stats from service
+        // Get metabolism stats from service (cache access, no ECS)
         val stats = metabolismService.getStats(playerId)
         
         if (stats == null) {

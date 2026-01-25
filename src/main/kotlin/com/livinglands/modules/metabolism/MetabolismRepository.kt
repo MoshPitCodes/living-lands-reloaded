@@ -1,27 +1,35 @@
 package com.livinglands.modules.metabolism
 
 import com.hypixel.hytale.logger.HytaleLogger
-import com.livinglands.core.persistence.PersistenceService
+import com.livinglands.core.persistence.GlobalPersistenceService
 import com.livinglands.core.persistence.Repository
 import com.livinglands.core.persistence.useRows
 import java.sql.Connection
 
 /**
  * Repository for metabolism stats persistence.
- * Each world has its own instance via WorldContext.
  * 
- * Database schema:
+ * **ARCHITECTURE CHANGE (v1.0.0-beta):**
+ * Metabolism stats are now GLOBAL (server-wide), not per-world.
+ * Stats follow the player across all worlds on the server.
+ * 
+ * Uses GlobalPersistenceService for shared data across worlds.
+ * HUD preferences are also global (player keeps their UI settings everywhere).
+ * 
+ * Database schema (in global DB):
  * CREATE TABLE IF NOT EXISTS metabolism_stats (
  *     player_id TEXT PRIMARY KEY,
  *     hunger REAL NOT NULL DEFAULT 100.0,
  *     thirst REAL NOT NULL DEFAULT 100.0,
  *     energy REAL NOT NULL DEFAULT 100.0,
- *     last_updated INTEGER NOT NULL,
- *     FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
+ *     last_updated INTEGER NOT NULL
  * )
+ * 
+ * Note: Per-world configs still work - depletion rates can vary by world,
+ * but the stats themselves are shared.
  */
 class MetabolismRepository(
-    private val persistence: PersistenceService,
+    private val persistence: GlobalPersistenceService,
     private val logger: HytaleLogger
 ) : Repository<MetabolismStats, String> {
     
@@ -46,8 +54,7 @@ class MetabolismRepository(
                             hunger REAL NOT NULL DEFAULT 100.0,
                             thirst REAL NOT NULL DEFAULT 100.0,
                             energy REAL NOT NULL DEFAULT 100.0,
-                            last_updated INTEGER NOT NULL,
-                            FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
+                            last_updated INTEGER NOT NULL
                         )
                     """.trimIndent())
                     
@@ -57,14 +64,13 @@ class MetabolismRepository(
                         ON metabolism_stats(player_id)
                     """.trimIndent())
                     
-                    // Create HUD preferences table (v2 schema)
+                    // Create HUD preferences table (v2 schema) - also global
                     stmt.execute("""
                         CREATE TABLE IF NOT EXISTS hud_preferences (
                             player_id TEXT PRIMARY KEY,
                             stats_visible INTEGER NOT NULL DEFAULT 1,
                             buffs_visible INTEGER NOT NULL DEFAULT 1,
-                            debuffs_visible INTEGER NOT NULL DEFAULT 1,
-                            FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
+                            debuffs_visible INTEGER NOT NULL DEFAULT 1
                         )
                     """.trimIndent())
                 }

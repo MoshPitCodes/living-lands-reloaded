@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.util.UUID
@@ -54,6 +55,9 @@ class MetabolismModule : AbstractModule(
     /** Configuration loaded from metabolism.yml */
     private lateinit var metabolismConfig: MetabolismConfig
     
+    /** Global metabolism repository (server-wide) */
+    private lateinit var metabolismRepository: MetabolismRepository
+    
     /** Service for managing metabolism stats */
     private lateinit var metabolismService: MetabolismService
     
@@ -71,6 +75,9 @@ class MetabolismModule : AbstractModule(
     
     /** Buffs system (bonuses for high stats) */
     private lateinit var buffsSystem: BuffsSystem
+    
+    /** Respawn reset system (resets metabolism on death/respawn) */
+    private lateinit var respawnResetSystem: RespawnResetSystem
     
     /**
      * Module-level coroutine scope for async persistence operations.
@@ -128,14 +135,20 @@ class MetabolismModule : AbstractModule(
         val knownWorldNames = CoreModule.worlds.getAllWorldNames()
         MetabolismConfigValidator.validateOverrides(metabolismConfig, knownWorldNames, logger)
         
+        // Create global repository (server-wide metabolism stats)
+        metabolismRepository = MetabolismRepository(CoreModule.globalPersistence, logger)
+        metabolismRepository.initialize()
+        logger.atInfo().log("Initialized global metabolism repository")
+        
         // Create service
         metabolismService = MetabolismService(metabolismConfig, logger)
         
-        // Register service with CoreModule for access by other modules
+        // Register services with CoreModule for access by other modules
+        CoreModule.services.register<MetabolismRepository>(metabolismRepository)
         CoreModule.services.register<MetabolismService>(metabolismService)
         
-        // Initialize repositories for existing worlds AND resolve world-specific configs
-        initializeRepositories()
+        // Resolve world-specific configs from global config + overrides
+        initializeWorldConfigs()
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
         // so they can be passed to the tick system constructor
@@ -190,6 +203,17 @@ class MetabolismModule : AbstractModule(
             )
             registerSystem(tickSystem)
             logger.atFine().log("Registered MetabolismTickSystem with buffs/debuffs")
+            
+            // Register respawn reset system to handle metabolism reset on player death/respawn
+            respawnResetSystem = RespawnResetSystem(
+                metabolismService = metabolismService,
+                metabolismRepository = metabolismRepository,
+                debuffsSystem = if (::debuffsSystem.isInitialized) debuffsSystem else null,
+                buffsSystem = if (::buffsSystem.isInitialized) buffsSystem else null,
+                logger = logger
+            )
+            registerSystem(respawnResetSystem)
+            logger.atFine().log("Registered RespawnResetSystem for death/respawn handling")
         }
         
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
@@ -290,23 +314,10 @@ class MetabolismModule : AbstractModule(
                     logger.atFine().log("Resolved metabolism config for lazily created world ${worldContext.worldName}")
                 }
                 
-                // Ensure repository exists
-                if (!worldContext.hasData<MetabolismRepository>()) {
-                    val repository = MetabolismRepository(worldContext.persistence, logger)
-                    kotlinx.coroutines.runBlocking {
-                        repository.initialize()
-                    }
-                    worldContext.getData { repository }
-                    logger.atInfo().log("Initialized MetabolismRepository for world ${session.worldId}")
-                }
+                // Initialize metabolism with default values immediately (non-blocking)
+                metabolismService.initializePlayerWithDefaults(playerId)
                 
-                // Initialize metabolism stats (blocking since we need it done before HUD)
-                kotlinx.coroutines.runBlocking {
-                    metabolismService.initializePlayer(playerId, worldContext)
-                }
-                logger.atInfo().log("Initialized metabolism for player $playerId")
-                
-                // Register HUD after stats are loaded
+                // Register HUD immediately with default values (no blocking)
                 registerHudForPlayer(player, playerRef, playerId)
                 
                 // Initialize food detection tracker to prevent false detections of existing effects
@@ -317,6 +328,35 @@ class MetabolismModule : AbstractModule(
             } catch (e: Exception) {
                 logger.atSevere().withCause(e)
                     .log("Failed to initialize metabolism for player $playerId")
+            }
+        }
+        
+        // Load actual stats from database asynchronously (outside world.execute)
+        persistenceScope.launch {
+            try {
+                val stats = metabolismRepository.ensureStats(playerId.toCachedString())
+                // Update in-memory state with loaded values
+                metabolismService.updatePlayerState(playerId, stats)
+                
+                // Immediately evaluate buffs/debuffs based on loaded stats
+                // This ensures buffs appear instantly instead of waiting for next tick
+                val worldContext = CoreModule.worlds.getContext(session.worldId)
+                val worldConfig = worldContext?.metabolismConfig ?: metabolismConfig
+                
+                session.world.execute {
+                    if (::debuffsSystem.isInitialized) {
+                        debuffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.debuffs)
+                    }
+                    if (::buffsSystem.isInitialized) {
+                        buffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.buffs)
+                    }
+                }
+                
+                // Force HUD refresh to show loaded values AND buffs/debuffs
+                metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
+                logger.atFine().log("Loaded metabolism stats from database for $playerId")
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to load metabolism stats for $playerId, using defaults")
             }
         }
     }
@@ -337,19 +377,16 @@ class MetabolismModule : AbstractModule(
             return
         }
         
-        // Save HUD preferences before cleanup
+        // Save HUD preferences before cleanup (fire and forget - not critical if it fails)
         val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(playerId, MetabolismHudElement.NAMESPACE)
         if (hudElement != null) {
-            try {
-                val repository = worldContext.getDataOrNull<MetabolismRepository>()
-                if (repository != null) {
-                    kotlinx.coroutines.runBlocking {
-                        repository.saveHudPreferences(playerId.toCachedString(), hudElement.preferences)
-                    }
+            persistenceScope.launch {
+                try {
+                    metabolismRepository.saveHudPreferences(playerId.toCachedString(), hudElement.preferences)
                     logger.atFine().log("Saved HUD preferences for disconnecting player $playerId")
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Failed to save HUD preferences for $playerId")
                 }
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to save HUD preferences for $playerId")
             }
         }
         
@@ -360,10 +397,10 @@ class MetabolismModule : AbstractModule(
             cleanupHudForPlayer(playerId, playerRef)
         }
         
-        // Save metabolism stats (this is blocking - we need to complete before session is removed)
+        // Save metabolism stats to global database (this is blocking - we need to complete before session is removed)
         try {
-            metabolismService.savePlayer(playerId, worldContext)
-            logger.atInfo().log("Saved metabolism for disconnecting player $playerId")
+            metabolismService.savePlayer(playerId, metabolismRepository)
+            logger.atInfo().log("Saved metabolism for disconnecting player $playerId (to global database)")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
                 .log("Failed to save metabolism for disconnecting player $playerId")
@@ -384,6 +421,11 @@ class MetabolismModule : AbstractModule(
             // Cleanup food detection
             if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
                 foodEffectDetector.cleanup(playerId)
+            }
+            
+            // Cleanup respawn reset system tracking
+            if (::respawnResetSystem.isInitialized) {
+                respawnResetSystem.cleanup(playerId)
             }
             
             // Always cleanup cache
@@ -424,10 +466,10 @@ class MetabolismModule : AbstractModule(
             logger.atWarning().withCause(e).log("Error waiting for persistence operations")
         }
         
-        // Save all remaining players' metabolism data (fallback for any not saved on disconnect)
+        // Save all remaining players' metabolism data to global database (fallback for any not saved on disconnect)
         try {
-            metabolismService.saveAllPlayers()
-            logger.atInfo().log("Saved all remaining metabolism data")
+            metabolismService.saveAllPlayers(metabolismRepository)
+            logger.atInfo().log("Saved all remaining metabolism data to global database")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Error saving metabolism data during shutdown")
         }
@@ -475,23 +517,20 @@ class MetabolismModule : AbstractModule(
     }
     
     /**
-     * Initialize repositories for all existing worlds.
-     * Also resolves world-specific configs from global config + overrides.
+     * Resolve world-specific configs from global config + overrides.
+     * 
+     * **ARCHITECTURE CHANGE:** Repository is now global, but configs can still be per-world.
+     * This allows different depletion rates/rules per world while stats follow the player.
      */
-    private suspend fun initializeRepositories() {
+    private fun initializeWorldConfigs() {
         for (worldContext in CoreModule.worlds.getAllContexts()) {
             try {
-                // Resolve world-specific config
+                // Resolve world-specific config (merges overrides with global config)
                 worldContext.resolveMetabolismConfig(metabolismConfig)
-                
-                // Initialize repository
-                val repository = MetabolismRepository(worldContext.persistence, logger)
-                repository.initialize()
-                worldContext.getData { repository }
-                logger.atFine().log("Initialized metabolism repository for world ${worldContext.worldName} (${worldContext.worldId})")
+                logger.atFine().log("Resolved metabolism config for world ${worldContext.worldName} (${worldContext.worldId})")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
-                    .log("Failed to initialize metabolism repository for world ${worldContext.worldName} (${worldContext.worldId})")
+                    .log("Failed to resolve metabolism config for world ${worldContext.worldName} (${worldContext.worldId})")
             }
         }
     }
@@ -499,78 +538,73 @@ class MetabolismModule : AbstractModule(
     /**
      * Initialize metabolism for players already online.
      * This handles the case where the module starts after players have joined.
+     * 
+     * **ARCHITECTURE CHANGE:** Now uses global repository.
      */
     private suspend fun initializeOnlinePlayers() {
         for (session in CoreModule.players.getAllSessions()) {
-            val worldContext = CoreModule.worlds.getContext(session.worldId)
-            if (worldContext != null) {
-                try {
-                    metabolismService.initializePlayer(session.playerId, worldContext)
-                } catch (e: Exception) {
-                    logger.atWarning().withCause(e)
-                        .log("Failed to initialize metabolism for player ${session.playerId}")
-                }
+            try {
+                metabolismService.initializePlayer(session.playerId, metabolismRepository)
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e)
+                    .log("Failed to initialize metabolism for player ${session.playerId}")
             }
         }
         
         val playerCount = metabolismService.getCacheSize()
         if (playerCount > 0) {
-            logger.atFine().log("Initialized metabolism for $playerCount online players")
+            logger.atInfo().log("Initialized metabolism for $playerCount online players")
         }
     }
     
     /**
      * Register the metabolism HUD for a player.
      * Called after metabolism stats are initialized.
+     * 
+     * **IMPORTANT:** This must be called from within world.execute {} to avoid nested queuing.
      */
     private fun registerHudForPlayer(player: Player, playerRef: PlayerRef, playerId: UUID) {
         if (!metabolismConfig.enabled) return
         
-        // Execute on world thread (like v2.6.0 does)
-        val world = player.world
-        if (world == null) {
-            logger.atWarning().log("Player world is null, cannot register HUD for $playerId")
-            return
+        try {
+            // Get world UUID from player's session
+            val session = CoreModule.players.getSession(playerId)
+            if (session == null) {
+                logger.atWarning().log("No session found for player $playerId")
+                return
+            }
+            
+            // Get world context
+            val worldContext = CoreModule.worlds.getContext(session.worldId)
+            
+            // Create the HUD element with default preferences (non-blocking)
+            val hudElement = MetabolismHudElement(
+                playerRef,
+                playerId,
+                if (::buffsSystem.isInitialized) buffsSystem else null,
+                if (::debuffsSystem.isInitialized) debuffsSystem else null
+            )
+            
+            // Register with MultiHudManager (standardized pattern)
+            logger.atInfo().log("Registering HUD via MultiHudManager on world thread...")
+            CoreModule.hudManager.setHud(player, playerRef, MetabolismHudElement.NAMESPACE, hudElement)
+            logger.atInfo().log("Registered metabolism HUD for player $playerId with default preferences")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e)
+                .log("Failed to register metabolism HUD for player $playerId")
         }
         
-        world.execute {
+        // Load preferences asynchronously (outside world.execute) and update
+        persistenceScope.launch {
             try {
-                // Get world UUID from player's session
-                val session = CoreModule.players.getSession(playerId)
-                if (session == null) {
-                    logger.atWarning().log("No session found for player $playerId")
-                    return@execute
+                val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(playerId, MetabolismHudElement.NAMESPACE)
+                if (hudElement != null) {
+                    val preferences = metabolismRepository.loadHudPreferences(playerId.toCachedString())
+                    hudElement.preferences = preferences
+                    logger.atFine().log("Loaded HUD preferences for $playerId")
                 }
-                
-                // Get world context
-                val worldContext = CoreModule.worlds.getContext(session.worldId)
-                
-                // Load HUD preferences from database
-                val repository = worldContext?.getDataOrNull<MetabolismRepository>()
-                val preferences = if (repository != null) {
-                    kotlinx.coroutines.runBlocking {
-                        repository.loadHudPreferences(playerId.toCachedString())
-                    }
-                } else {
-                    com.livinglands.modules.metabolism.hud.HudPreferences()
-                }
-                
-                // Create the HUD element with preferences and system references
-                val hudElement = MetabolismHudElement(
-                    playerRef,
-                    playerId,
-                    if (::buffsSystem.isInitialized) buffsSystem else null,
-                    if (::debuffsSystem.isInitialized) debuffsSystem else null
-                )
-                hudElement.preferences = preferences
-                
-                // Register with MultiHudManager (standardized pattern)
-                logger.atInfo().log("Registering HUD via MultiHudManager on world thread...")
-                CoreModule.hudManager.setHud(player, playerRef, MetabolismHudElement.NAMESPACE, hudElement)
-                logger.atInfo().log("Registered metabolism HUD for player $playerId with preferences: $preferences")
             } catch (e: Exception) {
-                logger.atWarning().withCause(e)
-                    .log("Failed to register metabolism HUD for player $playerId")
+                logger.atFine().log("Failed to load HUD preferences for $playerId, using defaults")
             }
         }
     }
