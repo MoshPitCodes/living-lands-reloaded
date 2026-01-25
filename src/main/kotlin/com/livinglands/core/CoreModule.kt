@@ -42,6 +42,9 @@ object CoreModule {
     lateinit var hudManager: MultiHudManager
         private set
     
+    // Main command for subcommand registration
+    lateinit var mainCommand: com.livinglands.core.commands.LLCommand
+    
     // Logger reference
     lateinit var logger: HytaleLogger
         private set

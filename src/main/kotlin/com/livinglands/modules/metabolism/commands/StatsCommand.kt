@@ -10,15 +10,17 @@ import java.awt.Color
 /**
  * Command to display current metabolism stats.
  * 
- * Usage: /ll stats
+ * Usage: /ll show
  * 
  * Shows hunger, thirst, and energy values for the executing player.
  * Can only be used by players (not console).
+ * 
+ * Note: /ll stats is now a toggle command for HUD visibility.
  */
 class StatsCommand(
     private val metabolismService: MetabolismService
 ) : CommandBase(
-    "ll stats",                          // Command name
+    "show",                              // Subcommand name (no "ll" prefix)
     "Display your metabolism stats",     // Description
     false                                // Does not require operator
 ) {

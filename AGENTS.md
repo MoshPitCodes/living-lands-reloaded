@@ -159,6 +159,14 @@ When working on this project, leverage Claude Code agents for specialized tasks:
 | **java-kotlin-backend** | Core backend development | Kotlin-specific implementation, Gradle build config, server API integration |
 | **nixos** | Environment setup, package management | NixOS/Nix Flake reproducible dev environments, Java 25 + Kotlin, Gradle 9.3.0 |
 
+### Code Implementation
+
+Use `java-kotlin-backend` agent PROACTIVELY before writing significant code:
+1. Plan a feature (e.g., MetabolismSystem)
+2. Java-Kotlin-Backend agent analyzes the planned implementation
+3. Apply suggested fixes/refinements
+4. Rebuild and test
+
 ### Code Review Workflow
 
 Use `code-review` agent PROACTIVELY after writing significant code:

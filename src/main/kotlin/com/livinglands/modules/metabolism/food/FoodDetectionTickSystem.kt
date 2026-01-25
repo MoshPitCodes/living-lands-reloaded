@@ -151,7 +151,7 @@ class FoodDetectionTickSystem(
                     foodConsumptionProcessor.processConsumption(playerId, detection)
                 }
             } catch (e: Exception) {
-                logger.atFine().withCause(e).log("Error processing food consumption for player $playerId")
+                logger.atSevere().withCause(e).log("Error processing food consumption for player $playerId")
             }
         }
     }

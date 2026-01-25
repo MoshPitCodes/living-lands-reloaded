@@ -2,6 +2,7 @@ package com.livinglands.modules.metabolism.config
 
 import com.livinglands.core.config.ConfigMigration
 import com.livinglands.core.config.VersionedConfig
+import java.util.UUID
 
 /**
  * Configuration for the metabolism system.
@@ -73,15 +74,63 @@ data class MetabolismConfig(
     val debuffs: DebuffsConfig = DebuffsConfig(),
     
     /** Save interval in seconds (how often to persist stats to database) */
-    val saveIntervalSeconds: Int = 60
+    val saveIntervalSeconds: Int = 60,
+    
+    /**
+     * Per-world configuration overrides.
+     * Key can be world NAME (preferred) or world UUID string.
+     * Values are partial configs that override global defaults.
+     * 
+     * Example:
+     * ```yaml
+     * worldOverrides:
+     *   hardcore:  # World name
+     *     hunger:
+     *       baseDepletionRateSeconds: 960.0  # 2x faster
+     *   creative:
+     *     hunger:
+     *       enabled: false  # Disable hunger completely
+     * ```
+     */
+    val worldOverrides: Map<String, MetabolismWorldOverride> = emptyMap()
 ) : VersionedConfig {
     
     /** No-arg constructor for Jackson deserialization */
     constructor() : this(configVersion = CURRENT_VERSION, enabled = true)
     
+    /**
+     * Find the override for a specific world.
+     * Checks world name first (case-insensitive), then UUID string.
+     */
+    fun findOverride(worldName: String, worldUuid: UUID): MetabolismWorldOverride? {
+        // 1. Try exact world name match (case-insensitive)
+        val byName = worldOverrides.entries.firstOrNull { 
+            it.key.equals(worldName, ignoreCase = true) 
+        }?.value
+        
+        if (byName != null) return byName
+        
+        // 2. Try UUID string match
+        val uuidStr = worldUuid.toString()
+        return worldOverrides[uuidStr]
+    }
+    
+    /**
+     * Merge world override into this config, returning a new merged instance.
+     */
+    fun mergeOverride(override: MetabolismWorldOverride): MetabolismConfig {
+        return this.copy(
+            hunger = hunger.mergeWith(override.hunger),
+            thirst = thirst.mergeWith(override.thirst),
+            energy = energy.mergeWith(override.energy),
+            buffs = buffs.mergeWith(override.buffs),
+            debuffs = debuffs.mergeWith(override.debuffs)
+        )
+    }
+    
     companion object {
         /** Current config version */
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 4
         
         /** Config module ID for migration registry */
         const val MODULE_ID = "metabolism"
@@ -109,6 +158,73 @@ data class MetabolismConfig(
                         
                         // Update config version
                         this["configVersion"] = 2
+                    }
+                }
+            ),
+            
+            // v2 -> v3: Restructure debuffs to 3-stage system
+            ConfigMigration(
+                fromVersion = 2,
+                toVersion = 3,
+                description = "Restructure debuffs config to 3-stage system (hunger/thirst/energy with uniform thresholds)",
+                migrate = { old ->
+                    old.toMutableMap().apply {
+                        @Suppress("UNCHECKED_CAST")
+                        val oldDebuffs = this["debuffs"] as? MutableMap<String, Any>
+                        
+                        if (oldDebuffs != null) {
+                            // Create new 3-stage structure
+                            val newDebuffs = mutableMapOf<String, Any>(
+                                "enabled" to (oldDebuffs["enabled"] ?: true),
+                                
+                                // Hunger debuffs (old: starvation only)
+                                "hunger" to mapOf(
+                                    "enabled" to true,
+                                    "peckishDamage" to 0.5,
+                                    "hungryDamage" to 1.5,
+                                    "starvingDamage" to 3.0,
+                                    "damageIntervalMs" to 3000
+                                ),
+                                
+                                // Thirst debuffs (old: dehydration + parched)
+                                "thirst" to mapOf(
+                                    "enabled" to true,
+                                    "thirstyDrain" to 2.0,
+                                    "parchedDrain" to 4.0,
+                                    "dehydratedDrain" to 6.0,
+                                    "drainIntervalMs" to 2000
+                                ),
+                                
+                                // Energy debuffs (old: exhaustion + tired)
+                                "energy" to mapOf(
+                                    "enabled" to true,
+                                    "drowsySpeed" to 0.90,
+                                    "tiredSpeed" to 0.75,
+                                    "exhaustedSpeed" to 0.55
+                                )
+                            )
+                            
+                            this["debuffs"] = newDebuffs
+                        }
+                        
+                        // Update config version
+                        this["configVersion"] = 3
+                    }
+                }
+            ),
+            
+            // v3 -> v4: Add per-world configuration overrides support
+            ConfigMigration(
+                fromVersion = 3,
+                toVersion = 4,
+                description = "Add per-world configuration overrides support (worldOverrides field)",
+                migrate = { old ->
+                    old.toMutableMap().apply {
+                        // Add empty worldOverrides if not present
+                        if (!containsKey("worldOverrides")) {
+                            this["worldOverrides"] = emptyMap<String, Any>()
+                        }
+                        this["configVersion"] = 4
                     }
                 }
             )
@@ -273,39 +389,45 @@ data class BuffConfig(
 
 /**
  * Configuration for metabolism debuffs (penalties for low stats).
+ * 
+ * New 3-stage system:
+ * - Stage 1: ≤ 75% (mild effects)
+ * - Stage 2: ≤ 50% (moderate effects)
+ * - Stage 3: ≤ 25% (severe effects)
  */
 data class DebuffsConfig(
     /** Whether debuffs are enabled */
     val enabled: Boolean = true,
     
-    /** Starvation debuff configuration (hunger = 0) */
-    val starvation: StarvationConfig = StarvationConfig(),
+    /** Hunger debuffs configuration (health drain) */
+    val hunger: HungerDebuffsConfig = HungerDebuffsConfig(),
     
-    /** Dehydration debuff configuration (thirst < 30) */
-    val dehydration: DehydrationConfig = DehydrationConfig(),
+    /** Thirst debuffs configuration (stamina drain) */
+    val thirst: ThirstDebuffsConfig = ThirstDebuffsConfig(),
     
-    /** Exhaustion debuff configuration (energy < 30) */
-    val exhaustion: ExhaustionConfig = ExhaustionConfig()
+    /** Energy debuffs configuration (speed reduction) */
+    val energy: EnergyDebuffsConfig = EnergyDebuffsConfig()
 ) {
     /** No-arg constructor for Jackson deserialization */
     constructor() : this(enabled = true)
 }
 
 /**
- * Configuration for starvation debuff (hunger = 0).
+ * Configuration for hunger debuffs (health drain).
+ * 3-stage system: Peckish (75%) → Hungry (50%) → Starving (25%)
  */
-data class StarvationConfig(
-    /** Whether starvation is enabled */
+data class HungerDebuffsConfig(
+    /** Whether hunger debuffs are enabled */
     val enabled: Boolean = true,
     
-    /** Initial damage per tick */
-    val initialDamage: Double = 1.1,
+    /** Stage 1: Peckish (≤ 75%) - health drain */
+    val peckishDamage: Double = 0.5,  // HP per tick
     
-    /** Damage increase per tick */
-    val damageIncreasePerTick: Double = 0.55,
+    /** Stage 2: Hungry (≤ 50%) - health drain */
+    val hungryDamage: Double = 1.5,  // HP per tick
     
-    /** Maximum damage per tick */
-    val maxDamage: Double = 5.5,
+    /** Stage 3: Starving (≤ 25%) - health drain */
+    val starvingDamage: Double = 3.0,  // HP per tick
     
     /** Interval between damage ticks (milliseconds) */
     val damageIntervalMs: Long = 3000 // 3 seconds
@@ -315,44 +437,287 @@ data class StarvationConfig(
 }
 
 /**
- * Configuration for dehydration debuff (thirst < 30).
+ * Configuration for thirst debuffs (max stamina reduction).
+ * 3-stage system: Thirsty (75%) → Parched (50%) → Dehydrated (25%)
+ * 
+ * Uses multiplicative modifiers to reduce max stamina capacity.
+ * Lower max stamina means regen fills the bar slower (visual effect of reduced regen).
  */
-data class DehydrationConfig(
-    /** Whether dehydration is enabled */
+data class ThirstDebuffsConfig(
+    /** Whether thirst debuffs are enabled */
     val enabled: Boolean = true,
     
-    /** Minimum speed multiplier at 0 thirst (0.405 = 40.5% of normal speed) */
-    val minSpeed: Double = 0.405,
+    /** Stage 1: Thirsty (≤ 75%) - max stamina multiplier */
+    val thirstyMaxStamina: Double = 0.85,  // 85% of max (like -15%)
     
-    /** Damage when critically dehydrated (thirst = 0) */
-    val damage: Double = 1.65,
+    /** Stage 2: Parched (≤ 50%) - max stamina multiplier */
+    val parchedMaxStamina: Double = 0.65,  // 65% of max (like -35%)
     
-    /** Interval between damage ticks (milliseconds) */
-    val damageIntervalMs: Long = 4000 // 4 seconds
+    /** Stage 3: Dehydrated (≤ 25%) - max stamina multiplier */
+    val dehydratedMaxStamina: Double = 0.40  // 40% of max (like -60%)
 ) {
     /** No-arg constructor for Jackson deserialization */
     constructor() : this(enabled = true)
 }
 
 /**
- * Configuration for exhaustion debuff (energy < 30).
+ * Configuration for energy debuffs (speed reduction).
+ * 3-stage system: Drowsy (75%) → Tired (50%) → Exhausted (25%)
  */
-data class ExhaustionConfig(
-    /** Whether exhaustion is enabled */
+data class EnergyDebuffsConfig(
+    /** Whether energy debuffs are enabled */
     val enabled: Boolean = true,
     
-    /** Minimum speed multiplier at 0 energy (0.54 = 54% of normal speed) */
-    val minSpeed: Double = 0.54,
+    /** Stage 1: Drowsy (≤ 75%) - speed multiplier */
+    val drowsySpeed: Double = 0.90,  // 90% speed (-10%)
     
-    /** Maximum stamina consumption multiplier at 0 energy (1.65 = 65% more consumption) */
-    val maxStaminaConsumption: Double = 1.65,
+    /** Stage 2: Tired (≤ 50%) - speed multiplier */
+    val tiredSpeed: Double = 0.75,  // 75% speed (-25%)
     
-    /** Stamina drain when critically exhausted (energy = 0) */
-    val staminaDrain: Double = 5.5,
-    
-    /** Interval between stamina drain ticks (milliseconds) */
-    val drainIntervalMs: Long = 1000 // 1 second
+    /** Stage 3: Exhausted (≤ 25%) - speed multiplier */
+    val exhaustedSpeed: Double = 0.55  // 55% speed (-45%)
 ) {
     /** No-arg constructor for Jackson deserialization */
     constructor() : this(enabled = true)
+}
+
+// ============================================================================
+// Per-World Override Data Classes
+// ============================================================================
+
+/**
+ * Per-world metabolism configuration override.
+ * Only fields that are non-null will override the global defaults.
+ * 
+ * Example:
+ * ```yaml
+ * worldOverrides:
+ *   hardcore:
+ *     hunger:
+ *       baseDepletionRateSeconds: 960.0  # Only override this field
+ *       # Other fields inherit from global
+ * ```
+ */
+data class MetabolismWorldOverride(
+    /** Override hunger settings (null = inherit from global) */
+    val hunger: StatConfigOverride? = null,
+    
+    /** Override thirst settings (null = inherit from global) */
+    val thirst: StatConfigOverride? = null,
+    
+    /** Override energy settings (null = inherit from global) */
+    val energy: StatConfigOverride? = null,
+    
+    /** Override buffs settings (null = inherit from global) */
+    val buffs: BuffsConfigOverride? = null,
+    
+    /** Override debuffs settings (null = inherit from global) */
+    val debuffs: DebuffsConfigOverride? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null, null)
+}
+
+/**
+ * Partial stat config for world overrides.
+ * Null fields inherit from global.
+ */
+data class StatConfigOverride(
+    val enabled: Boolean? = null,
+    val baseDepletionRateSeconds: Double? = null,
+    val activityMultipliers: Map<String, Double>? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null)
+}
+
+/**
+ * Partial buffs config for world overrides.
+ * Null fields inherit from global.
+ */
+data class BuffsConfigOverride(
+    val enabled: Boolean? = null,
+    val speedBuff: BuffConfigOverride? = null,
+    val defenseBuff: BuffConfigOverride? = null,
+    val staminaBuff: BuffConfigOverride? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null)
+}
+
+/**
+ * Partial buff config for world overrides.
+ * Null fields inherit from global.
+ */
+data class BuffConfigOverride(
+    val enabled: Boolean? = null,
+    val multiplier: Double? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null)
+}
+
+/**
+ * Partial debuffs config for world overrides.
+ * Null fields inherit from global.
+ */
+data class DebuffsConfigOverride(
+    val enabled: Boolean? = null,
+    val hunger: HungerDebuffsConfigOverride? = null,
+    val thirst: ThirstDebuffsConfigOverride? = null,
+    val energy: EnergyDebuffsConfigOverride? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null)
+}
+
+/**
+ * Partial hunger debuffs config for world overrides.
+ * Null fields inherit from global.
+ */
+data class HungerDebuffsConfigOverride(
+    val enabled: Boolean? = null,
+    val peckishDamage: Double? = null,
+    val hungryDamage: Double? = null,
+    val starvingDamage: Double? = null,
+    val damageIntervalMs: Long? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null, null)
+}
+
+/**
+ * Partial thirst debuffs config for world overrides.
+ * Null fields inherit from global.
+ */
+data class ThirstDebuffsConfigOverride(
+    val enabled: Boolean? = null,
+    val thirstyMaxStamina: Double? = null,
+    val parchedMaxStamina: Double? = null,
+    val dehydratedMaxStamina: Double? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null)
+}
+
+/**
+ * Partial energy debuffs config for world overrides.
+ * Null fields inherit from global.
+ */
+data class EnergyDebuffsConfigOverride(
+    val enabled: Boolean? = null,
+    val drowsySpeed: Double? = null,
+    val tiredSpeed: Double? = null,
+    val exhaustedSpeed: Double? = null
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(null, null, null, null)
+}
+
+// ============================================================================
+// Config Merging Extension Functions
+// ============================================================================
+
+/**
+ * Merge StatConfig with partial override.
+ * Non-null override fields take precedence.
+ */
+fun StatConfig.mergeWith(override: StatConfigOverride?): StatConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        baseDepletionRateSeconds = override.baseDepletionRateSeconds ?: this.baseDepletionRateSeconds,
+        activityMultipliers = if (override.activityMultipliers != null) {
+            // Deep merge activity multipliers
+            this.activityMultipliers.toMutableMap().apply {
+                putAll(override.activityMultipliers)
+            }
+        } else {
+            this.activityMultipliers
+        }
+    )
+}
+
+/**
+ * Merge BuffsConfig with partial override.
+ */
+fun BuffsConfig.mergeWith(override: BuffsConfigOverride?): BuffsConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        speedBuff = this.speedBuff.mergeWith(override.speedBuff),
+        defenseBuff = this.defenseBuff.mergeWith(override.defenseBuff),
+        staminaBuff = this.staminaBuff.mergeWith(override.staminaBuff)
+    )
+}
+
+/**
+ * Merge BuffConfig with partial override.
+ */
+fun BuffConfig.mergeWith(override: BuffConfigOverride?): BuffConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        multiplier = override.multiplier ?: this.multiplier
+    )
+}
+
+/**
+ * Merge DebuffsConfig with partial override.
+ */
+fun DebuffsConfig.mergeWith(override: DebuffsConfigOverride?): DebuffsConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        hunger = this.hunger.mergeWith(override.hunger),
+        thirst = this.thirst.mergeWith(override.thirst),
+        energy = this.energy.mergeWith(override.energy)
+    )
+}
+
+/**
+ * Merge HungerDebuffsConfig with partial override.
+ */
+fun HungerDebuffsConfig.mergeWith(override: HungerDebuffsConfigOverride?): HungerDebuffsConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        peckishDamage = override.peckishDamage ?: this.peckishDamage,
+        hungryDamage = override.hungryDamage ?: this.hungryDamage,
+        starvingDamage = override.starvingDamage ?: this.starvingDamage,
+        damageIntervalMs = override.damageIntervalMs ?: this.damageIntervalMs
+    )
+}
+
+/**
+ * Merge ThirstDebuffsConfig with partial override.
+ */
+fun ThirstDebuffsConfig.mergeWith(override: ThirstDebuffsConfigOverride?): ThirstDebuffsConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        thirstyMaxStamina = override.thirstyMaxStamina ?: this.thirstyMaxStamina,
+        parchedMaxStamina = override.parchedMaxStamina ?: this.parchedMaxStamina,
+        dehydratedMaxStamina = override.dehydratedMaxStamina ?: this.dehydratedMaxStamina
+    )
+}
+
+/**
+ * Merge EnergyDebuffsConfig with partial override.
+ */
+fun EnergyDebuffsConfig.mergeWith(override: EnergyDebuffsConfigOverride?): EnergyDebuffsConfig {
+    if (override == null) return this
+    
+    return this.copy(
+        enabled = override.enabled ?: this.enabled,
+        drowsySpeed = override.drowsySpeed ?: this.drowsySpeed,
+        tiredSpeed = override.tiredSpeed ?: this.tiredSpeed,
+        exhaustedSpeed = override.exhaustedSpeed ?: this.exhaustedSpeed
+    )
 }

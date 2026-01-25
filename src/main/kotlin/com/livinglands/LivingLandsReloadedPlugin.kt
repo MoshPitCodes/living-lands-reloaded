@@ -2,7 +2,9 @@ package com.livinglands
 
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent
 import com.hypixel.hytale.server.core.event.events.player.PlayerReadyEvent
+import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.plugin.JavaPlugin
+import java.awt.Color
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
 import com.hypixel.hytale.server.core.universe.world.events.RemoveWorldEvent
@@ -44,15 +46,18 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // Initialize core module
         CoreModule.initialize(this)
         
-        // Register commands
-        registerCommands()
+        // Create main command (but don't register yet)
+        createMainCommand()
         
         // Register event listeners
         registerEventListeners()
         
-        // Register and setup all modules
+        // Register and setup all modules (they will add subcommands to main command)
         registerModules()
         setupAllModules()
+        
+        // Now register the main command with all subcommands
+        registerMainCommand()
     }
     
     override fun start() {
@@ -201,21 +206,34 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
     }
     
     /**
-     * Register all plugin commands.
+     * Create the main command (before module setup).
+     * Subcommands will be added during module setup.
      */
-    private fun registerCommands() {
-        logger.atInfo().log("=== REGISTERING COMMANDS ===")
+    private fun createMainCommand() {
+        logger.atInfo().log("=== CREATING MAIN COMMAND ===")
         try {
             val llCmd = LLCommand()
             logger.atInfo().log("Created LLCommand: name='${llCmd.name}', description='${llCmd.description}'")
             
-            commandRegistry.registerCommand(llCmd)
-            logger.atInfo().log("LLCommand registered successfully (with subcommands)")
-            
-            // List all registered commands
-            logger.atInfo().log("CommandRegistry type: ${commandRegistry.javaClass.name}")
+            // Store in CoreModule so modules can register subcommands
+            CoreModule.mainCommand = llCmd
+            logger.atInfo().log("Main command created (subcommands will be added by modules)")
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("FAILED to register commands")
+            logger.atSevere().withCause(e).log("FAILED to create main command")
+            e.printStackTrace()
+        }
+    }
+    
+    /**
+     * Register the main command (after modules have added their subcommands).
+     */
+    private fun registerMainCommand() {
+        logger.atInfo().log("=== REGISTERING MAIN COMMAND ===")
+        try {
+            commandRegistry.registerCommand(CoreModule.mainCommand)
+            logger.atInfo().log("LLCommand registered successfully with all subcommands")
+        } catch (e: Exception) {
+            logger.atSevere().withCause(e).log("FAILED to register main command")
             e.printStackTrace()
         }
         logger.atInfo().log("=== COMMAND REGISTRATION COMPLETE ===")
@@ -262,12 +280,16 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
             world = world
         )
         
-        try {
+        // Check if this is a new session or an update (world switch)
+        val isNewSession = !CoreModule.players.hasSession(playerId)
+        val oldSession = if (isNewSession) {
             CoreModule.players.register(session)
-            logger.atInfo().log("Registered player session: $playerId")
-        } catch (e: IllegalStateException) {
-            logger.atInfo().log(e.message ?: "Session already exists")
-            return
+            logger.atInfo().log("Registered new player session: $playerId in world ${world.name}")
+            null
+        } else {
+            val old = CoreModule.players.update(session)
+            logger.atInfo().log("Updated player session: $playerId switched from world ${old?.world?.name} to ${world.name}")
+            old
         }
         
         // Get or create world context (lazy creation since AddWorldEvent doesn't fire)
@@ -284,6 +306,40 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
             CoreModule.notifyPlayerJoin(playerId, session)
         }
         logger.atInfo().log("All modules notified of player join: $playerId")
+        
+        // Send world config info to player (if metabolism module is loaded)
+        try {
+            val metabolismService = CoreModule.services.get<com.livinglands.modules.metabolism.MetabolismService>()
+            if (metabolismService != null) {
+                val worldConfig = metabolismService.getConfigForWorld(worldContext)
+                
+                // Check if world has custom config
+                val hasOverride = worldContext.metabolismConfig != null && 
+                                  worldContext.metabolismConfig != metabolismService.getConfig()
+            
+                if (hasOverride) {
+                    // World has custom config - inform player
+                    playerRef?.sendMessage(
+                        Message.raw("[").color(Color(85, 85, 85))
+                            .insert(Message.raw("Living Lands").color(Color(255, 170, 0)))
+                            .insert(Message.raw("]").color(Color(85, 85, 85)))
+                            .insert(Message.raw(" World '${world.name}' has custom metabolism config").color(Color(85, 255, 255)))
+                            .insert(Message.raw(" (hunger: ${formatRate(worldConfig.hunger.baseDepletionRateSeconds)}, thirst: ${formatRate(worldConfig.thirst.baseDepletionRateSeconds)}, energy: ${formatRate(worldConfig.energy.baseDepletionRateSeconds)})").color(Color(170, 170, 170)))
+                    )
+                } else {
+                    // Using global defaults
+                    playerRef?.sendMessage(
+                        Message.raw("[").color(Color(85, 85, 85))
+                            .insert(Message.raw("Living Lands").color(Color(255, 170, 0)))
+                            .insert(Message.raw("]").color(Color(85, 85, 85)))
+                            .insert(Message.raw(" World '${world.name}' using global metabolism config").color(Color(85, 255, 85)))
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Metabolism module might not be loaded, silently continue
+            logger.atFine().log("Could not send world config info: ${e.message}")
+        }
     }
     
     /**
@@ -326,5 +382,18 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // Unregister session AFTER all modules have saved
         CoreModule.players.unregister(playerId)
         logger.atInfo().log("Unregistered player session: $playerId")
+    }
+    
+    /**
+     * Format depletion rate in seconds to human-readable string.
+     * Examples: 2880s → "48min", 960s → "16min", 300s → "5min"
+     */
+    private fun formatRate(seconds: Double): String {
+        val minutes = seconds / 60.0
+        return if (minutes >= 60) {
+            "%.1fh".format(minutes / 60.0)
+        } else {
+            "%.0fmin".format(minutes)
+        }
     }
 }
