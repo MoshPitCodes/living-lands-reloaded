@@ -62,6 +62,7 @@ tasks {
     }
     
     jar {
+        archiveBaseName.set("livinglands-reloaded")
         manifest {
             attributes(
                 "Implementation-Title" to project.name,
@@ -72,7 +73,7 @@ tasks {
     
     shadowJar {
         archiveBaseName.set("livinglands-reloaded")
-        archiveClassifier.set("")
+        archiveClassifier.set("shadow")
         
         // Relocate dependencies to avoid conflicts (NOT sqlite - it uses JDBC which needs original package)
         relocate("com.fasterxml.jackson", "com.livinglands.libs.jackson")
