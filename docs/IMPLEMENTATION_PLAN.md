@@ -516,30 +516,207 @@ val metabolismMigrations = listOf(
 
 ---
 
+## Phase 10: Announcer Module (1-2 days) - 📋 PLANNED
+
+**Goal:** Server messaging system with MOTD, welcome messages, and recurring announcements
+
+**Scope:** Minimal MVP - Core announcements without advanced features (permissions, complex targeting)
+
+### Design Decisions (Based on Code Review)
+
+**Architecture:**
+- ✅ In-memory join tracking (ConcurrentHashMap) - No database persistence needed
+- ✅ Immediate MOTD send (no delay) - Simpler, no race conditions
+- ✅ Per-world config overrides - Different messages per world
+- ✅ Coroutine-based recurring announcements - Non-blocking scheduling
+- ✅ Simple placeholder system - `{player_name}`, `{world_name}`, `{online_count}`, etc.
+
+**Critical Issues Fixed (from Code Review):**
+1. ❌ NOT using GlobalPersistenceService (wrong abstraction for announcements)
+2. ✅ No delayed `world.execute {}` calls (prevents race conditions)
+3. ✅ Session validation before all message sends (prevents NPE on disconnect)
+
+### Tasks
+
+- [ ] **10.1** Create module structure
+  - `AnnouncerModule.kt` - Module entry point with lifecycle hooks
+  - `AnnouncerService.kt` - Message sending logic
+  - `AnnouncerScheduler.kt` - Recurring announcement scheduler
+  - `PlaceholderResolver.kt` - Placeholder replacement
+  - In-memory join tracking with `ConcurrentHashMap<UUID, Instant>`
+
+- [ ] **10.2** Implement config schema
+  - Create `config/AnnouncerConfig.kt` data classes
+  - MOTD configuration (per-world overrides)
+  - Welcome message configuration (first-time vs returning)
+  - Recurring announcements (id, interval, messages, target world)
+  - Implement `VersionedConfig` interface for migration support
+  - Create default `announcer.yml` with examples
+
+- [ ] **10.3** Implement AnnouncerService
+  - MOTD sending (immediate, with session validation)
+  - Welcome messages (first-time vs returning player detection)
+  - Placeholder resolution (`{player_name}`, `{world_name}`, `{online_count}`, `{join_count}`, `{first_joined}`)
+  - Per-world message resolution (apply overrides)
+  - Message cycling (sequential rotation through message lists)
+  - Safe message sending (validate session before `world.execute {}`)
+
+- [ ] **10.4** Implement AnnouncerScheduler
+  - Coroutine-based scheduling with `SupervisorJob`
+  - Multiple recurring announcements running simultaneously
+  - Per-world targeting (send only to players in specific world)
+  - Sequential message cycling (rotate through tip list)
+  - Configurable intervals (parse duration strings like "5m", "1h")
+  - Graceful shutdown on config reload (cancel jobs cleanly)
+
+- [ ] **10.5** Add admin commands
+  - `/ll broadcast <message>` - Broadcast custom message to all players
+  - `/ll announce <preset> [args]` - Send preset announcement (e.g., restart warning)
+  - `/ll announcer mute` - Toggle announcements for current player (admin utility)
+  - Register commands with CoreModule.mainCommand
+
+- [ ] **10.6** Event handlers
+  - `onPlayerJoin()` - Send MOTD + welcome message
+  - `onPlayerDisconnect()` - Update last seen timestamp
+  - `onConfigReload()` - Restart scheduler with new config
+  - Add to `AnnouncerModule` lifecycle
+
+- [ ] **10.7** Testing & validation
+  - Test first join vs returning player detection
+  - Test MOTD sent immediately on join
+  - Test recurring announcements don't cause lag (profile with 100+ players)
+  - Test per-world message overrides
+  - Test message cycling (sequential rotation)
+  - Test config hot-reload (announcements restart cleanly)
+  - Test player disconnect doesn't cause NPE
+  - Test invalid config values (min interval validation)
+
+### Config Schema Example
+
+```yaml
+# announcer.yml
+configVersion: 1
+enabled: true
+
+# Message of the Day (sent immediately on join)
+motd:
+  enabled: true
+  message: "&6Welcome to {server_name}!"
+
+# Welcome messages (personalized)
+welcome:
+  enabled: true
+  firstJoin: "&aWelcome for the first time, {player_name}!"
+  returning: "&7Welcome back, {player_name}! (Visit #{join_count})"
+  minAbsenceDuration: "1h"  # Only show returning message if gone 1+ hour
+
+# Recurring announcements
+recurring:
+  enabled: true
+  announcements:
+    - id: "tips"
+      enabled: true
+      interval: "5m"
+      messages:
+        - "&6[Tip] Stay hydrated! Thirst depletes faster than hunger."
+        - "&6[Tip] Sprinting uses 3x more energy."
+        - "&6[Tip] Cooked food restores more stats than raw."
+      target: "all"  # or "world:WorldName"
+    
+    - id: "discord"
+      enabled: true
+      interval: "10m"
+      messages:
+        - "&bJoin our Discord: &fdiscord.gg/example"
+      target: "all"
+
+# Per-world overrides
+worldOverrides:
+  CreativeWorld:
+    motd:
+      message: "&bWelcome to Creative Mode!"
+    recurring:
+      announcements:
+        - id: "tips"
+          enabled: false  # No survival tips in creative
+  
+  PvPArena:
+    motd:
+      message: "&c&lWARNING: PvP ENABLED!"
+    welcome:
+      firstJoin: "&cWatch your back, {player_name}!"
+
+# Admin announcement presets
+presets:
+  restart:
+    messages:
+      - "&c&l[MAINTENANCE]"
+      - "&eServer will restart in &c{arg1} &eminutes."
+```
+
+### File Structure
+
+```
+src/main/kotlin/com/livinglands/modules/announcer/
+├── AnnouncerModule.kt           # Module lifecycle
+├── AnnouncerService.kt          # Message sending logic
+├── AnnouncerScheduler.kt        # Recurring announcements
+├── JoinTracker.kt               # In-memory first-join detection
+├── config/
+│   ├── AnnouncerConfig.kt       # Config data classes
+│   └── AnnouncerConfigValidator.kt  # Validation (min intervals)
+├── commands/
+│   ├── BroadcastCommand.kt      # /ll broadcast
+│   ├── AnnounceCommand.kt       # /ll announce <preset>
+│   └── AnnouncerMuteCommand.kt  # /ll announcer mute
+└── placeholder/
+    └── PlaceholderResolver.kt   # {player_name} etc.
+```
+
+### Deliverable
+✅ Server announcements work reliably:
+- MOTD sent immediately on join (no delay, no race conditions)
+- Welcome messages differentiate first-time vs returning players
+- Recurring announcements run without lag
+- Per-world message overrides work correctly
+- Config is hot-reloadable via `/ll reload announcer`
+- Admins can broadcast custom messages
+
+### Performance Targets
+- MOTD send: < 1ms per player
+- Welcome message: < 5ms per player (includes join tracking lookup)
+- Recurring announcement: < 50ms total (broadcast to all players)
+- Config reload: < 100ms (restart scheduler)
+
+### Migration Path
+If users had v2.6.0 or earlier, no migration needed (new feature).
+
+---
+
 ## Future Phases (Post-MVP)
 
 These are deferred until core metabolism is solid:
 
-### Phase 10: Leveling Module
+### Phase 11: Leveling Module
 - Profession system (Mining, Logging, Combat, etc.)
 - XP gain from activities
 - Level-up rewards
 
-### Phase 11: Claims Module
+### Phase 12: Claims Module
 - Plot claiming system
 - Trust management
 - Protection from other players
 
-### Phase 12: Poison System
+### Phase 13: Poison System
 - Poisonous consumables
 - Multiple poison effect types
 - Native poison integration
 
-### Phase 13: Native Effect Integration
+### Phase 14: Native Effect Integration
 - Detect Hytale's burn, stun, freeze effects
 - Apply metabolism drain during debuffs
 
-### Phase 14: Advanced HUD
+### Phase 15: Advanced HUD
 - Customizable HUD positioning
 - Settings UI for players
 - Notification system for level-ups, etc.
@@ -561,8 +738,10 @@ These are deferred until core metabolism is solid:
 | 7: Debuffs & Buffs | 2-3 days | 🚧 Needs Testing |
 | 8: Food Consumption | 2-3 days | ✅ Complete |
 | 9: Polish & Optimization | 2-3 days | 🚧 Needs Multi-Player Testing |
+| 10: Announcer Module | 1-2 days | 📋 Planned (MVP) |
 
-**MVP Progress:** ~95% Complete (8/9 phases done, 2 phases need testing)
+**Current MVP Progress:** ~95% Complete (8/9 phases done, 2 phases need testing)
+**With Announcer:** ~90% Complete (Phase 10 adds new MVP feature)
 
 ---
 
