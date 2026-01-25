@@ -46,3 +46,15 @@ LivingLandsReloaded/
 *.bak
 *.backup
 *.tmp
+
+# Documentation (kept locally only, not in git)
+docs/HUD_COMPONENTS_REFERENCE.md
+docs/HUD_SYSTEM_ANALYSIS.md
+docs/HYTALE_API_REFERENCE.md
+docs/MODULE_ANALYSIS.md
+docs/MULTI_WORLD_TESTING.md
+docs/STATUS.md
+docs/TESTING_GUIDE.md
+docs/TROUBLESHOOTING.md
+docs/WINDOWS_DEPLOYMENT.md
+docs/archive/
