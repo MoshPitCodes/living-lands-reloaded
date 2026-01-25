@@ -1,12 +1,12 @@
 package com.livinglands.modules.metabolism.food
 
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.metabolism.config.FoodConsumptionConfig
 import com.livinglands.core.MessageFormatter
 import java.util.UUID
-import java.util.logging.Logger
 
 /**
  * Processes food consumption and restores metabolism stats.
@@ -33,7 +33,7 @@ import java.util.logging.Logger
 class FoodConsumptionProcessor(
     private val metabolismService: MetabolismService,
     private val config: FoodConsumptionConfig,
-    private val logger: Logger
+    private val logger: HytaleLogger
 ) {
     
     /**
@@ -56,9 +56,9 @@ class FoodConsumptionProcessor(
             energy = energyRestore
         )
         
-        // Always log food consumption for debugging (not just FINE level)
-        logger.info(
-            "Food effect detected: ${detection.effectId} " +
+        // Log food consumption at INFO level (useful for server monitoring)
+        logger.atInfo().log(
+            "Food consumed: ${detection.effectId} " +
             "(type=${detection.foodType}, tier=${detection.tier}) -> " +
             "H+%.2f, T+%.2f, E+%.2f".format(hungerRestore, thirstRestore, energyRestore)
         )
@@ -152,7 +152,7 @@ class FoodConsumptionProcessor(
                     energyRestore
                 )
             } catch (e: Exception) {
-                logger.fine("Failed to send food consumption message to player $playerId: ${e.message}")
+                logger.atFine().log("Failed to send food consumption message to player $playerId: ${e.message}")
             }
         }
     }

@@ -22,6 +22,14 @@ class PlayerRegistry {
     }
     
     /**
+     * Update an existing player session (used when player switches worlds).
+     * Returns the old session that was replaced.
+     */
+    fun update(session: PlayerSession): PlayerSession? {
+        return sessions.put(session.playerId, session)
+    }
+    
+    /**
      * Unregister a player session when they disconnect.
      * Returns the removed session, or null if not found.
      */

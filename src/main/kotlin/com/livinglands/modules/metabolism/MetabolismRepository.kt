@@ -27,7 +27,7 @@ class MetabolismRepository(
     
     companion object {
         private const val MODULE_ID = "metabolism"
-        private const val SCHEMA_VERSION = 1
+        private const val SCHEMA_VERSION = 3  // Updated for 3-stage debuff system
     }
     
     /**
@@ -55,6 +55,17 @@ class MetabolismRepository(
                     stmt.execute("""
                         CREATE INDEX IF NOT EXISTS idx_metabolism_player 
                         ON metabolism_stats(player_id)
+                    """.trimIndent())
+                    
+                    // Create HUD preferences table (v2 schema)
+                    stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS hud_preferences (
+                            player_id TEXT PRIMARY KEY,
+                            stats_visible INTEGER NOT NULL DEFAULT 1,
+                            buffs_visible INTEGER NOT NULL DEFAULT 1,
+                            debuffs_visible INTEGER NOT NULL DEFAULT 1,
+                            FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
+                        )
                     """.trimIndent())
                 }
             }
@@ -284,5 +295,62 @@ class MetabolismRepository(
         }
         
         logger.atFine().log("Bulk saved ${statsList.size} metabolism stats records")
+    }
+    
+    // ============ HUD Preferences Methods ============
+    
+    /**
+     * Load HUD preferences for a player.
+     * Returns default preferences if not found.
+     */
+    suspend fun loadHudPreferences(playerId: String): com.livinglands.modules.metabolism.hud.HudPreferences {
+        return persistence.execute { conn ->
+            conn.prepareStatement("""
+                SELECT stats_visible, buffs_visible, debuffs_visible
+                FROM hud_preferences
+                WHERE player_id = ?
+            """.trimIndent()).use { stmt ->
+                stmt.setString(1, playerId)
+                stmt.executeQuery().useRows { rs ->
+                    if (rs.next()) {
+                        com.livinglands.modules.metabolism.hud.HudPreferences(
+                            statsVisible = rs.getInt(1) == 1,
+                            buffsVisible = rs.getInt(2) == 1,
+                            debuffsVisible = rs.getInt(3) == 1
+                        )
+                    } else {
+                        // Return defaults if not found
+                        com.livinglands.modules.metabolism.hud.HudPreferences()
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Save HUD preferences for a player.
+     */
+    suspend fun saveHudPreferences(playerId: String, prefs: com.livinglands.modules.metabolism.hud.HudPreferences) {
+        persistence.execute { conn ->
+            conn.prepareStatement("""
+                INSERT INTO hud_preferences (player_id, stats_visible, buffs_visible, debuffs_visible)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(player_id) DO UPDATE SET
+                    stats_visible = ?,
+                    buffs_visible = ?,
+                    debuffs_visible = ?
+            """.trimIndent()).use { stmt ->
+                stmt.setString(1, playerId)
+                stmt.setInt(2, if (prefs.statsVisible) 1 else 0)
+                stmt.setInt(3, if (prefs.buffsVisible) 1 else 0)
+                stmt.setInt(4, if (prefs.debuffsVisible) 1 else 0)
+                stmt.setInt(5, if (prefs.statsVisible) 1 else 0)
+                stmt.setInt(6, if (prefs.buffsVisible) 1 else 0)
+                stmt.setInt(7, if (prefs.debuffsVisible) 1 else 0)
+                stmt.executeUpdate()
+            }
+        }
+        
+        logger.atFine().log("Saved HUD preferences for player $playerId")
     }
 }

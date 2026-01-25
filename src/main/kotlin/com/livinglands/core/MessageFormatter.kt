@@ -174,27 +174,27 @@ object MessageFormatter {
     
     /**
      * Send a command success message (for CommandContext).
-     * Format: [Living Lands] ✓ <message>
+     * Format: [Living Lands] <message>
      * 
      * @param ctx Command context
      * @param text Main message text
      */
     fun commandSuccess(ctx: com.hypixel.hytale.server.core.command.system.CommandContext, text: String) {
         val msg = createPrefix()
-            .insert(Message.raw(" ✓ $text").color(GREEN))
+            .insert(Message.raw(" $text").color(GREEN))
         ctx.sendMessage(msg)
     }
     
     /**
      * Send a command error message (for CommandContext).
-     * Format: [Living Lands] ✗ <message>
+     * Format: [Living Lands] <message>
      * 
      * @param ctx Command context
      * @param text Main message text
      */
     fun commandError(ctx: com.hypixel.hytale.server.core.command.system.CommandContext, text: String) {
         val msg = createPrefix()
-            .insert(Message.raw(" ✗ $text").color(RED))
+            .insert(Message.raw(" $text").color(RED))
         ctx.sendMessage(msg)
     }
     

@@ -20,22 +20,30 @@ class WorldRegistry(
     private val worlds = ConcurrentHashMap<UUID, WorldContext>()
     
     /**
+     * Reverse lookup: world name (lowercase) → UUID.
+     * Updated whenever worlds are added/removed.
+     */
+    private val nameToUuid = ConcurrentHashMap<String, UUID>()
+    
+    /**
      * Called when a world is added to the universe.
      */
     fun onWorldAdded(event: AddWorldEvent) {
         val world = event.world
         val worldId = world.worldConfig.uuid
+        val worldName = world.name
         
         val context = WorldContext(
             worldId = worldId,
-            worldName = world.name,
+            worldName = worldName,
             dataDir = dataDir,
             logger = logger
         )
         
         worlds[worldId] = context
+        nameToUuid[worldName.lowercase()] = worldId  // Case-insensitive lookup
         
-        logger.atFine().log("World registered: ${world.name} ($worldId)")
+        logger.atFine().log("World registered: $worldName ($worldId)")
     }
     
     /**
@@ -44,11 +52,15 @@ class WorldRegistry(
     fun onWorldRemoved(event: RemoveWorldEvent) {
         val world = event.world
         val worldId = world.worldConfig.uuid
+        val worldName = world.name
         
         val context = worlds.remove(worldId)
-        context?.cleanup()
+        if (context != null) {
+            nameToUuid.remove(worldName.lowercase())
+            context.cleanup()
+        }
         
-        logger.atFine().log("World unregistered: ${world.name} ($worldId)")
+        logger.atFine().log("World unregistered: $worldName ($worldId)")
     }
     
     /**
@@ -62,16 +74,43 @@ class WorldRegistry(
     fun getContext(world: World): WorldContext? = worlds[world.worldConfig.uuid]
     
     /**
+     * Find world UUID by name (case-insensitive).
+     * Returns null if world doesn't exist.
+     */
+    fun getWorldIdByName(name: String): UUID? {
+        return nameToUuid[name.lowercase()]
+    }
+    
+    /**
+     * Find world context by name (case-insensitive).
+     * Returns null if world doesn't exist.
+     */
+    fun getContextByName(name: String): WorldContext? {
+        val uuid = nameToUuid[name.lowercase()] ?: return null
+        return worlds[uuid]
+    }
+    
+    /**
+     * Get all world names (for validation/suggestions).
+     */
+    fun getAllWorldNames(): Set<String> {
+        return worlds.values.map { it.worldName }.toSet()
+    }
+    
+    /**
      * Get or create WorldContext for a world (lazy creation).
      * Used when AddWorldEvent doesn't fire but we need the context.
      */
     fun getOrCreateContext(world: World): WorldContext {
         val worldId = world.worldConfig.uuid
+        val worldName = world.name
         return worlds.getOrPut(worldId) {
-            logger.atInfo().log("Creating lazy WorldContext for ${world.name} ($worldId)")
+            logger.atInfo().log("Creating lazy WorldContext for $worldName ($worldId)")
+            // Also update name mapping for lazy-created worlds
+            nameToUuid[worldName.lowercase()] = worldId
             WorldContext(
                 worldId = worldId,
-                worldName = world.name,
+                worldName = worldName,
                 dataDir = dataDir,
                 logger = logger
             )
@@ -99,5 +138,6 @@ class WorldRegistry(
     fun clear() {
         worlds.values.forEach { it.cleanup() }
         worlds.clear()
+        nameToUuid.clear()
     }
 }

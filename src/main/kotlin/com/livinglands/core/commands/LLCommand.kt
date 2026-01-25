@@ -25,6 +25,14 @@ class LLCommand : CommandBase(
         addSubCommand(ReloadCommand())
     }
     
+    /**
+     * Register a subcommand to the main /ll command.
+     * This allows modules to add their own subcommands.
+     */
+    fun registerSubCommand(subCommand: CommandBase) {
+        addSubCommand(subCommand)
+    }
+    
     override fun executeSync(ctx: CommandContext) {
         // When /ll is typed without subcommand, show help
         val gold = Color(255, 170, 0)
@@ -32,7 +40,14 @@ class LLCommand : CommandBase(
         val gray = Color(170, 170, 170)
         
         MessageFormatter.commandRaw(ctx, "=== Living Lands v1.0.0-beta ===", gold)
-        MessageFormatter.commandRaw(ctx, "/ll reload [module] --confirm true - Reload configuration", aqua)
-        MessageFormatter.commandRaw(ctx, "/ll stats - Show your metabolism stats", aqua)
+        MessageFormatter.commandRaw(ctx, "", gray)
+        MessageFormatter.commandRaw(ctx, "Commands:", gold)
+        MessageFormatter.commandRaw(ctx, "/ll reload - Reload configuration files", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll show - Display your metabolism stats", aqua)
+        MessageFormatter.commandRaw(ctx, "", gray)
+        MessageFormatter.commandRaw(ctx, "HUD Toggles:", gold)
+        MessageFormatter.commandRaw(ctx, "/ll stats - Toggle metabolism stats display", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll buffs - Toggle buffs display", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll debuffs - Toggle debuffs display", aqua)
     }
 }

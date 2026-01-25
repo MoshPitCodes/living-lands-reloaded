@@ -1,11 +1,11 @@
 package com.livinglands.modules.metabolism.food
 
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffect
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent
 import com.livinglands.core.PlayerSession
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Logger
 
 /**
  * Detects food consumption by monitoring entity effects.
@@ -31,7 +31,7 @@ import java.util.logging.Logger
  * @property logger Logger for debugging
  */
 class FoodEffectDetector(
-    private val logger: Logger
+    private val logger: HytaleLogger
 ) {
     /**
      * Tracks effect indexes from previous tick for each player.
@@ -86,7 +86,7 @@ class FoodEffectDetector(
         val effectController = try {
             session.store.getComponent(session.entityRef, EffectControllerComponent.getComponentType())
         } catch (e: Exception) {
-            logger.fine("Failed to get EffectControllerComponent for player $playerId: ${e.message}")
+            logger.atFine().log("Failed to get EffectControllerComponent for player $playerId: ${e.message}")
             return emptyList()
         }
         
@@ -145,7 +145,7 @@ class FoodEffectDetector(
                 val entityEffect = assetMap.getAsset(index)
                 entityEffect?.id
             } catch (e: Exception) {
-                logger.fine("Failed to get effect ID for index $index: ${e.message}")
+                logger.atFine().log("Failed to get effect ID for index $index: ${e.message}")
                 null
             }
             
@@ -159,7 +159,7 @@ class FoodEffectDetector(
                 // Mark as processed with current timestamp to prevent duplicate detection
                 processed[index] = System.currentTimeMillis()
                 
-                logger.fine("Detected food consumption: $effectId (tier ${detection.tier}, type ${detection.foodType})")
+                logger.atFine().log("Detected food consumption: $effectId (tier ${detection.tier}, type ${detection.foodType})")
             }
         }
         
@@ -209,7 +209,7 @@ class FoodEffectDetector(
         val effectController = try {
             session.store.getComponent(session.entityRef, EffectControllerComponent.getComponentType())
         } catch (e: Exception) {
-            logger.fine("Failed to get EffectControllerComponent for player $playerId during init: ${e.message}")
+            logger.atFine().log("Failed to get EffectControllerComponent for player $playerId during init: ${e.message}")
             return
         }
         
@@ -221,11 +221,11 @@ class FoodEffectDetector(
             val currentIndexes = activeEffects.map { it.getEntityEffectIndex() }.toSet()
             previousEffects[playerId] = currentIndexes
             
-            logger.fine("Initialized food detection for player $playerId with ${currentIndexes.size} existing effects")
+            logger.atFine().log("Initialized food detection for player $playerId with ${currentIndexes.size} existing effects")
         } else {
             // No active effects, initialize with empty set
             previousEffects[playerId] = emptySet()
-            logger.fine("Initialized food detection for player $playerId with no existing effects")
+            logger.atFine().log("Initialized food detection for player $playerId with no existing effects")
         }
     }
     
