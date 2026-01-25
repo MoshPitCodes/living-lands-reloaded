@@ -5,7 +5,7 @@ import com.hypixel.hytale.event.EventRegistry
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandRegistry
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
-import com.livinglands.LivingLandsPlugin
+import com.livinglands.LivingLandsReloadedPlugin
 import java.nio.file.Path
 
 /**
@@ -16,7 +16,7 @@ import java.nio.file.Path
  */
 data class ModuleContext(
     /** Reference to the main plugin instance */
-    val plugin: LivingLandsPlugin,
+    val plugin: LivingLandsReloadedPlugin,
     
     /** Logger for module-specific logging */
     val logger: HytaleLogger,

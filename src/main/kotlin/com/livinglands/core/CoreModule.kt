@@ -1,7 +1,7 @@
 package com.livinglands.core
 
 import com.hypixel.hytale.logger.HytaleLogger
-import com.livinglands.LivingLandsPlugin
+import com.livinglands.LivingLandsReloadedPlugin
 import com.livinglands.api.Module
 import com.livinglands.api.ModuleContext
 import com.livinglands.api.ModuleState
@@ -46,7 +46,7 @@ object CoreModule {
         private set
     
     // Plugin reference
-    lateinit var plugin: LivingLandsPlugin
+    lateinit var plugin: LivingLandsReloadedPlugin
         private set
     
     // Data directory for persistence
@@ -72,7 +72,7 @@ object CoreModule {
      * Initialize the core module with plugin reference.
      * Called during plugin setup phase.
      */
-    fun initialize(plugin: LivingLandsPlugin) {
+    fun initialize(plugin: LivingLandsReloadedPlugin) {
         if (initialized) {
             plugin.logger.atWarning().log("CoreModule already initialized, skipping")
             return
