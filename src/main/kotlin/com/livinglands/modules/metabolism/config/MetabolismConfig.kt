@@ -63,6 +63,9 @@ data class MetabolismConfig(
         )
     ),
     
+    /** Food consumption configuration */
+    val foodConsumption: FoodConsumptionConfig = FoodConsumptionConfig(),
+    
     /** Save interval in seconds (how often to persist stats to database) */
     val saveIntervalSeconds: Int = 60
 ) : VersionedConfig {
@@ -170,4 +173,51 @@ data class StatConfig(
     fun getMultiplier(activityName: String): Double {
         return activityMultipliers[activityName.lowercase()] ?: 1.0
     }
+}
+
+/**
+ * Configuration for food consumption detection and restoration.
+ */
+data class FoodConsumptionConfig(
+    /** Whether food consumption detection is enabled */
+    val enabled: Boolean = true,
+    
+    /**
+     * Detection tick interval in game ticks (30 TPS = 33.33ms per tick).
+     * 
+     * Default: 2 ticks = 66.66ms
+     * 
+     * IMPORTANT: Instant heal effects last only ~100ms (3 ticks), so detection
+     * must run at least every 2 ticks to catch them reliably.
+     * 
+     * Lower values (1 tick) = more CPU but catches all effects
+     * Higher values (3+ ticks) = less CPU but may miss instant effects
+     */
+    val detectionTickInterval: Int = 2,
+    
+    /**
+     * Number of players to process per detection tick (batch size).
+     * 
+     * Default: 10 players
+     * 
+     * With 100 players and batch size of 10:
+     * - Full cycle time = 10 batches × 2 ticks = 20 ticks = 666ms
+     * - Still fast enough to catch 100ms instant heal effects
+     * 
+     * Adjust based on player count and server performance.
+     */
+    val batchSize: Int = 10,
+    
+    /**
+     * Show chat messages when consuming food.
+     * 
+     * Default: true
+     * 
+     * When enabled, displays messages like:
+     * "You ate Cooked Meat (T3): +32.5 hunger, +5.0 thirst, +18.0 energy"
+     */
+    val showChatMessages: Boolean = true
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
 }
