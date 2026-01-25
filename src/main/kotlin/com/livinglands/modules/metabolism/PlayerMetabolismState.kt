@@ -1,6 +1,5 @@
 package com.livinglands.modules.metabolism
 
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 import kotlin.math.max
 
 /**
@@ -65,10 +64,8 @@ class PlayerMetabolismState(
     /** Timestamp of last depletion tick for accurate delta calculations. */
     @Volatile var lastDepletionTime: Long = System.currentTimeMillis()
     
-    // ============ HUD Data (previously in separate maps) ============
-    
-    /** The player's HUD element, or null if not registered. */
-    @Volatile var hudElement: MetabolismHudElement? = null
+    // ============ HUD Data (for threshold-based updates) ============
+    // Note: HUD element itself is now stored in MultiHudManager (single source of truth)
     
     /** Last hunger value displayed on HUD (for threshold-based updates). */
     @Volatile var lastDisplayedHunger: Float = initialHunger

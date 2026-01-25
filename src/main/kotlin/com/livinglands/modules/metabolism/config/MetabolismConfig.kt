@@ -66,6 +66,12 @@ data class MetabolismConfig(
     /** Food consumption configuration */
     val foodConsumption: FoodConsumptionConfig = FoodConsumptionConfig(),
     
+    /** Buffs configuration (bonuses for high stats) */
+    val buffs: BuffsConfig = BuffsConfig(),
+    
+    /** Debuffs configuration (penalties for low stats) */
+    val debuffs: DebuffsConfig = DebuffsConfig(),
+    
     /** Save interval in seconds (how often to persist stats to database) */
     val saveIntervalSeconds: Int = 60
 ) : VersionedConfig {
@@ -217,6 +223,135 @@ data class FoodConsumptionConfig(
      * "You ate Cooked Meat (T3): +32.5 hunger, +5.0 thirst, +18.0 energy"
      */
     val showChatMessages: Boolean = true
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for metabolism buffs (bonuses for high stats).
+ */
+data class BuffsConfig(
+    /** Whether buffs are enabled */
+    val enabled: Boolean = true,
+    
+    /** Speed buff configuration (energy >= 90%) */
+    val speedBuff: BuffConfig = BuffConfig(
+        enabled = true,
+        multiplier = 1.132 // +13.2% movement speed
+    ),
+    
+    /** Defense buff configuration (hunger >= 90%) */
+    val defenseBuff: BuffConfig = BuffConfig(
+        enabled = true,
+        multiplier = 1.132 // +13.2% max health
+    ),
+    
+    /** Stamina buff configuration (thirst >= 90%) */
+    val staminaBuff: BuffConfig = BuffConfig(
+        enabled = true,
+        multiplier = 1.132 // +13.2% max stamina
+    )
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for a single buff.
+ */
+data class BuffConfig(
+    /** Whether this buff is enabled */
+    val enabled: Boolean = true,
+    
+    /** Stat multiplier (1.132 = +13.2%) */
+    val multiplier: Double = 1.132
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for metabolism debuffs (penalties for low stats).
+ */
+data class DebuffsConfig(
+    /** Whether debuffs are enabled */
+    val enabled: Boolean = true,
+    
+    /** Starvation debuff configuration (hunger = 0) */
+    val starvation: StarvationConfig = StarvationConfig(),
+    
+    /** Dehydration debuff configuration (thirst < 30) */
+    val dehydration: DehydrationConfig = DehydrationConfig(),
+    
+    /** Exhaustion debuff configuration (energy < 30) */
+    val exhaustion: ExhaustionConfig = ExhaustionConfig()
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for starvation debuff (hunger = 0).
+ */
+data class StarvationConfig(
+    /** Whether starvation is enabled */
+    val enabled: Boolean = true,
+    
+    /** Initial damage per tick */
+    val initialDamage: Double = 1.1,
+    
+    /** Damage increase per tick */
+    val damageIncreasePerTick: Double = 0.55,
+    
+    /** Maximum damage per tick */
+    val maxDamage: Double = 5.5,
+    
+    /** Interval between damage ticks (milliseconds) */
+    val damageIntervalMs: Long = 3000 // 3 seconds
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for dehydration debuff (thirst < 30).
+ */
+data class DehydrationConfig(
+    /** Whether dehydration is enabled */
+    val enabled: Boolean = true,
+    
+    /** Minimum speed multiplier at 0 thirst (0.405 = 40.5% of normal speed) */
+    val minSpeed: Double = 0.405,
+    
+    /** Damage when critically dehydrated (thirst = 0) */
+    val damage: Double = 1.65,
+    
+    /** Interval between damage ticks (milliseconds) */
+    val damageIntervalMs: Long = 4000 // 4 seconds
+) {
+    /** No-arg constructor for Jackson deserialization */
+    constructor() : this(enabled = true)
+}
+
+/**
+ * Configuration for exhaustion debuff (energy < 30).
+ */
+data class ExhaustionConfig(
+    /** Whether exhaustion is enabled */
+    val enabled: Boolean = true,
+    
+    /** Minimum speed multiplier at 0 energy (0.54 = 54% of normal speed) */
+    val minSpeed: Double = 0.54,
+    
+    /** Maximum stamina consumption multiplier at 0 energy (1.65 = 65% more consumption) */
+    val maxStaminaConsumption: Double = 1.65,
+    
+    /** Stamina drain when critically exhausted (energy = 0) */
+    val staminaDrain: Double = 5.5,
+    
+    /** Interval between stamina drain ticks (milliseconds) */
+    val drainIntervalMs: Long = 1000 // 1 second
 ) {
     /** No-arg constructor for Jackson deserialization */
     constructor() : this(enabled = true)

@@ -7,10 +7,13 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.commands.StatsCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
+import com.livinglands.modules.metabolism.buffs.BuffsSystem
+import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
 import com.livinglands.modules.metabolism.food.FoodDetectionTickSystem
 import com.livinglands.modules.metabolism.food.FoodEffectDetector
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
+import com.livinglands.util.SpeedManager
 import com.livinglands.util.toCachedString
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -58,6 +61,15 @@ class MetabolismModule : AbstractModule(
     
     /** Food consumption processor */
     private lateinit var foodConsumptionProcessor: FoodConsumptionProcessor
+    
+    /** Speed manager for centralized speed modifications */
+    private lateinit var speedManager: SpeedManager
+    
+    /** Debuffs system (penalties for low stats) */
+    private lateinit var debuffsSystem: DebuffsSystem
+    
+    /** Buffs system (bonuses for high stats) */
+    private lateinit var buffsSystem: BuffsSystem
     
     /**
      * Module-level coroutine scope for async persistence operations.
@@ -120,12 +132,8 @@ class MetabolismModule : AbstractModule(
         // Initialize repositories for existing worlds
         initializeRepositories()
         
-        // Register ECS tick system
-        if (metabolismConfig.enabled) {
-            val tickSystem = MetabolismTickSystem(metabolismService, logger)
-            registerSystem(tickSystem)
-            logger.atFine().log("Registered MetabolismTickSystem")
-        }
+        // Note: Tick system registration must happen AFTER buffs/debuffs initialization
+        // so they can be passed to the tick system constructor
         
         // Initialize food consumption system
         if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
@@ -143,6 +151,43 @@ class MetabolismModule : AbstractModule(
             )
             registerSystem(foodTickSystem)
             logger.atFine().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
+        }
+        
+        // Initialize buffs and debuffs system
+        if (metabolismConfig.enabled) {
+            val javaLogger = java.util.logging.Logger.getLogger(javaClass.name)
+            
+            // Create speed manager (centralized speed modification)
+            speedManager = SpeedManager(javaLogger)
+            
+            // Create debuffs system (must be created before buffs for suppression check)
+            debuffsSystem = DebuffsSystem(
+                config = metabolismConfig.debuffs,
+                speedManager = speedManager,
+                logger = javaLogger
+            )
+            
+            // Create buffs system (checks debuffs for suppression)
+            buffsSystem = BuffsSystem(
+                config = metabolismConfig.buffs,
+                debuffsSystem = debuffsSystem,
+                speedManager = speedManager,
+                logger = javaLogger
+            )
+            
+            logger.atFine().log("Initialized buffs and debuffs system")
+        }
+        
+        // Register ECS tick system (must be after buffs/debuffs initialization)
+        if (metabolismConfig.enabled) {
+            val tickSystem = MetabolismTickSystem(
+                metabolismService = metabolismService,
+                debuffsSystem = if (::debuffsSystem.isInitialized) debuffsSystem else null,
+                buffsSystem = if (::buffsSystem.isInitialized) buffsSystem else null,
+                logger = logger
+            )
+            registerSystem(tickSystem)
+            logger.atFine().log("Registered MetabolismTickSystem with buffs/debuffs")
         }
         
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
@@ -271,6 +316,22 @@ class MetabolismModule : AbstractModule(
             logger.atWarning().withCause(e)
                 .log("Failed to save metabolism for disconnecting player $playerId")
         } finally {
+            // Cleanup buffs/debuffs
+            if (::debuffsSystem.isInitialized) {
+                debuffsSystem.cleanup(playerId)
+            }
+            if (::buffsSystem.isInitialized) {
+                buffsSystem.cleanup(playerId)
+            }
+            if (::speedManager.isInitialized) {
+                speedManager.cleanup(playerId)
+            }
+            
+            // Cleanup food detection
+            if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
+                foodEffectDetector.cleanup(playerId)
+            }
+            
             // Always cleanup cache
             metabolismService.removeFromCache(playerId)
             
@@ -404,16 +465,9 @@ class MetabolismModule : AbstractModule(
                 // Create the HUD element
                 val hudElement = MetabolismHudElement(playerRef)
                 
-                // Register with the service for updates (use cached string)
-                metabolismService.registerHudElement(playerId.toCachedString(), hudElement)
-                
-                // Set HUD directly on player's HudManager
-                logger.atInfo().log("Setting HUD on world thread...")
-                player.hudManager.setCustomHud(playerRef, hudElement)
-                logger.atInfo().log("Set custom HUD")
-                hudElement.show()
-                logger.atInfo().log("Called show() on HUD element")
-                
+                // Register with MultiHudManager (standardized pattern)
+                logger.atInfo().log("Registering HUD via MultiHudManager on world thread...")
+                CoreModule.hudManager.setHud(player, playerRef, MetabolismHudElement.NAMESPACE, hudElement)
                 logger.atInfo().log("Registered metabolism HUD for player $playerId")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
@@ -448,8 +502,7 @@ class MetabolismModule : AbstractModule(
      */
     private fun cleanupHudForPlayer(playerId: UUID, playerRef: PlayerRef) {
         try {
-            // Remove from service tracking (use cached string, will be cleaned up in removeFromCache)
-            metabolismService.unregisterHudElement(playerId.toCachedString())
+            // HUD is managed by MultiHudManager (no service tracking needed)
             
             // Get session to access world for thread-safe ECS operations
             val session = CoreModule.players.getSession(playerId)

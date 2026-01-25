@@ -12,6 +12,10 @@ import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
+import com.livinglands.modules.metabolism.buffs.BuffsSystem
+import com.livinglands.modules.metabolism.buffs.DebuffsSystem
+import com.livinglands.modules.metabolism.hud.MetabolismHudElement
+import com.livinglands.util.SpeedManager
 import com.livinglands.util.toCachedString
 
 /**
@@ -24,6 +28,7 @@ import com.livinglands.util.toCachedString
  * 1. Checks if player is in Creative mode (skip if true)
  * 2. Detects their current activity state from MovementStatesComponent
  * 3. Delegates to MetabolismService for delta calculation and stat depletion
+ * 4. Applies buffs/debuffs based on current stats
  * 
  * Performance optimizations (v1.0.1):
  * - UUID.toString() replaced with toCachedString() to avoid allocations
@@ -36,6 +41,8 @@ import com.livinglands.util.toCachedString
  */
 class MetabolismTickSystem(
     private val metabolismService: MetabolismService,
+    private val debuffsSystem: DebuffsSystem?,
+    private val buffsSystem: BuffsSystem?,
     private val logger: HytaleLogger
 ) : EntityTickingSystem<EntityStore>() {
     
@@ -90,8 +97,11 @@ class MetabolismTickSystem(
             
             // Force HUD update to show current (frozen) values
             // This ensures the HUD displays the correct values while in creative mode
-            if (metabolismService.updateHudIfNeeded(playerIdStr)) {
-                val hudElement = metabolismService.getHudElement(playerIdStr)
+            if (metabolismService.updateHudIfNeeded(playerIdStr, playerId)) {
+                val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
+                    playerId,
+                    MetabolismHudElement.NAMESPACE
+                )
                 hudElement?.show()
             }
             
@@ -110,10 +120,23 @@ class MetabolismTickSystem(
             metabolismService.processTickWithDelta(playerIdStr, activityState)
             
             // Update HUD if stats changed significantly
-            if (metabolismService.updateHudIfNeeded(playerIdStr)) {
+            if (metabolismService.updateHudIfNeeded(playerIdStr, playerId)) {
                 // HUD was updated - trigger show() to push changes to client
-                val hudElement = metabolismService.getHudElement(playerIdStr)
+                val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
+                    playerId,
+                    MetabolismHudElement.NAMESPACE
+                )
                 hudElement?.show()
+            }
+            
+            // Apply buffs/debuffs based on current stats
+            val stats = metabolismService.getStats(playerIdStr)
+            if (stats != null) {
+                // Apply debuffs first (they may suppress buffs)
+                debuffsSystem?.tick(playerId, stats, ref, store)
+                
+                // Apply buffs (will be suppressed if any debuff is active)
+                buffsSystem?.tick(playerId, stats, ref, store)
             }
         } catch (e: Exception) {
             // Log but don't crash - metabolism is not critical
