@@ -701,6 +701,7 @@ These are deferred until core metabolism is solid:
 - Profession system (Mining, Logging, Combat, etc.)
 - XP gain from activities
 - Level-up rewards
+- Achievement notifications (see: Notification Module in deferred features)
 
 ### Phase 12: Claims Module
 - Plot claiming system
@@ -720,6 +721,19 @@ These are deferred until core metabolism is solid:
 - Customizable HUD positioning
 - Settings UI for players
 - Notification system for level-ups, etc.
+
+---
+
+## Deferred Features
+
+These features have been designed but are deferred until there's a concrete use case. See `docs/DEFERRED_FEATURES.md` for full details.
+
+### Notification Module ⏸️ Deferred
+**What:** Centralized service for Hytale native popup notifications (not chat messages)  
+**Why Deferred:** No current use cases - existing modules intentionally use chat for persistent visibility  
+**When to Implement:** When Leveling module needs achievement popups or server needs urgent broadcast alerts  
+**Design Status:** 70% complete, code-reviewed, ready to implement when needed  
+**Documentation:** `docs/DEFERRED_FEATURES.md#notification-module`
 
 ---
 
