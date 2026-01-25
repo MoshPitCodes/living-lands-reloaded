@@ -9,12 +9,18 @@ import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.commands.StatsCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.hud.MetabolismHudElement
-import com.livinglands.util.UuidStringCache
 import com.livinglands.util.toCachedString
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -46,13 +52,40 @@ class MetabolismModule : AbstractModule(
     /** Service for managing metabolism stats */
     private lateinit var metabolismService: MetabolismService
     
-    /** Coroutine scope for async operations */
-    private val scope = CoroutineScope(Dispatchers.IO)
+    /**
+     * Plugin-level coroutine scope for persistence operations.
+     * 
+     * Uses SupervisorJob so that:
+     * 1. Child coroutine failures don't cancel the whole scope
+     * 2. The scope survives individual player disconnects
+     * 3. Only cancels when the plugin shuts down
+     * 
+     * This fixes the issue where scope.launch() coroutines were being cancelled
+     * when players disconnected, causing saves to never complete.
+     */
+    private val persistenceScope = CoroutineScope(
+        SupervisorJob() + 
+        Dispatchers.IO + 
+        CoroutineName("MetabolismPersistence") +
+        CoroutineExceptionHandler { _, throwable ->
+            // Log uncaught exceptions from persistence coroutines
+            // (caught exceptions are handled in the coroutine body)
+            if (throwable !is CancellationException) {
+                logger.atSevere().withCause(throwable)
+                    .log("Uncaught exception in persistence coroutine")
+            }
+        }
+    )
     
     /** 
      * Track Player and PlayerRef for HUD operations.
      * Key: Player UUID
-     * Needed because PlayerDisconnectEvent doesn't provide the Player entity.
+     * 
+     * This is needed because PlayerDisconnectEvent doesn't provide the Player entity,
+     * which we need for HUD cleanup.
+     * 
+     * Note: We use CoreModule.players.getSession() for worldContext because the main
+     * plugin no longer unregisters sessions immediately on disconnect.
      */
     private val playerRefs = ConcurrentHashMap<UUID, Pair<Player, PlayerRef>>()
     
@@ -115,10 +148,35 @@ class MetabolismModule : AbstractModule(
     override suspend fun onShutdown() {
         logger.atInfo().log("Metabolism module shutting down...")
         
-        // Save all players' metabolism data
+        // First, cancel the persistence scope to prevent new saves from starting
+        // and wait for any in-flight saves to complete (with timeout)
+        try {
+            logger.atInfo().log("Waiting for pending persistence operations...")
+            
+            // Get the supervisor job to wait on it
+            val supervisorJob = persistenceScope.coroutineContext[Job]
+            
+            // Cancel the scope (signals no new work should start)
+            persistenceScope.cancel("Module shutting down")
+            
+            // Wait for any in-flight coroutines to complete (with 5 second timeout)
+            if (supervisorJob != null) {
+                withTimeout(5000) {
+                    supervisorJob.join()
+                }
+                logger.atInfo().log("All pending persistence operations completed")
+            }
+        } catch (e: CancellationException) {
+            // Expected when timeout occurs or scope is cancelled
+            logger.atInfo().log("Persistence scope cancelled (some saves may have been interrupted)")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Error waiting for persistence operations")
+        }
+        
+        // Save all remaining players' metabolism data (fallback for any not saved on disconnect)
         try {
             metabolismService.saveAllPlayers()
-            logger.atFine().log("Saved all metabolism data")
+            logger.atInfo().log("Saved all remaining metabolism data")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Error saving metabolism data during shutdown")
         }
@@ -240,7 +298,8 @@ class MetabolismModule : AbstractModule(
         // Get or create world context (lazy creation)
         val worldContext = CoreModule.worlds.getOrCreateContext(world)
         
-        // Store player refs for later HUD cleanup on disconnect
+        // Store player refs for HUD cleanup on disconnect
+        // (PlayerDisconnectEvent doesn't provide the Player entity)
         playerRefs[playerId] = Pair(player, playerRef)
         
         // Initialize synchronously (TODO: make async once coroutines issue is fixed)
@@ -306,6 +365,15 @@ class MetabolismModule : AbstractModule(
     
     /**
      * Handle player disconnect event - save their metabolism and cleanup HUD.
+     * 
+     * Uses persistenceScope.launch() for async save because:
+     * 1. We must NOT block the world thread (runBlocking causes server lag)
+     * 2. persistenceScope uses SupervisorJob which survives player disconnects
+     * 3. onShutdown() waits for pending saves with timeout before completing
+     * 
+     * Uses CoreModule.players.getSession() to get worldId - this works because
+     * the main plugin no longer unregisters sessions immediately on disconnect.
+     * This module is responsible for unregistering the session after saving.
      */
     private fun handlePlayerDisconnect(event: PlayerDisconnectEvent) {
         val playerRef = event.playerRef
@@ -314,50 +382,91 @@ class MetabolismModule : AbstractModule(
         @Suppress("DEPRECATION")
         val playerId = playerRef.uuid
         
-        // Cleanup HUD first
-        cleanupHudForPlayer(playerId, playerRef)
+        logger.atInfo().log("Handling disconnect for player $playerId")
         
-        // Get session to find world
+        // Get session from CoreModule.players to find worldId
         val session = CoreModule.players.getSession(playerId)
         if (session == null) {
-            // Player might already be unregistered, try to save anyway
+            logger.atWarning().log("No session found for disconnecting player $playerId - was player properly initialized?")
             metabolismService.removeFromCache(playerId)
+            cleanupPlayerRefs(playerId, playerRef)
             return
         }
         
         val worldContext = CoreModule.worlds.getContext(session.worldId)
         if (worldContext == null) {
+            logger.atWarning().log("No world context found for disconnecting player $playerId (worldId: ${session.worldId})")
             metabolismService.removeFromCache(playerId)
+            cleanupPlayerRefs(playerId, playerRef)
+            CoreModule.players.unregister(playerId)
             return
         }
         
-        // Save asynchronously
-        scope.launch {
+        logger.atInfo().log("Found session for $playerId (worldId: ${session.worldId})")
+        
+        // Cleanup HUD first (synchronous, fast operation)
+        cleanupHudForPlayer(playerId, playerRef)
+        
+        // Launch save on persistence scope (non-blocking)
+        // SupervisorJob ensures this coroutine survives even if player leaves
+        // onShutdown() will wait for pending saves before completing
+        persistenceScope.launch {
             try {
                 metabolismService.savePlayer(playerId, worldContext)
-                metabolismService.removeFromCache(playerId)
-                debug("Saved and removed metabolism for disconnecting player $playerId")
+                logger.atInfo().log("Saved metabolism for disconnecting player $playerId")
+            } catch (e: CancellationException) {
+                // Scope was cancelled (shutdown) - this is expected, don't log as error
+                logger.atInfo().log("Save cancelled for player $playerId (module shutting down)")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
                     .log("Failed to save metabolism for disconnecting player $playerId")
-                // Still remove from cache
+            } finally {
+                // Always cleanup, even if save failed
                 metabolismService.removeFromCache(playerId)
+                
+                // Unregister the session from CoreModule.players AFTER saving
+                // This is the final cleanup step for the player
+                CoreModule.players.unregister(playerId)
+                logger.atInfo().log("Unregistered session and removed metabolism from cache for player $playerId")
+            }
+        }
+        
+        // Event handler returns immediately - save happens asynchronously
+        logger.atFine().log("Disconnect handler completed for $playerId (save in progress)")
+    }
+    
+    /**
+     * Cleanup player refs map entry.
+     */
+    private fun cleanupPlayerRefs(playerId: UUID, playerRef: PlayerRef) {
+        val refs = playerRefs.remove(playerId)
+        if (refs != null) {
+            val (player, _) = refs
+            try {
+                CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
+                CoreModule.hudManager.onPlayerDisconnect(playerId)
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Error cleaning up HUD for player $playerId")
             }
         }
     }
     
     /**
      * Cleanup the metabolism HUD for a disconnecting player.
+     * 
+     * @param playerId The player's UUID
+     * @param playerRef The player's PlayerRef
      */
     private fun cleanupHudForPlayer(playerId: UUID, playerRef: PlayerRef) {
         try {
             // Remove from service tracking (use cached string, will be cleaned up in removeFromCache)
             metabolismService.unregisterHudElement(playerId.toCachedString())
             
-            // Remove from MultiHudManager - need the Player entity
+            // Get player from our tracked refs for HUD cleanup
             val refs = playerRefs.remove(playerId)
             if (refs != null) {
                 val (player, _) = refs
+                // Remove from MultiHudManager
                 CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
             }
             

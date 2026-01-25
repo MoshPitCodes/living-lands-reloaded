@@ -8,6 +8,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       flake-utils,
     }:
@@ -27,7 +28,7 @@
 
         # Runtime and test dependencies
         runtimeDeps = with pkgs; [
-          sqlite
+          sqlite # SQLite database (includes sqlite3 CLI)
         ];
       in
       {
