@@ -271,6 +271,10 @@ class MetabolismModule : AbstractModule(
         val entityRef = session.entityRef
         val world = session.world
         
+        // Check if player already has stats cached (world switch scenario)
+        // Do this BEFORE world.execute so we can use it in async code after
+        val alreadyCached = metabolismService.isPlayerCached(playerId.toCachedString())
+        
         // Execute on world thread for ECS safety
         world.execute {
             try {
@@ -314,10 +318,16 @@ class MetabolismModule : AbstractModule(
                     logger.atFine().log("Resolved metabolism config for lazily created world ${worldContext.worldName}")
                 }
                 
-                // Initialize metabolism with default values immediately (non-blocking)
-                metabolismService.initializePlayerWithDefaults(playerId)
+                if (!alreadyCached) {
+                    // First join - initialize with defaults immediately (non-blocking)
+                    metabolismService.initializePlayerWithDefaults(playerId)
+                    logger.atFine().log("First join - initialized with defaults for $playerId")
+                } else {
+                    // World switch - player already has stats, keep them
+                    logger.atFine().log("World switch - keeping existing stats for $playerId")
+                }
                 
-                // Register HUD immediately with default values (no blocking)
+                // Register HUD (will show cached stats immediately if available, defaults otherwise)
                 registerHudForPlayer(player, playerRef, playerId)
                 
                 // Initialize food detection tracker to prevent false detections of existing effects
@@ -331,32 +341,58 @@ class MetabolismModule : AbstractModule(
             }
         }
         
-        // Load actual stats from database asynchronously (outside world.execute)
-        persistenceScope.launch {
-            try {
-                val stats = metabolismRepository.ensureStats(playerId.toCachedString())
-                // Update in-memory state with loaded values
-                metabolismService.updatePlayerState(playerId, stats)
-                
-                // Immediately evaluate buffs/debuffs based on loaded stats
-                // This ensures buffs appear instantly instead of waiting for next tick
-                val worldContext = CoreModule.worlds.getContext(session.worldId)
-                val worldConfig = worldContext?.metabolismConfig ?: metabolismConfig
-                
-                session.world.execute {
-                    if (::debuffsSystem.isInitialized) {
-                        debuffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.debuffs)
+        // Load actual stats from database asynchronously (only if not already cached)
+        if (!alreadyCached) {
+            // First join - load from database
+            persistenceScope.launch {
+                try {
+                    val stats = metabolismRepository.ensureStats(playerId.toCachedString())
+                    // Update in-memory state with loaded values
+                    metabolismService.updatePlayerState(playerId, stats)
+                    
+                    // Immediately evaluate buffs/debuffs based on loaded stats
+                    // This ensures buffs appear instantly instead of waiting for next tick
+                    val worldContext = CoreModule.worlds.getContext(session.worldId)
+                    val worldConfig = worldContext?.metabolismConfig ?: metabolismConfig
+                    
+                    session.world.execute {
+                        if (::debuffsSystem.isInitialized) {
+                            debuffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.debuffs)
+                        }
+                        if (::buffsSystem.isInitialized) {
+                            buffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.buffs)
+                        }
                     }
-                    if (::buffsSystem.isInitialized) {
-                        buffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.buffs)
-                    }
+                    
+                    // Force HUD refresh to show loaded values AND buffs/debuffs
+                    metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
+                    logger.atFine().log("Loaded metabolism stats from database for $playerId")
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Failed to load metabolism stats for $playerId, using defaults")
                 }
-                
-                // Force HUD refresh to show loaded values AND buffs/debuffs
-                metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
-                logger.atFine().log("Loaded metabolism stats from database for $playerId")
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to load metabolism stats for $playerId, using defaults")
+            }
+        } else {
+            // World switch - just re-evaluate buffs/debuffs with existing stats
+            // No need to reload from database since stats are global
+            persistenceScope.launch {
+                val stats = metabolismService.getStats(playerId.toCachedString())
+                if (stats != null) {
+                    val worldContext = CoreModule.worlds.getContext(session.worldId)
+                    val worldConfig = worldContext?.metabolismConfig ?: metabolismConfig
+                    
+                    session.world.execute {
+                        if (::debuffsSystem.isInitialized) {
+                            debuffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.debuffs)
+                        }
+                        if (::buffsSystem.isInitialized) {
+                            buffsSystem.tick(playerId, stats, session.entityRef, session.store, worldConfig.buffs)
+                        }
+                    }
+                    
+                    // Force HUD refresh with current stats
+                    metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
+                    logger.atFine().log("World switch - re-evaluated buffs/debuffs for $playerId")
+                }
             }
         }
     }
