@@ -79,8 +79,14 @@ class MetabolismTickSystem(
         if (!metabolismService.isPlayerCached(playerIdStr)) return
         
         // Skip metabolism processing if player is in Creative mode
+        // BUT update lastDepletionTime to prevent huge delta when returning to survival
         val gameMode = player.gameMode
         if (gameMode == GameMode.Creative) {
+            // Update timestamp to current time so delta is small when resuming
+            val state = metabolismService.getState(playerIdStr)
+            if (state != null) {
+                state.lastDepletionTime = System.currentTimeMillis()
+            }
             return
         }
         
