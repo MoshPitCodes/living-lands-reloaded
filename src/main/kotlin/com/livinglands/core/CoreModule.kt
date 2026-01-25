@@ -9,6 +9,7 @@ import com.livinglands.core.config.ConfigManager
 import com.livinglands.core.config.CoreConfig
 import com.livinglands.core.hud.MultiHudManager
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -340,6 +341,51 @@ object CoreModule {
                     module.onConfigReload()
                 } catch (e: Exception) {
                     logger.atWarning().withCause(e).log("Module '${module.id}' config reload failed")
+                }
+            }
+        }
+    }
+    
+    // ============ Player Lifecycle Notifications ============
+    
+    /**
+     * Notify all modules that a player joined.
+     * Called by the plugin after session registration.
+     * 
+     * @param playerId The player's UUID
+     * @param session The registered player session
+     */
+    suspend fun notifyPlayerJoin(playerId: UUID, session: PlayerSession) {
+        for (module in modules.values) {
+            // Only notify modules that are STARTED
+            if (module.state == ModuleState.STARTED) {
+                try {
+                    module.onPlayerJoin(playerId, session)
+                } catch (e: Exception) {
+                    logger.atSevere().withCause(e)
+                        .log("Module '${module.id}' failed onPlayerJoin for $playerId")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Notify all modules that a player disconnected.
+     * Called by the plugin BEFORE session unregistration.
+     * All modules should save their data for this player.
+     * 
+     * @param playerId The player's UUID
+     * @param session The player session (still valid during this call)
+     */
+    suspend fun notifyPlayerDisconnect(playerId: UUID, session: PlayerSession) {
+        for (module in modules.values) {
+            // Only notify modules that are STARTED
+            if (module.state == ModuleState.STARTED) {
+                try {
+                    module.onPlayerDisconnect(playerId, session)
+                } catch (e: Exception) {
+                    logger.atSevere().withCause(e)
+                        .log("Module '${module.id}' failed onPlayerDisconnect for $playerId")
                 }
             }
         }

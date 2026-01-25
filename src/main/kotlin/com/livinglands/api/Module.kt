@@ -1,5 +1,8 @@
 package com.livinglands.api
 
+import com.livinglands.core.PlayerSession
+import java.util.UUID
+
 /**
  * Base interface for all Living Lands modules.
  * 
@@ -47,6 +50,26 @@ sealed interface Module {
      * Modules should refresh their config instances.
      */
     fun onConfigReload() {}
+    
+    // ============ Player Lifecycle Hooks ============
+    
+    /**
+     * Called when a player joins the server.
+     * The session is already registered in CoreModule.players.
+     * 
+     * @param playerId The player's UUID
+     * @param session The registered player session with entityRef and worldId
+     */
+    suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {}
+    
+    /**
+     * Called when a player disconnects from the server.
+     * Save this player's data here. The session will be unregistered AFTER all modules return.
+     * 
+     * @param playerId The player's UUID
+     * @param session The player session (still valid during this call)
+     */
+    suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {}
 }
 
 /**
