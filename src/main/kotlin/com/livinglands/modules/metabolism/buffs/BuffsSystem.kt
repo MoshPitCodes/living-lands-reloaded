@@ -2,6 +2,7 @@ package com.livinglands.modules.metabolism.buffs
 
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes
@@ -14,14 +15,13 @@ import com.livinglands.modules.metabolism.config.BuffsConfig
 import com.livinglands.core.MessageFormatter
 import com.livinglands.core.SpeedManager
 import java.util.UUID
-import java.util.logging.Logger
 
 /**
  * Manages metabolism buffs (bonuses for high stats).
  * 
  * **Buffs:**
  * 1. **Speed Buff** (energy >= 90%): +13.2% movement speed
- * 2. **Defense Buff** (hunger >= 90%): +13.2% max health
+ * 2. **Health Buff** (hunger >= 90%): +13.2% max health
  * 3. **Stamina Buff** (thirst >= 90%): +13.2% max stamina
  * 
  * **Hysteresis Thresholds:**
@@ -42,7 +42,7 @@ class BuffsSystem(
     private val config: BuffsConfig,
     private val debuffsSystem: DebuffsSystem,
     private val speedManager: SpeedManager,
-    private val logger: Logger
+    private val logger: HytaleLogger
 ) {
     
     // ========================================
@@ -69,7 +69,7 @@ class BuffsSystem(
     // ========================================
     
     /**
-     * Tick the buffs system for a player.
+     * Tick the buffs system for a player using world-specific config.
      * Checks thresholds and applies/removes buffs as needed.
      * 
      * **Important:** Must be called from world thread.
@@ -78,9 +78,17 @@ class BuffsSystem(
      * @param stats Current metabolism stats
      * @param entityRef Player's entity reference
      * @param store Entity store
+     * @param buffsConfig World-specific buffs configuration to use
      */
-    fun tick(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        if (!config.enabled) return
+    fun tick(
+        playerId: UUID, 
+        stats: MetabolismStats, 
+        entityRef: Ref<EntityStore>, 
+        store: Store<EntityStore>,
+        buffsConfig: BuffsConfig
+    ) {
+        if (!buffsConfig.enabled) return
+        if (!entityRef.isValid) return  // Early validation to ensure consistent state across all sub-ticks
         
         try {
             // If player has any active debuffs, suppress ALL buffs
@@ -90,16 +98,16 @@ class BuffsSystem(
             }
             
             // Check speed buff (energy >= 90%)
-            tickSpeedBuff(playerId, stats, entityRef, store)
+            tickSpeedBuff(playerId, stats, entityRef, store, buffsConfig)
             
             // Check defense buff (hunger >= 90%)
-            tickDefenseBuff(playerId, stats, entityRef, store)
+            tickDefenseBuff(playerId, stats, entityRef, store, buffsConfig)
             
             // Check stamina buff (thirst >= 90%)
-            tickStaminaBuff(playerId, stats, entityRef, store)
+            tickStaminaBuff(playerId, stats, entityRef, store, buffsConfig)
             
         } catch (e: Exception) {
-            logger.warning("Error ticking buffs for player $playerId: ${e.message}")
+            logger.atWarning().log("Error ticking buffs for player $playerId: ${e.message}")
         }
     }
     
@@ -107,26 +115,43 @@ class BuffsSystem(
      * Clean up tracking for a player (e.g., on disconnect).
      * 
      * @param playerId Player UUID
+     * @param entityRef Player's entity reference (optional, for modifier cleanup)
+     * @param store Entity store (optional, for modifier cleanup)
      */
-    fun cleanup(playerId: UUID) {
+    fun cleanup(playerId: UUID, entityRef: Ref<EntityStore>? = null, store: Store<EntityStore>? = null) {
         speedBuffController.clear(playerId)
         defenseBuffController.clear(playerId)
         staminaBuffController.clear(playerId)
         
         // Clean up speed modifications
         speedManager.removeMultiplier(playerId, "buff:speed")
+        
+        // Clean up EntityStatMap modifiers (prevent memory leak)
+        if (entityRef != null && store != null && entityRef.isValid) {
+            try {
+                val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType())
+                if (statMap != null) {
+                    val healthId = DefaultEntityStatTypes.getHealth()
+                    val staminaId = DefaultEntityStatTypes.getStamina()
+                    statMap.removeModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
+                    statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
+                }
+            } catch (e: Exception) {
+                logger.atFine().log("Could not remove modifiers during cleanup for $playerId: ${e.message}")
+            }
+        }
     }
     
     // ========================================
     // Speed Buff (Energy >= 90%)
     // ========================================
     
-    private fun tickSpeedBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+    private fun tickSpeedBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>, buffsConfig: BuffsConfig) {
         val transition = speedBuffController.update(playerId, stats.energy.toDouble())
         
         when (transition) {
             HysteresisController.StateTransition.ACTIVATED -> {
-                speedManager.setMultiplier(playerId, "buff:speed", config.speedBuff.multiplier.toFloat())
+                speedManager.setMultiplier(playerId, "buff:speed", buffsConfig.speedBuff.multiplier.toFloat())
                 speedManager.applySpeed(playerId, entityRef, store)
                 sendBuffMessage(playerId, "Energized", true)
             }
@@ -144,20 +169,20 @@ class BuffsSystem(
     }
     
     // ========================================
-    // Defense Buff (Hunger >= 90%)
+    // Health Buff (Hunger >= 90%)
     // ========================================
     
-    private fun tickDefenseBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+    private fun tickDefenseBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>, buffsConfig: BuffsConfig) {
         val transition = defenseBuffController.update(playerId, stats.hunger.toDouble())
         
         when (transition) {
             HysteresisController.StateTransition.ACTIVATED -> {
-                applyDefenseBuff(playerId, entityRef, store, true)
+                applyDefenseBuff(playerId, entityRef, store, true, buffsConfig)
                 sendBuffMessage(playerId, "Well-Fed", true)
             }
             
             HysteresisController.StateTransition.DEACTIVATED -> {
-                applyDefenseBuff(playerId, entityRef, store, false)
+                applyDefenseBuff(playerId, entityRef, store, false, buffsConfig)
                 sendBuffMessage(playerId, "Well-Fed", false)
             }
             
@@ -167,7 +192,9 @@ class BuffsSystem(
         }
     }
     
-    private fun applyDefenseBuff(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>, apply: Boolean) {
+    private fun applyDefenseBuff(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>, apply: Boolean, buffsConfig: BuffsConfig) {
+        if (!entityRef.isValid) return
+        
         try {
             val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
             val healthId = DefaultEntityStatTypes.getHealth()
@@ -177,21 +204,21 @@ class BuffsSystem(
                 val modifier = StaticModifier(
                     Modifier.ModifierTarget.MAX,
                     StaticModifier.CalculationType.MULTIPLICATIVE,
-                    config.defenseBuff.multiplier.toFloat()  // e.g., 1.132 for +13.2%
+                    buffsConfig.defenseBuff.multiplier.toFloat()  // e.g., 1.132 for +13.2%
                 )
                 
                 // Use SELF predictable to ensure client receives the stat update
                 statMap.putModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health", modifier)
                 
-                logger.fine("Applied defense buff to player $playerId: +${((config.defenseBuff.multiplier - 1.0) * 100).toInt()}% max health")
+                logger.atFine().log("Applied defense buff to player $playerId: +${((buffsConfig.defenseBuff.multiplier - 1.0) * 100).toInt()}% max health")
             } else {
                 // Remove health buff modifier
                 statMap.removeModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
                 
-                logger.fine("Removed defense buff from player $playerId")
+                logger.atFine().log("Removed defense buff from player $playerId")
             }
         } catch (e: Exception) {
-            logger.warning("Failed to apply defense buff for player $playerId: ${e.message}")
+            logger.atWarning().log("Failed to apply defense buff for player $playerId: ${e.message}")
         }
     }
     
@@ -199,17 +226,17 @@ class BuffsSystem(
     // Stamina Buff (Thirst >= 90%)
     // ========================================
     
-    private fun tickStaminaBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+    private fun tickStaminaBuff(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>, buffsConfig: BuffsConfig) {
         val transition = staminaBuffController.update(playerId, stats.thirst.toDouble())
         
         when (transition) {
             HysteresisController.StateTransition.ACTIVATED -> {
-                applyStaminaBuff(playerId, entityRef, store, true)
+                applyStaminaBuff(playerId, entityRef, store, true, buffsConfig)
                 sendBuffMessage(playerId, "Hydrated", true)
             }
             
             HysteresisController.StateTransition.DEACTIVATED -> {
-                applyStaminaBuff(playerId, entityRef, store, false)
+                applyStaminaBuff(playerId, entityRef, store, false, buffsConfig)
                 sendBuffMessage(playerId, "Hydrated", false)
             }
             
@@ -219,7 +246,9 @@ class BuffsSystem(
         }
     }
     
-    private fun applyStaminaBuff(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>, apply: Boolean) {
+    private fun applyStaminaBuff(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>, apply: Boolean, buffsConfig: BuffsConfig) {
+        if (!entityRef.isValid) return
+        
         try {
             val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
             val staminaId = DefaultEntityStatTypes.getStamina()
@@ -229,21 +258,21 @@ class BuffsSystem(
                 val modifier = StaticModifier(
                     Modifier.ModifierTarget.MAX,
                     StaticModifier.CalculationType.MULTIPLICATIVE,
-                    config.staminaBuff.multiplier.toFloat()  // e.g., 1.132 for +13.2%
+                    buffsConfig.staminaBuff.multiplier.toFloat()  // e.g., 1.132 for +13.2%
                 )
                 
                 // Use SELF predictable to ensure client receives the stat update
                 statMap.putModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina", modifier)
                 
-                logger.fine("Applied stamina buff to player $playerId: +${((config.staminaBuff.multiplier - 1.0) * 100).toInt()}% max stamina")
+                logger.atFine().log("Applied stamina buff to player $playerId: +${((buffsConfig.staminaBuff.multiplier - 1.0) * 100).toInt()}% max stamina")
             } else {
                 // Remove stamina buff modifier
                 statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
                 
-                logger.fine("Removed stamina buff from player $playerId")
+                logger.atFine().log("Removed stamina buff from player $playerId")
             }
         } catch (e: Exception) {
-            logger.warning("Failed to apply stamina buff for player $playerId: ${e.message}")
+            logger.atWarning().log("Failed to apply stamina buff for player $playerId: ${e.message}")
         }
     }
     
@@ -264,15 +293,40 @@ class BuffsSystem(
         
         // Remove defense buff if active
         if (defenseBuffController.isActive(playerId)) {
-            applyDefenseBuff(playerId, entityRef, store, false)
+            applyDefenseBuff(playerId, entityRef, store, false, config)  // Use instance config for removal
             defenseBuffController.clear(playerId)
         }
         
         // Remove stamina buff if active
         if (staminaBuffController.isActive(playerId)) {
-            applyStaminaBuff(playerId, entityRef, store, false)
+            applyStaminaBuff(playerId, entityRef, store, false, config)  // Use instance config for removal
             staminaBuffController.clear(playerId)
         }
+    }
+    
+    // ========================================
+    // HUD Integration
+    // ========================================
+    
+    /**
+     * Get list of active buff names for HUD display.
+     * Returns formatted strings like "[+] Energized", "[+] Well-Fed", etc.
+     */
+    fun getActiveBuffNames(playerId: UUID): List<String> {
+        val buffs = mutableListOf<String>()
+        
+        // Check each buff controller (use actual buff names from chat messages)
+        if (speedBuffController.isActive(playerId)) {
+            buffs.add("[+] Energized")
+        }
+        if (defenseBuffController.isActive(playerId)) {
+            buffs.add("[+] Well-Fed")
+        }
+        if (staminaBuffController.isActive(playerId)) {
+            buffs.add("[+] Hydrated")
+        }
+        
+        return buffs
     }
     
     // ========================================
@@ -282,16 +336,16 @@ class BuffsSystem(
     private fun sendBuffMessage(playerId: UUID, buffName: String, activated: Boolean) {
         val session = CoreModule.players.getSession(playerId) ?: return
         
-        session.world.execute {
-            try {
-                val player = session.store.getComponent(session.entityRef, Player.getComponentType()) ?: return@execute
-                @Suppress("DEPRECATION")
-                val playerRef = player.getPlayerRef() ?: return@execute
-                
-                MessageFormatter.buff(playerRef, buffName, activated)
-            } catch (e: Exception) {
-                logger.fine("Failed to send buff message to player $playerId: ${e.message}")
-            }
+        // No world.execute needed - we're already on the World thread (called from tick)
+        // and sendMessage() is thread-safe anyway
+        try {
+            val player = session.store.getComponent(session.entityRef, Player.getComponentType()) ?: return
+            @Suppress("DEPRECATION")
+            val playerRef = player.getPlayerRef() ?: return
+            
+            MessageFormatter.buff(playerRef, buffName, activated)
+        } catch (e: Exception) {
+            logger.atFine().log("Failed to send buff message to player $playerId: ${e.message}")
         }
     }
 }

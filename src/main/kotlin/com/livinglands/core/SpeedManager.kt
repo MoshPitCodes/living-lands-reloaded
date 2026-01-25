@@ -2,12 +2,12 @@ package com.livinglands.core
 
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Logger
 
 /**
  * Centralized manager for player movement speed modifications.
@@ -33,7 +33,7 @@ import java.util.logging.Logger
  * 
  * @property logger Logger for debugging
  */
-class SpeedManager(private val logger: Logger) {
+class SpeedManager(private val logger: HytaleLogger) {
     
     /**
      * Original base speed for each player (captured on first modification).
@@ -176,14 +176,14 @@ class SpeedManager(private val logger: Logger) {
             // Track last applied multiplier
             lastAppliedMultipliers[playerId] = combinedMultiplier
             
-            logger.fine(
+            logger.atFine().log(
                 "Applied speed to player $playerId: " +
                 "original=${"%.2f".format(originalSpeed)}, " +
                 "multiplier=${"%.2f".format(combinedMultiplier)}, " +
                 "new=${"%.2f".format(newSpeed)}"
             )
         } catch (e: Exception) {
-            logger.warning("Failed to apply speed for player $playerId: ${e.message}")
+            logger.atWarning().log("Failed to apply speed for player $playerId: ${e.message}")
         }
     }
     
@@ -209,9 +209,9 @@ class SpeedManager(private val logger: Logger) {
             multipliers.remove(playerId)
             lastAppliedMultipliers.remove(playerId)
             
-            logger.fine("Restored original speed for player $playerId: $originalSpeed")
+            logger.atFine().log("Restored original speed for player $playerId: $originalSpeed")
         } catch (e: Exception) {
-            logger.warning("Failed to restore speed for player $playerId: ${e.message}")
+            logger.atWarning().log("Failed to restore speed for player $playerId: ${e.message}")
         }
     }
     

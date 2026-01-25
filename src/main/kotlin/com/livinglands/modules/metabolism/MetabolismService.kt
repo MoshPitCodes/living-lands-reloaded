@@ -10,6 +10,7 @@ import com.livinglands.core.toCachedString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
@@ -65,16 +66,52 @@ class MetabolismService(
     
     /**
      * Update configuration (e.g., after hot-reload).
+     * Also triggers re-resolution for all active worlds.
      */
     fun updateConfig(newConfig: MetabolismConfig) {
         config = newConfig
-        logger.atFine().log("Metabolism config updated")
+        
+        // Re-resolve for all active worlds to pick up override changes
+        val worldCount = CoreModule.worlds.getAllContexts().count { worldContext ->
+            worldContext.resolveMetabolismConfig(newConfig)
+            true
+        }
+        
+        logger.atFine().log("Metabolism config updated globally and re-resolved for $worldCount worlds")
     }
     
     /**
-     * Get current config (for read access).
+     * Get current global config (for read access).
      */
     fun getConfig(): MetabolismConfig = config
+    
+    /**
+     * Get effective config for a specific world.
+     * Returns world-specific merged config if available, otherwise global config.
+     * 
+     * Performance: O(1) - just a null coalesce.
+     * Can be inlined by JIT.
+     * 
+     * @param worldContext The world context containing resolved config
+     * @return World-specific config or global fallback
+     */
+    @JvmName("getConfigForWorldContext")
+    fun getConfigForWorld(worldContext: WorldContext?): MetabolismConfig {
+        return worldContext?.metabolismConfig ?: config
+    }
+    
+    /**
+     * Get effective config by world UUID.
+     * Useful when you only have the world UUID.
+     * 
+     * Performance: One map lookup + null coalesce.
+     * 
+     * @param worldId The world UUID
+     * @return World-specific config or global fallback
+     */
+    fun getConfigForWorld(worldId: UUID): MetabolismConfig {
+        return CoreModule.worlds.getContext(worldId)?.metabolismConfig ?: config
+    }
     
     /**
      * Initialize stats for a player from the database.
@@ -94,8 +131,9 @@ class MetabolismService(
         // Get or create repository from world context
         val repository = worldContext.getData { 
             MetabolismRepository(worldContext.persistence, logger).also {
-                // Initialize schema in a coroutine
-                scope.launch { it.initialize() }
+                // Initialize schema synchronously on first access to prevent race condition
+                // This ensures the schema exists before ensureStats() is called
+                runBlocking { it.initialize() }
             }
         }
         
@@ -145,7 +183,7 @@ class MetabolismService(
     }
     
     /**
-     * Process a metabolism tick for a player.
+     * Process a metabolism tick for a player using world-specific config.
      * Calculates depletion based on elapsed time and activity multiplier.
      * 
      * Performance: Uses mutable PlayerMetabolismState to avoid allocations.
@@ -155,9 +193,16 @@ class MetabolismService(
      * @param deltaTimeSeconds Time elapsed since last tick in seconds
      * @param activityState Current activity state of the player
      * @param currentTime Current timestamp (passed in for efficiency)
+     * @param worldConfig World-specific metabolism config to use
      */
-    fun processTick(playerId: String, deltaTimeSeconds: Float, activityState: ActivityState, currentTime: Long) {
-        if (!config.enabled) return
+    fun processTick(
+        playerId: String, 
+        deltaTimeSeconds: Float, 
+        activityState: ActivityState, 
+        currentTime: Long,
+        worldConfig: MetabolismConfig
+    ) {
+        if (!worldConfig.enabled) return
         
         val state = playerStates[playerId] ?: return
         
@@ -166,26 +211,26 @@ class MetabolismService(
         var newThirst = state.thirst
         var newEnergy = state.energy
         
-        // Process hunger depletion
-        if (config.hunger.enabled && newHunger > 0f) {
-            val multiplier = config.hunger.getMultiplier(activityState.name).toFloat()
-            val depletionPerSecond = 100f / config.hunger.baseDepletionRateSeconds.toFloat()
+        // Process hunger depletion (use world-specific config)
+        if (worldConfig.hunger.enabled && newHunger > 0f) {
+            val multiplier = worldConfig.hunger.getMultiplier(activityState.name).toFloat()
+            val depletionPerSecond = 100f / worldConfig.hunger.baseDepletionRateSeconds.toFloat()
             val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
             newHunger = max(0f, newHunger - depletion)
         }
         
-        // Process thirst depletion
-        if (config.thirst.enabled && newThirst > 0f) {
-            val multiplier = config.thirst.getMultiplier(activityState.name).toFloat()
-            val depletionPerSecond = 100f / config.thirst.baseDepletionRateSeconds.toFloat()
+        // Process thirst depletion (use world-specific config)
+        if (worldConfig.thirst.enabled && newThirst > 0f) {
+            val multiplier = worldConfig.thirst.getMultiplier(activityState.name).toFloat()
+            val depletionPerSecond = 100f / worldConfig.thirst.baseDepletionRateSeconds.toFloat()
             val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
             newThirst = max(0f, newThirst - depletion)
         }
         
-        // Process energy depletion
-        if (config.energy.enabled && newEnergy > 0f) {
-            val multiplier = config.energy.getMultiplier(activityState.name).toFloat()
-            val depletionPerSecond = 100f / config.energy.baseDepletionRateSeconds.toFloat()
+        // Process energy depletion (use world-specific config)
+        if (worldConfig.energy.enabled && newEnergy > 0f) {
+            val multiplier = worldConfig.energy.getMultiplier(activityState.name).toFloat()
+            val depletionPerSecond = 100f / worldConfig.energy.baseDepletionRateSeconds.toFloat()
             val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
             newEnergy = max(0f, newEnergy - depletion)
         }
@@ -195,7 +240,7 @@ class MetabolismService(
     }
     
     /**
-     * Process tick using the stored last depletion time to calculate delta.
+     * Process tick using the stored last depletion time to calculate delta with world-specific config.
      * This is the preferred method as it handles timing internally.
      * 
      * Performance: Single System.currentTimeMillis() call, timestamp passed through.
@@ -203,8 +248,9 @@ class MetabolismService(
      * 
      * @param playerId Player's UUID as string
      * @param activityState Current activity state
+     * @param worldConfig World-specific metabolism config to use
      */
-    fun processTickWithDelta(playerId: String, activityState: ActivityState) {
+    fun processTickWithDelta(playerId: String, activityState: ActivityState, worldConfig: MetabolismConfig) {
         // Single timestamp capture for entire tick cycle
         val currentTime = System.currentTimeMillis()
         
@@ -216,7 +262,7 @@ class MetabolismService(
         
         // Only process if meaningful time has passed
         if (deltaSeconds >= 0.1f) {
-            processTick(playerId, deltaSeconds, activityState, currentTime)
+            processTick(playerId, deltaSeconds, activityState, currentTime, worldConfig)
             state.lastDepletionTime = currentTime
         }
     }

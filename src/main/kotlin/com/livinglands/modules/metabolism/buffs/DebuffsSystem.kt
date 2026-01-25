@@ -2,6 +2,7 @@ package com.livinglands.modules.metabolism.buffs
 
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes
@@ -13,397 +14,358 @@ import com.livinglands.core.MessageFormatter
 import com.livinglands.core.SpeedManager
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Logger
 
 /**
- * Manages metabolism debuffs (penalties for low stats).
+ * Manages metabolism debuffs with 3-stage system.
  * 
- * **Debuffs:**
- * 1. **Starvation** (hunger = 0): Progressive damage over time
- * 2. **Dehydration** (thirst < 30): Speed and stamina penalties, damage at 0
- * 3. **Exhaustion** (energy < 30): Speed penalty and stamina consumption increase, stamina drain at 0
+ * Uses TieredDebuffController for uniform threshold management.
  * 
- * **Hysteresis Thresholds:**
- * - Debuffs activate when stat crosses ENTER threshold
- * - Debuffs deactivate when stat crosses EXIT threshold
- * - Gap between thresholds prevents flickering
+ * **3-Stage System (Uniform thresholds):**
+ * - Stage 1 (Mild):     ≤ 75% (exits at > 80%)
+ * - Stage 2 (Moderate): ≤ 50% (exits at > 55%)
+ * - Stage 3 (Severe):   ≤ 25% (exits at > 30%)
  * 
- * @property config Debuffs configuration
- * @property speedManager Centralized speed modification manager
- * @property logger Logger for debugging
+ * **Debuff Types:**
+ * - **Hunger:** Peckish → Hungry → Starving (health drain)
+ * - **Thirst:** Thirsty → Parched → Dehydrated (stamina drain)
+ * - **Energy:** Drowsy → Tired → Exhausted (speed reduction)
  */
 class DebuffsSystem(
     private val config: DebuffsConfig,
     private val speedManager: SpeedManager,
-    private val logger: Logger
+    private val logger: HytaleLogger
 ) {
     
+    companion object {
+        /** Vanilla base stamina value. TODO: Make configurable in DebuffsConfig if other mods change this */
+        const val BASE_STAMINA = 10f
+    }
+    
     // ========================================
-    // Hysteresis Controllers
+    // Tiered Controllers (1 per stat type)
     // ========================================
     
-    private val starvationController = HysteresisController.forDebuff(
-        enterThreshold = 0.0,   // Activate when hunger <= 0
-        exitThreshold = 30.0    // Deactivate when hunger >= 30
+    private val hungerDebuffs = TieredDebuffController(
+        statName = "hunger",
+        tierNames = listOf("Peckish", "Hungry", "Starving")
     )
     
-    private val dehydrationDamageController = HysteresisController.forDebuff(
-        enterThreshold = 0.0,   // Activate when thirst <= 0
-        exitThreshold = 30.0    // Deactivate when thirst >= 30
+    private val thirstDebuffs = TieredDebuffController(
+        statName = "thirst",
+        tierNames = listOf("Thirsty", "Parched", "Dehydrated")
     )
     
-    private val parchedController = HysteresisController.forDebuff(
-        enterThreshold = 30.0,  // Activate when thirst <= 30
-        exitThreshold = 30.0    // Deactivate when thirst >= 30 (same threshold for parched)
-    )
-    
-    private val exhaustedController = HysteresisController.forDebuff(
-        enterThreshold = 0.0,   // Activate when energy <= 0
-        exitThreshold = 50.0    // Deactivate when energy >= 50 (larger gap)
-    )
-    
-    private val tiredController = HysteresisController.forDebuff(
-        enterThreshold = 30.0,  // Activate when energy <= 30
-        exitThreshold = 30.0    // Deactivate when energy >= 30
+    private val energyDebuffs = TieredDebuffController(
+        statName = "energy",
+        tierNames = listOf("Drowsy", "Tired", "Exhausted")
     )
     
     // ========================================
-    // Damage Tracking
+    // Effect Timing Tracking
     // ========================================
     
-    /**
-     * Starvation damage tick counter (increases damage over time).
-     */
-    private val starvationTicks = ConcurrentHashMap<UUID, Int>()
+    private val lastHungerDamage = ConcurrentHashMap<UUID, Long>()
     
-    /**
-     * Last time starvation damage was applied (milliseconds).
-     */
-    private val lastStarvationDamage = ConcurrentHashMap<UUID, Long>()
+    // ========================================
+    // Effect Values by Tier (index 0=none, 1=mild, 2=moderate, 3=severe)
+    // ========================================
     
-    /**
-     * Last time dehydration damage was applied (milliseconds).
-     */
-    private val lastDehydrationDamage = ConcurrentHashMap<UUID, Long>()
+    private fun getHungerDamage(tier: Int, debuffsConfig: DebuffsConfig): Double = when (tier) {
+        1 -> debuffsConfig.hunger.peckishDamage
+        2 -> debuffsConfig.hunger.hungryDamage
+        3 -> debuffsConfig.hunger.starvingDamage
+        else -> 0.0
+    }
     
-    /**
-     * Last time exhaustion stamina drain was applied (milliseconds).
-     */
-    private val lastExhaustionDrain = ConcurrentHashMap<UUID, Long>()
+    private fun getThirstMaxStamina(tier: Int, debuffsConfig: DebuffsConfig): Float = when (tier) {
+        1 -> debuffsConfig.thirst.thirstyMaxStamina.toFloat()
+        2 -> debuffsConfig.thirst.parchedMaxStamina.toFloat()
+        3 -> debuffsConfig.thirst.dehydratedMaxStamina.toFloat()
+        else -> 1.0f
+    }
+    
+    private fun getEnergySpeed(tier: Int, debuffsConfig: DebuffsConfig): Float = when (tier) {
+        1 -> debuffsConfig.energy.drowsySpeed.toFloat()
+        2 -> debuffsConfig.energy.tiredSpeed.toFloat()
+        3 -> debuffsConfig.energy.exhaustedSpeed.toFloat()
+        else -> 1.0f
+    }
     
     // ========================================
     // Public API
     // ========================================
     
-    /**
-     * Tick the debuffs system for a player.
-     * Checks thresholds and applies/removes debuffs as needed.
-     * 
-     * **Important:** Must be called from world thread.
-     * 
-     * @param playerId Player UUID
-     * @param stats Current metabolism stats
-     * @param entityRef Player's entity reference
-     * @param store Entity store
-     * @param world World instance
-     */
-    fun tick(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        if (!config.enabled) return
+    fun tick(
+        playerId: UUID, 
+        stats: MetabolismStats, 
+        entityRef: Ref<EntityStore>, 
+        store: Store<EntityStore>,
+        debuffsConfig: DebuffsConfig
+    ) {
+        if (!debuffsConfig.enabled) return
+        if (!entityRef.isValid) return  // Early validation to ensure consistent state across all sub-ticks
         
-        try {
-            // Check starvation (hunger = 0)
-            tickStarvation(playerId, stats, entityRef, store)
-            
-            // Check dehydration (thirst < 30)
-            tickDehydration(playerId, stats, entityRef, store)
-            
-            // Check exhaustion (energy < 30)
-            tickExhaustion(playerId, stats, entityRef, store)
-            
-        } catch (e: Exception) {
-            logger.warning("Error ticking debuffs for player $playerId: ${e.message}")
-        }
+        tickHunger(playerId, stats.hunger.toDouble(), entityRef, store, debuffsConfig)
+        tickThirst(playerId, stats.thirst.toDouble(), entityRef, store, debuffsConfig)
+        tickEnergy(playerId, stats.energy.toDouble(), entityRef, store, debuffsConfig)
     }
     
-    /**
-     * Check if a player has any active debuffs.
-     * Used by BuffsSystem to suppress buffs when debuffed.
-     * 
-     * @param playerId Player UUID
-     * @return True if any debuff is active
-     */
-    fun hasActiveDebuffs(playerId: UUID): Boolean {
-        return starvationController.isActive(playerId) ||
-               dehydrationDamageController.isActive(playerId) ||
-               parchedController.isActive(playerId) ||
-               exhaustedController.isActive(playerId) ||
-               tiredController.isActive(playerId)
+    fun hasActiveDebuffs(playerId: UUID): Boolean =
+        hungerDebuffs.isActive(playerId) ||
+        thirstDebuffs.isActive(playerId) ||
+        energyDebuffs.isActive(playerId)
+    
+    fun getActiveDebuffNames(playerId: UUID): List<String> = buildList {
+        hungerDebuffs.getActiveDebuffName(playerId)?.let { add("[-] $it") }
+        thirstDebuffs.getActiveDebuffName(playerId)?.let { add("[-] $it") }
+        energyDebuffs.getActiveDebuffName(playerId)?.let { add("[-] $it") }
     }
     
-    /**
-     * Clean up tracking for a player (e.g., on disconnect).
-     * 
-     * @param playerId Player UUID
-     */
-    fun cleanup(playerId: UUID) {
-        starvationController.clear(playerId)
-        dehydrationDamageController.clear(playerId)
-        parchedController.clear(playerId)
-        exhaustedController.clear(playerId)
-        tiredController.clear(playerId)
+    fun cleanup(playerId: UUID, entityRef: Ref<EntityStore>? = null, store: Store<EntityStore>? = null) {
+        hungerDebuffs.clear(playerId)
+        thirstDebuffs.clear(playerId)
+        energyDebuffs.clear(playerId)
         
-        starvationTicks.remove(playerId)
-        lastStarvationDamage.remove(playerId)
-        lastDehydrationDamage.remove(playerId)
-        lastExhaustionDrain.remove(playerId)
+        lastHungerDamage.remove(playerId)
         
-        // Clean up speed modifications
-        speedManager.removeMultiplier(playerId, "debuff:thirst")
         speedManager.removeMultiplier(playerId, "debuff:energy")
-    }
-    
-    // ========================================
-    // Starvation (Hunger = 0)
-    // ========================================
-    
-    private fun tickStarvation(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        val transition = starvationController.update(playerId, stats.hunger.toDouble())
         
-        when (transition) {
-            HysteresisController.StateTransition.ACTIVATED -> {
-                starvationTicks[playerId] = 0
-                sendDebuffMessage(playerId, "Starvation", true)
-            }
-            
-            HysteresisController.StateTransition.DEACTIVATED -> {
-                starvationTicks.remove(playerId)
-                lastStarvationDamage.remove(playerId)
-                sendDebuffMessage(playerId, "Starvation", false)
-            }
-            
-            HysteresisController.StateTransition.NO_CHANGE -> {
-                // Apply damage if starving
-                if (starvationController.isActive(playerId)) {
-                    applyStarvationDamage(playerId, entityRef, store)
+        // Clean up stamina debuff modifier (prevent memory leak)
+        if (entityRef != null && store != null && entityRef.isValid) {
+            try {
+                val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType())
+                if (statMap != null) {
+                    val staminaId = DefaultEntityStatTypes.getStamina()
+                    statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina")
                 }
+            } catch (e: Exception) {
+                logger.atFine().log("Could not remove modifiers during cleanup for $playerId: ${e.message}")
             }
         }
     }
     
-    private fun applyStarvationDamage(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+    // ========================================
+    // Unified Tick Handlers
+    // ========================================
+    
+    private fun tickHunger(playerId: UUID, hungerValue: Double, entityRef: Ref<EntityStore>, store: Store<EntityStore>, debuffsConfig: DebuffsConfig) {
+        if (!debuffsConfig.hunger.enabled) return
+        
+        val result = hungerDebuffs.update(playerId, hungerValue)
+        
+        // Send transition messages
+        result.messages.forEach { (name, activated) ->
+            sendDebuffMessage(playerId, name, activated)
+        }
+        
+        // Apply effect for current tier
+        if (result.currentTier > 0) {
+            // Remove any health buff first to prevent confusion
+            removeHealthBuff(entityRef, store)
+            
+            applyTimedEffect(
+                playerId = playerId,
+                trackingMap = lastHungerDamage,
+                intervalMs = debuffsConfig.hunger.damageIntervalMs
+            ) {
+                applyHealthDrain(entityRef, store, getHungerDamage(result.currentTier, debuffsConfig))
+            }
+        } else {
+            lastHungerDamage.remove(playerId)
+        }
+    }
+    
+    private fun tickThirst(playerId: UUID, thirstValue: Double, entityRef: Ref<EntityStore>, store: Store<EntityStore>, debuffsConfig: DebuffsConfig) {
+        if (!debuffsConfig.thirst.enabled) return
+        
+        val result = thirstDebuffs.update(playerId, thirstValue)
+        
+        result.messages.forEach { (name, activated) ->
+            sendDebuffMessage(playerId, name, activated)
+        }
+        
+        // Apply max stamina modifier (same pattern as BuffsSystem)
+        if (result.currentTier > 0) {
+            // Remove any stamina buff first to prevent stacking
+            removeStaminaBuff(entityRef, store)
+            applyMaxStaminaDebuff(entityRef, store, getThirstMaxStamina(result.currentTier, debuffsConfig))
+        } else {
+            removeMaxStaminaDebuff(entityRef, store)
+        }
+    }
+    
+    private fun tickEnergy(playerId: UUID, energyValue: Double, entityRef: Ref<EntityStore>, store: Store<EntityStore>, debuffsConfig: DebuffsConfig) {
+        if (!debuffsConfig.energy.enabled) return
+        
+        val result = energyDebuffs.update(playerId, energyValue)
+        
+        result.messages.forEach { (name, activated) ->
+            sendDebuffMessage(playerId, name, activated)
+        }
+        
+        if (result.currentTier > 0) {
+            // Remove any speed buff first (SpeedManager handles this, but be explicit)
+            speedManager.removeMultiplier(playerId, "buff:speed")
+            
+            val speed = getEnergySpeed(result.currentTier, debuffsConfig)
+            speedManager.setMultiplier(playerId, "debuff:energy", speed)
+            speedManager.applySpeed(playerId, entityRef, store)
+        } else {
+            speedManager.removeMultiplier(playerId, "debuff:energy")
+            speedManager.applySpeed(playerId, entityRef, store)
+        }
+    }
+    
+    // ========================================
+    // Effect Application Helpers
+    // ========================================
+    
+    private inline fun applyTimedEffect(
+        playerId: UUID,
+        trackingMap: ConcurrentHashMap<UUID, Long>,
+        intervalMs: Long,
+        effect: () -> Unit
+    ) {
         val now = System.currentTimeMillis()
-        val lastDamage = lastStarvationDamage[playerId] ?: 0L
+        val lastTime = trackingMap[playerId] ?: 0L
         
-        // Apply damage every 3 seconds (3000ms)
-        if (now - lastDamage < config.starvation.damageIntervalMs) return
+        if (now - lastTime >= intervalMs) {
+            effect()
+            trackingMap[playerId] = now
+        }
+    }
+    
+    private fun applyHealthDrain(entityRef: Ref<EntityStore>, store: Store<EntityStore>, damage: Double) {
+        if (!entityRef.isValid) return
         
-        // Calculate progressive damage
-        val ticks = starvationTicks.getOrDefault(playerId, 0)
-        val damage = minOf(
-            config.starvation.initialDamage + (ticks * config.starvation.damageIncreasePerTick),
-            config.starvation.maxDamage
-        )
-        
-        // Apply damage
         try {
             val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
-            val healthId = DefaultEntityStatTypes.getHealth()
-            
-            // Subtract health
-            statMap.subtractStatValue(healthId, damage.toFloat())
-            
-            lastStarvationDamage[playerId] = now
-            starvationTicks[playerId] = ticks + 1
-            
-            logger.fine("Applied starvation damage to player $playerId: $damage HP (tick $ticks)")
+            statMap.subtractStatValue(DefaultEntityStatTypes.getHealth(), damage.toFloat())
         } catch (e: Exception) {
-            logger.warning("Failed to apply starvation damage to player $playerId: ${e.message}")
+            logger.atFine().log("Failed to apply health drain: ${e.message}")
         }
     }
     
-    // ========================================
-    // Dehydration (Thirst < 30)
-    // ========================================
-    
-    private fun tickDehydration(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        // Two-tier system: Parched (< 30) and Dehydrated (= 0)
+    private fun applyMaxStaminaDebuff(entityRef: Ref<EntityStore>, store: Store<EntityStore>, multiplier: Float) {
+        if (!entityRef.isValid) return
         
-        // Tier 1: Parched (gradual speed/stamina reduction)
-        val parchedTransition = parchedController.update(playerId, stats.thirst.toDouble())
-        when (parchedTransition) {
-            HysteresisController.StateTransition.ACTIVATED -> {
-                sendDebuffMessage(playerId, "Parched", true)
-            }
-            
-            HysteresisController.StateTransition.DEACTIVATED -> {
-                speedManager.removeMultiplier(playerId, "debuff:thirst")
-                speedManager.applySpeed(playerId, entityRef, store)
-                sendDebuffMessage(playerId, "Parched", false)
-            }
-            
-            HysteresisController.StateTransition.NO_CHANGE -> {
-                // Update speed/stamina based on thirst level
-                if (parchedController.isActive(playerId)) {
-                    applyThirstSpeedPenalty(playerId, stats.thirst.toDouble(), entityRef, store)
-                }
-            }
-        }
-        
-        // Tier 2: Dehydrated (critical damage)
-        val dehydratedTransition = dehydrationDamageController.update(playerId, stats.thirst.toDouble())
-        when (dehydratedTransition) {
-            HysteresisController.StateTransition.ACTIVATED -> {
-                sendDebuffMessage(playerId, "Dehydrated", true)
-            }
-            
-            HysteresisController.StateTransition.DEACTIVATED -> {
-                lastDehydrationDamage.remove(playerId)
-                sendDebuffMessage(playerId, "Dehydrated", false)
-            }
-            
-            HysteresisController.StateTransition.NO_CHANGE -> {
-                // Apply damage if dehydrated
-                if (dehydrationDamageController.isActive(playerId)) {
-                    applyDehydrationDamage(playerId, entityRef, store)
-                }
-            }
-        }
-    }
-    
-    private fun applyThirstSpeedPenalty(playerId: UUID, thirst: Double, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        // Gradual speed reduction from 100% (at 30 thirst) to 40.5% (at 0 thirst)
-        val debuffRatio = 1.0 - (thirst / 30.0)  // 0 at 30%, 1.0 at 0%
-        val speedMultiplier = (1.0f - ((1.0f - config.dehydration.minSpeed.toFloat()) * debuffRatio.toFloat()))
-        
-        speedManager.setMultiplier(playerId, "debuff:thirst", speedMultiplier)
-        speedManager.applySpeed(playerId, entityRef, store)
-    }
-    
-    private fun applyDehydrationDamage(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        val now = System.currentTimeMillis()
-        val lastDamage = lastDehydrationDamage[playerId] ?: 0L
-        
-        // Apply damage every 4 seconds (4000ms)
-        if (now - lastDamage < config.dehydration.damageIntervalMs) return
-        
-        val damage = config.dehydration.damage
-        
-        // Apply damage
-        try {
-            val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
-            val healthId = DefaultEntityStatTypes.getHealth()
-            
-            // Subtract health
-            statMap.subtractStatValue(healthId, damage.toFloat())
-            
-            lastDehydrationDamage[playerId] = now
-            
-            logger.fine("Applied dehydration damage to player $playerId: $damage HP")
-        } catch (e: Exception) {
-            logger.warning("Failed to apply dehydration damage to player $playerId: ${e.message}")
-        }
-    }
-    
-    // ========================================
-    // Exhaustion (Energy < 30)
-    // ========================================
-    
-    private fun tickExhaustion(playerId: UUID, stats: MetabolismStats, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        // Two-tier system: Tired (< 30) and Exhausted (= 0)
-        
-        // Tier 1: Tired (gradual speed reduction and stamina consumption increase)
-        val tiredTransition = tiredController.update(playerId, stats.energy.toDouble())
-        when (tiredTransition) {
-            HysteresisController.StateTransition.ACTIVATED -> {
-                sendDebuffMessage(playerId, "Tired", true)
-            }
-            
-            HysteresisController.StateTransition.DEACTIVATED -> {
-                speedManager.removeMultiplier(playerId, "debuff:energy")
-                speedManager.applySpeed(playerId, entityRef, store)
-                sendDebuffMessage(playerId, "Tired", false)
-            }
-            
-            HysteresisController.StateTransition.NO_CHANGE -> {
-                // Update speed based on energy level
-                if (tiredController.isActive(playerId)) {
-                    applyEnergySpeedPenalty(playerId, stats.energy.toDouble(), entityRef, store)
-                }
-            }
-        }
-        
-        // Tier 2: Exhausted (active stamina drain)
-        val exhaustedTransition = exhaustedController.update(playerId, stats.energy.toDouble())
-        when (exhaustedTransition) {
-            HysteresisController.StateTransition.ACTIVATED -> {
-                sendDebuffMessage(playerId, "Exhausted", true)
-            }
-            
-            HysteresisController.StateTransition.DEACTIVATED -> {
-                lastExhaustionDrain.remove(playerId)
-                sendDebuffMessage(playerId, "Exhausted", false)
-            }
-            
-            HysteresisController.StateTransition.NO_CHANGE -> {
-                // Apply stamina drain if exhausted
-                if (exhaustedController.isActive(playerId)) {
-                    applyExhaustionStaminaDrain(playerId, entityRef, store)
-                }
-            }
-        }
-    }
-    
-    private fun applyEnergySpeedPenalty(playerId: UUID, energy: Double, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        // Gradual speed reduction from 100% (at 30 energy) to 54% (at 0 energy)
-        val debuffRatio = 1.0 - (energy / 30.0)  // 0 at 30%, 1.0 at 0%
-        val speedMultiplier = (1.0f - ((1.0f - config.exhaustion.minSpeed.toFloat()) * debuffRatio.toFloat()))
-        
-        speedManager.setMultiplier(playerId, "debuff:energy", speedMultiplier)
-        speedManager.applySpeed(playerId, entityRef, store)
-    }
-    
-    private fun applyExhaustionStaminaDrain(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        val now = System.currentTimeMillis()
-        val lastDrain = lastExhaustionDrain[playerId] ?: 0L
-        
-        // Drain stamina every 1 second (1000ms)
-        if (now - lastDrain < config.exhaustion.drainIntervalMs) return
-        
-        val drain = config.exhaustion.staminaDrain
-        
-        // Apply stamina drain
         try {
             val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
             val staminaId = DefaultEntityStatTypes.getStamina()
             
-            // Subtract stamina
-            statMap.subtractStatValue(staminaId, drain.toFloat())
+            // Get current max stamina before modifier (for debugging)
+            val statValue = statMap.get(staminaId)
+            val currentMax = statValue?.getMax() ?: 0f
+            val currentValue = statValue?.get() ?: 0f
             
-            lastExhaustionDrain[playerId] = now
+            // Use constant base stamina (vanilla Hytale value)
+            // Note: If other mods change base stamina, make this configurable in DebuffsConfig
+            val baseStamina = BASE_STAMINA
             
-            logger.fine("Applied exhaustion stamina drain to player $playerId: $drain stamina")
+            // Calculate additive modifier amount
+            // multiplier = 0.40 (want 40% of base) → target = base * 0.40, modifier = target - base
+            // multiplier = 0.65 (want 65% of base) → target = base * 0.65, modifier = target - base  
+            // multiplier = 0.85 (want 85% of base) → target = base * 0.85, modifier = target - base
+            val targetMax = baseStamina * multiplier
+            val additiveModifier = targetMax - baseStamina  // e.g., (10 * 0.85) - 10 = 8.5 - 10 = -1.5
+            
+            // Apply max stamina reduction using StaticModifier with ADDITIVE calculation
+            val modifier = com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier(
+                com.hypixel.hytale.server.core.modules.entitystats.modifier.Modifier.ModifierTarget.MAX,
+                com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier.CalculationType.ADDITIVE,
+                additiveModifier
+            )
+            
+            // Check if there's already a modifier with this key
+            val existingModifier = statMap.get(staminaId)?.getModifier("livinglands_debuff_stamina")
+            
+            // Remove any buff modifier first to ensure clean state (prevents stacking during transitions)
+            statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
+            
+            // Use SELF predictable to ensure client receives the stat update
+            statMap.putModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina", modifier)
+            
+            logger.atFine().log("[DEBUFF] Applying stamina debuff (had existing=${existingModifier != null})")
+            
+            // Get new max stamina after modifier (for debugging)
+            val newStatValue = statMap.get(staminaId)
+            val newMax = newStatValue?.getMax() ?: 0f
+            val newValue = newStatValue?.get() ?: 0f
+            
+            logger.atFine().log("[DEBUFF] Applied stamina debuff: targetPercent=$multiplier, baseStamina=$baseStamina, additive=$additiveModifier, before=$currentValue/$currentMax, after=$newValue/$newMax")
         } catch (e: Exception) {
-            logger.warning("Failed to apply exhaustion stamina drain to player $playerId: ${e.message}")
+            logger.atWarning().log("Failed to apply max stamina debuff: ${e.message}")
+            e.printStackTrace()
         }
     }
     
-    // ========================================
-    // Messaging
-    // ========================================
+    private fun removeMaxStaminaDebuff(entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+        if (!entityRef.isValid) return
+        
+        try {
+            val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
+            val staminaId = DefaultEntityStatTypes.getStamina()
+            
+            // Get stamina before removal (for debugging)
+            val beforeValue = statMap.get(staminaId)
+            val beforeCurrent = beforeValue?.get() ?: 0f
+            val beforeMax = beforeValue?.getMax() ?: 0f
+            
+            // Remove stamina debuff modifier
+            statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina")
+            
+            // Get stamina after removal (for debugging)
+            val afterValue = statMap.get(staminaId)
+            val afterCurrent = afterValue?.get() ?: 0f
+            val afterMax = afterValue?.getMax() ?: 0f
+            
+            logger.atFine().log("[DEBUFF] Removed stamina debuff: before=$beforeCurrent/$beforeMax, after=$afterCurrent/$afterMax")
+        } catch (e: Exception) {
+            logger.atWarning().log("Failed to remove max stamina debuff: ${e.message}")
+        }
+    }
+    
+    private fun removeStaminaBuff(entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+        if (!entityRef.isValid) return
+        
+        try {
+            val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
+            val staminaId = DefaultEntityStatTypes.getStamina()
+            
+            // Remove stamina buff modifier (to prevent stacking with debuff)
+            statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
+        } catch (e: Exception) {
+            logger.atFine().log("Failed to remove stamina buff: ${e.message}")
+        }
+    }
+    
+    private fun removeHealthBuff(entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
+        if (!entityRef.isValid) return
+        
+        try {
+            val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
+            val healthId = DefaultEntityStatTypes.getHealth()
+            
+            // Remove health buff modifier (to prevent confusion with health drain debuff)
+            statMap.removeModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
+        } catch (e: Exception) {
+            logger.atFine().log("Failed to remove health buff: ${e.message}")
+        }
+    }
     
     private fun sendDebuffMessage(playerId: UUID, debuffName: String, activated: Boolean) {
         val session = CoreModule.players.getSession(playerId) ?: return
         
-        session.world.execute {
-            try {
-                val player = session.store.getComponent(session.entityRef, Player.getComponentType()) ?: return@execute
-                @Suppress("DEPRECATION")
-                val playerRef = player.getPlayerRef() ?: return@execute
-                
-                MessageFormatter.debuff(playerRef, debuffName, activated)
-            } catch (e: Exception) {
-                logger.fine("Failed to send debuff message to player $playerId: ${e.message}")
-            }
+        // No world.execute needed - we're already on the World thread (called from tick)
+        // and sendMessage() is thread-safe anyway
+        try {
+            val player = session.store.getComponent(session.entityRef, Player.getComponentType()) ?: return
+            @Suppress("DEPRECATION")
+            val playerRef = player.getPlayerRef() ?: return
+            
+            MessageFormatter.debuff(playerRef, debuffName, activated)
+        } catch (e: Exception) {
+            logger.atFine().log("Failed to send debuff message to $playerId: ${e.message}")
         }
     }
 }

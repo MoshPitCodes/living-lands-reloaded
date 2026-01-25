@@ -3,6 +3,7 @@ package com.livinglands.core
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.persistence.PersistenceService
 import com.livinglands.core.persistence.PlayerDataRepository
+import com.livinglands.modules.metabolism.config.MetabolismConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,6 +48,35 @@ class WorldContext(
     
     // Coroutine scope for async operations
     private val scope = CoroutineScope(Dispatchers.Default)
+    
+    /**
+     * Cached world-specific metabolism config.
+     * Pre-merged from global + world overrides.
+     * Updated on config reload.
+     * 
+     * @Volatile ensures visibility across world threads.
+     */
+    @Volatile
+    var metabolismConfig: MetabolismConfig? = null
+        internal set
+    
+    /**
+     * Resolve and cache metabolism config for this world.
+     * Called on world creation and config reload.
+     */
+    internal fun resolveMetabolismConfig(globalConfig: MetabolismConfig) {
+        val resolved = globalConfig.findOverride(worldName, worldId)?.let { override ->
+            globalConfig.mergeOverride(override)
+        } ?: globalConfig
+        
+        metabolismConfig = resolved
+        logger.atFine().log(
+            "Resolved metabolism config for world $worldName: " +
+            "hunger.rate=${resolved.hunger.baseDepletionRateSeconds}, " +
+            "thirst.rate=${resolved.thirst.baseDepletionRateSeconds}, " +
+            "energy.rate=${resolved.energy.baseDepletionRateSeconds}"
+        )
+    }
     
     /**
      * Get or create module-specific data.
@@ -118,20 +148,24 @@ class WorldContext(
      * Closes database connection and clears all module data.
      */
     fun cleanup() {
-        // Wait for all pending coroutines to complete
-        runBlocking {
-            scope.coroutineContext[Job]?.children?.forEach { it.join() }
+        try {
+            // Cancel the scope first to prevent new operations from starting
+            scope.cancel("WorldContext cleanup")
+            
+            // Wait for all pending coroutines to complete with timeout
+            runBlocking {
+                scope.coroutineContext[Job]?.children?.forEach { it.join() }
+            }
+            
+            // Close persistence if initialized
+            if (persistenceInitialized && _persistence.isInitialized()) {
+                persistence.close()
+            }
+            
+            // Clear all module data
+            moduleData.clear()
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Error during WorldContext cleanup for world $worldId")
         }
-        
-        // Cancel the scope to prevent new operations
-        scope.cancel()
-        
-        // Close persistence if initialized
-        if (persistenceInitialized && _persistence.isInitialized()) {
-            persistence.close()
-        }
-        
-        // Clear all module data
-        moduleData.clear()
     }
 }

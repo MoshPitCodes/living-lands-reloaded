@@ -7,6 +7,7 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.commands.StatsCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
+import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
@@ -123,13 +124,17 @@ class MetabolismModule : AbstractModule(
         )
         logger.atFine().log("Loaded metabolism config: enabled=${metabolismConfig.enabled}, version=${metabolismConfig.configVersion}")
         
+        // Validate world overrides
+        val knownWorldNames = CoreModule.worlds.getAllWorldNames()
+        MetabolismConfigValidator.validateOverrides(metabolismConfig, knownWorldNames, logger)
+        
         // Create service
         metabolismService = MetabolismService(metabolismConfig, logger)
         
         // Register service with CoreModule for access by other modules
         CoreModule.services.register<MetabolismService>(metabolismService)
         
-        // Initialize repositories for existing worlds
+        // Initialize repositories for existing worlds AND resolve world-specific configs
         initializeRepositories()
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
@@ -137,10 +142,9 @@ class MetabolismModule : AbstractModule(
         
         // Initialize food consumption system
         if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
-            // Create food detection components (need java.util.logging.Logger)
-            val javaLogger = java.util.logging.Logger.getLogger(javaClass.name)
-            foodEffectDetector = FoodEffectDetector(javaLogger)
-            foodConsumptionProcessor = FoodConsumptionProcessor(metabolismService, metabolismConfig.foodConsumption, javaLogger)
+            // Create food detection components
+            foodEffectDetector = FoodEffectDetector(logger)
+            foodConsumptionProcessor = FoodConsumptionProcessor(metabolismService, metabolismConfig.foodConsumption, logger)
             
             // Register food detection tick system
             val foodTickSystem = FoodDetectionTickSystem(
@@ -150,21 +154,19 @@ class MetabolismModule : AbstractModule(
                 logger
             )
             registerSystem(foodTickSystem)
-            logger.atFine().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
+            logger.atInfo().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
         }
         
         // Initialize buffs and debuffs system
         if (metabolismConfig.enabled) {
-            val javaLogger = java.util.logging.Logger.getLogger(javaClass.name)
-            
             // Create speed manager (centralized speed modification)
-            speedManager = SpeedManager(javaLogger)
+            speedManager = SpeedManager(logger)
             
             // Create debuffs system (must be created before buffs for suppression check)
             debuffsSystem = DebuffsSystem(
                 config = metabolismConfig.debuffs,
                 speedManager = speedManager,
-                logger = javaLogger
+                logger = logger
             )
             
             // Create buffs system (checks debuffs for suppression)
@@ -172,7 +174,7 @@ class MetabolismModule : AbstractModule(
                 config = metabolismConfig.buffs,
                 debuffsSystem = debuffsSystem,
                 speedManager = speedManager,
-                logger = javaLogger
+                logger = logger
             )
             
             logger.atFine().log("Initialized buffs and debuffs system")
@@ -193,9 +195,21 @@ class MetabolismModule : AbstractModule(
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
         // called by the plugin through CoreModule.notifyPlayerJoin/notifyPlayerDisconnect
         
-        // Register commands
-        registerCommand(StatsCommand(metabolismService))
-        logger.atFine().log("Registered /ll stats command")
+        // Register commands as subcommands of /ll
+        CoreModule.mainCommand.registerSubCommand(StatsCommand(metabolismService))
+        logger.atFine().log("Registered /ll show command")
+        
+        // Register HUD toggle commands (matching v2.6.0: /ll stats, /ll buffs, /ll debuffs)
+        CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(
+            com.livinglands.modules.metabolism.commands.HudToggleCommand.ToggleType.STATS
+        ))
+        CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(
+            com.livinglands.modules.metabolism.commands.HudToggleCommand.ToggleType.BUFFS
+        ))
+        CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(
+            com.livinglands.modules.metabolism.commands.HudToggleCommand.ToggleType.DEBUFFS
+        ))
+        logger.atFine().log("Registered HUD toggle commands: /ll stats, /ll buffs, /ll debuffs")
         
         // Register config reload callback
         CoreModule.config.onReload("metabolism") {
@@ -254,6 +268,28 @@ class MetabolismModule : AbstractModule(
                 // Store player refs for HUD cleanup on disconnect
                 playerRefs[playerId] = Pair(player, playerRef)
                 
+                // Clean up any stale modifiers from previous session (crash recovery)
+                // This prevents modifiers from persisting if the player disconnected abnormally
+                try {
+                    val statMap = store.getComponent(entityRef, com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.getComponentType())
+                    if (statMap != null) {
+                        val staminaId = com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes.getStamina()
+                        val healthId = com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes.getHealth()
+                        statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina")
+                        statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
+                        statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
+                        logger.atFine().log("Cleaned up stale modifiers for player $playerId")
+                    }
+                } catch (e: Exception) {
+                    logger.atFine().log("Could not cleanup stale modifiers for $playerId: ${e.message}")
+                }
+                
+                // Ensure world config is resolved (for lazily created worlds)
+                if (worldContext.metabolismConfig == null) {
+                    worldContext.resolveMetabolismConfig(metabolismConfig)
+                    logger.atFine().log("Resolved metabolism config for lazily created world ${worldContext.worldName}")
+                }
+                
                 // Ensure repository exists
                 if (!worldContext.hasData<MetabolismRepository>()) {
                     val repository = MetabolismRepository(worldContext.persistence, logger)
@@ -301,7 +337,23 @@ class MetabolismModule : AbstractModule(
             return
         }
         
-        // Cleanup HUD first
+        // Save HUD preferences before cleanup
+        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(playerId, MetabolismHudElement.NAMESPACE)
+        if (hudElement != null) {
+            try {
+                val repository = worldContext.getDataOrNull<MetabolismRepository>()
+                if (repository != null) {
+                    kotlinx.coroutines.runBlocking {
+                        repository.saveHudPreferences(playerId.toCachedString(), hudElement.preferences)
+                    }
+                    logger.atFine().log("Saved HUD preferences for disconnecting player $playerId")
+                }
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to save HUD preferences for $playerId")
+            }
+        }
+        
+        // Cleanup HUD
         val refs = playerRefs.remove(playerId)
         if (refs != null) {
             val (player, playerRef) = refs
@@ -316,12 +368,14 @@ class MetabolismModule : AbstractModule(
             logger.atWarning().withCause(e)
                 .log("Failed to save metabolism for disconnecting player $playerId")
         } finally {
-            // Cleanup buffs/debuffs
-            if (::debuffsSystem.isInitialized) {
-                debuffsSystem.cleanup(playerId)
-            }
-            if (::buffsSystem.isInitialized) {
-                buffsSystem.cleanup(playerId)
+            // Cleanup buffs/debuffs on world thread to access ECS
+            session.world.execute {
+                if (::debuffsSystem.isInitialized) {
+                    debuffsSystem.cleanup(playerId, session.entityRef, session.store)
+                }
+                if (::buffsSystem.isInitialized) {
+                    buffsSystem.cleanup(playerId, session.entityRef, session.store)
+                }
             }
             if (::speedManager.isInitialized) {
                 speedManager.cleanup(playerId)
@@ -403,22 +457,41 @@ class MetabolismModule : AbstractModule(
         )
         metabolismConfig = newConfig
         metabolismService.updateConfig(newConfig)
-        logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
+        logger.atInfo().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
+        
+        // Re-resolve world-specific configs for all existing worlds
+        var worldsResolved = 0
+        for (worldContext in CoreModule.worlds.getAllContexts()) {
+            try {
+                worldContext.resolveMetabolismConfig(newConfig)
+                worldsResolved++
+                logger.atInfo().log("Re-resolved metabolism config for world ${worldContext.worldName}")
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e)
+                    .log("Failed to re-resolve metabolism config for world ${worldContext.worldName}")
+            }
+        }
+        logger.atInfo().log("Metabolism configs re-resolved for $worldsResolved worlds")
     }
     
     /**
      * Initialize repositories for all existing worlds.
+     * Also resolves world-specific configs from global config + overrides.
      */
     private suspend fun initializeRepositories() {
         for (worldContext in CoreModule.worlds.getAllContexts()) {
             try {
+                // Resolve world-specific config
+                worldContext.resolveMetabolismConfig(metabolismConfig)
+                
+                // Initialize repository
                 val repository = MetabolismRepository(worldContext.persistence, logger)
                 repository.initialize()
                 worldContext.getData { repository }
-                logger.atFine().log("Initialized metabolism repository for world ${worldContext.worldId}")
+                logger.atFine().log("Initialized metabolism repository for world ${worldContext.worldName} (${worldContext.worldId})")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
-                    .log("Failed to initialize metabolism repository for world ${worldContext.worldId}")
+                    .log("Failed to initialize metabolism repository for world ${worldContext.worldName} (${worldContext.worldId})")
             }
         }
     }
@@ -462,13 +535,39 @@ class MetabolismModule : AbstractModule(
         
         world.execute {
             try {
-                // Create the HUD element
-                val hudElement = MetabolismHudElement(playerRef)
+                // Get world UUID from player's session
+                val session = CoreModule.players.getSession(playerId)
+                if (session == null) {
+                    logger.atWarning().log("No session found for player $playerId")
+                    return@execute
+                }
+                
+                // Get world context
+                val worldContext = CoreModule.worlds.getContext(session.worldId)
+                
+                // Load HUD preferences from database
+                val repository = worldContext?.getDataOrNull<MetabolismRepository>()
+                val preferences = if (repository != null) {
+                    kotlinx.coroutines.runBlocking {
+                        repository.loadHudPreferences(playerId.toCachedString())
+                    }
+                } else {
+                    com.livinglands.modules.metabolism.hud.HudPreferences()
+                }
+                
+                // Create the HUD element with preferences and system references
+                val hudElement = MetabolismHudElement(
+                    playerRef,
+                    playerId,
+                    if (::buffsSystem.isInitialized) buffsSystem else null,
+                    if (::debuffsSystem.isInitialized) debuffsSystem else null
+                )
+                hudElement.preferences = preferences
                 
                 // Register with MultiHudManager (standardized pattern)
                 logger.atInfo().log("Registering HUD via MultiHudManager on world thread...")
                 CoreModule.hudManager.setHud(player, playerRef, MetabolismHudElement.NAMESPACE, hudElement)
-                logger.atInfo().log("Registered metabolism HUD for player $playerId")
+                logger.atInfo().log("Registered metabolism HUD for player $playerId with preferences: $preferences")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
                     .log("Failed to register metabolism HUD for player $playerId")
