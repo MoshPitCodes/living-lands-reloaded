@@ -66,7 +66,7 @@ class MetabolismHudElement(
      */
     override fun build(builder: UICommandBuilder) {
         // Append the UI file every time (Hytale might need this)
-        builder.append("Hud/MetabolismHud.ui")
+        builder.append("Common/UI/Custom/Hud/MetabolismHud.ui")
         
         // Set stats visibility
         builder.set("#MetabolismBars.Visible", preferences.statsVisible)

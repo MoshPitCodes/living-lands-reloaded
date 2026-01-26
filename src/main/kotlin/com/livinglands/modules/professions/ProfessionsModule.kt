@@ -258,6 +258,9 @@ class ProfessionsModule : AbstractModule(
         // Load from database asynchronously
         professionsService.updatePlayerStateAsync(playerId, professionsRepository)
         
+        // NOTE: HUD registration is now handled by MetabolismModule via unified LivingLandsHudElement
+        // No need to register separate HUD elements here
+        
         logger.atFine().log("Initialized professions for player $playerId")
     }
     

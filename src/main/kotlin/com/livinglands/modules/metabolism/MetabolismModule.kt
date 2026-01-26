@@ -191,6 +191,10 @@ class MetabolismModule : AbstractModule(
                 logger = logger
             )
             
+            // Register buffs/debuffs systems with metabolismService for UI access
+            metabolismService.setBuffsSystem(buffsSystem)
+            metabolismService.setDebuffsSystem(debuffsSystem)
+            
             logger.atFine().log("Initialized buffs and debuffs system")
         }
         

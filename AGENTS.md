@@ -456,11 +456,103 @@ grep "LivingLandsReloaded" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/
   - May contain outdated information
   - Always verify against `docs/HYTALE_API_REFERENCE.md`
 
+## UI Patterns (CustomUIPage)
+
+Living Lands uses patterns adapted from [hytale-basic-uis](https://github.com/trouble-dev/hytale-basic-uis) for full-screen modal pages.
+
+### Page Types
+
+**BasicCustomUIPage** - For static displays (no user interaction):
+```kotlin
+class InfoPage(playerRef: PlayerRef) : BasicCustomUIPage(playerRef) {
+    override fun build(cmd: UICommandBuilder) {
+        cmd.append("Pages/InfoPage.ui")
+        cmd.set("#Title.Text", "Server Info")
+        cmd.set("#Value.Text", "42")  // Numbers as String
+    }
+}
+```
+
+**InteractiveCustomUIPage<T>** - For interactive forms/buttons:
+```kotlin
+class SettingsPage(playerRef: PlayerRef) 
+    : InteractiveCustomUIPage<SettingsPage.FormData>(
+        playerRef,
+        CustomPageLifetime.CanDismissOrCloseThroughInteraction,
+        FormData.CODEC
+    ) {
+    
+    data class FormData(var action: String = "", var name: String = "") {
+        companion object {
+            val CODEC = BuilderCodec.builder(FormData::class.java) { FormData() }
+                .append(KeyedCodec("Action", Codec.STRING), ...)
+                .add()
+                .append(KeyedCodec("@PlayerName", Codec.STRING), ...)  // @ = UI input
+                .add()
+                .build()
+        }
+    }
+    
+    override fun build(ref: Ref<EntityStore>, cmd: UICommandBuilder, 
+                       evt: UIEventBuilder, store: Store<EntityStore>) {
+        cmd.append("Pages/SettingsPage.ui")
+        evt.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#SaveButton",
+            EventData()
+                .append("Action", "Save")
+                .append("@PlayerName", "#NameInput.Value")
+        )
+    }
+    
+    override fun handleDataEvent(ref: Ref<EntityStore>, store: Store<EntityStore>, 
+                                  data: FormData) {
+        if (data.action == "Save") {
+            playerRef.sendMessage(Message.raw("Saved: ${data.name}"))
+        }
+        val player = store.getComponent(ref, Player.getComponentType())
+        player.pageManager.setPage(ref, store, Page.None)  // Close page
+    }
+}
+```
+
+### Key Concepts
+
+1. **@ Prefix in Codec** - Fields prefixed with `@` in `KeyedCodec` are read from UI elements
+2. **EventData.append()** - Bind UI element values: `EventData().append("@Field", "#Element.Value")`
+3. **Element Selectors** - Use `#ElementId.Property` format: `#Title.Text`, `#Value.Text`
+4. **World Thread Required** - Always wrap in `world.execute { }` when accessing Player/Entity
+5. **Close Pages** - Call `player.pageManager.setPage(ref, store, Page.None)` when done
+
+### UI File Format
+
+```ui
+// Pages/MyPage.ui
+Group {
+    Anchor: (Width: 400, Height: 200);
+    Background: #1a1a2e(0.95);
+    LayoutMode: Top;  // Vertical stacking
+    Padding: (Full: 20);
+
+    Label #Title {
+        Text: "My Page";
+        Style: (FontSize: 24, TextColor: #ffffff);
+    }
+
+    $C.@TextField #NameInput {  // $C = Common.ui templates
+        PlaceholderText: "Enter name...";
+    }
+}
+```
+
+**See:** `docs/UI_PATTERNS.md` for complete guide with examples.
+
 ## Key References
 
 ### Documentation
 - `docs/TECHNICAL_DESIGN.md` - Full architecture details
 - `docs/IMPLEMENTATION_PLAN.md` - Phased task list
+- `docs/UI_PATTERNS.md` - **CustomUIPage patterns guide** (BasicCustomUIPage, InteractiveCustomUIPage)
 - `docs/HYTALE_API_REFERENCE.md` - **Primary API reference** (verified against JAR)
   - Always check this before using online docs
   - Contains corrected patterns and removed deprecated APIs
@@ -472,6 +564,11 @@ grep "LivingLandsReloaded" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/
   - **Assess for reuse, do not copy paste**
   - Study logic/algorithms, rewrite with current API
   - Key systems to examine: MetabolismSystem, BuffsSystem, FoodConsumptionProcessor, LevelingService
+
+- **hytale-basic-uis Repository:** https://github.com/trouble-dev/hytale-basic-uis
+  - Reference implementation for CustomUIPage patterns
+  - Tutorial progression: static → interactive → dynamic
+  - **Base classes adapted** to `src/main/kotlin/com/livinglands/core/ui/`
 
 ### Server Resources
 - `libs/Server/HytaleServer.jar` - Server JAR for API inspection

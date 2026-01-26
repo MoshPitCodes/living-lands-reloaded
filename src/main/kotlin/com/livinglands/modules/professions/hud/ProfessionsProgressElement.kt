@@ -49,7 +49,7 @@ class ProfessionsProgressElement(
      */
     override fun build(builder: UICommandBuilder) {
         // Append the UI file every time
-        builder.append("Hud/ProfessionsProgressPanel.ui")
+        builder.append("Common/UI/Custom/Hud/ProfessionsProgressPanel.ui")
         
         // Set panel visibility
         builder.set("#ProgressPanel.Visible", visible.get())
