@@ -60,7 +60,7 @@ class ProfessionsPanelElement(
      */
     override fun build(builder: UICommandBuilder) {
         // Append the UI file every time
-        builder.append("Hud/ProfessionsPanel.ui")
+        builder.append("Common/UI/Custom/Hud/ProfessionsPanel.ui")
         
         // Set panel visibility
         builder.set("#ProfessionsPanel.Visible", visible.get())

@@ -710,4 +710,36 @@ class MetabolismService(
         hudElement.updateMetabolismHud()
         state.markDisplayed()
     }
+    
+    // ============ System Accessors ============
+    // These are needed for commands/UI to access buffs/debuffs
+    
+    private var buffsSystem: com.livinglands.modules.metabolism.buffs.BuffsSystem? = null
+    private var debuffsSystem: com.livinglands.modules.metabolism.buffs.DebuffsSystem? = null
+    
+    /**
+     * Set the buffs system reference.
+     * Called by MetabolismModule during initialization.
+     */
+    fun setBuffsSystem(system: com.livinglands.modules.metabolism.buffs.BuffsSystem) {
+        this.buffsSystem = system
+    }
+    
+    /**
+     * Set the debuffs system reference.
+     * Called by MetabolismModule during initialization.
+     */
+    fun setDebuffsSystem(system: com.livinglands.modules.metabolism.buffs.DebuffsSystem) {
+        this.debuffsSystem = system
+    }
+    
+    /**
+     * Get the buffs system for accessing active buff names.
+     */
+    fun getBuffsSystem(): com.livinglands.modules.metabolism.buffs.BuffsSystem? = buffsSystem
+    
+    /**
+     * Get the debuffs system for accessing active debuff names.
+     */
+    fun getDebuffsSystem(): com.livinglands.modules.metabolism.buffs.DebuffsSystem? = debuffsSystem
 }

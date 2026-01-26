@@ -2,21 +2,21 @@ package com.livinglands.modules.metabolism.commands
 
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
-import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.entity.entities.Player
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.core.MessageFormatter
 import com.livinglands.core.CoreModule
-import java.awt.Color
+import com.livinglands.modules.metabolism.pages.MetabolismStatsPage
 
 /**
- * Command to display current metabolism stats.
+ * Command to display current metabolism stats in a full-screen UI page.
  * 
  * Usage: /ll show
  * 
- * Shows hunger, thirst, and energy values for the executing player.
+ * Opens a detailed stats page showing hunger, thirst, energy, buffs, and debuffs.
  * Can only be used by players (not console).
  * 
- * Note: /ll stats is now a toggle command for HUD visibility.
+ * Uses the new CustomUIPage pattern from hytale-basic-uis.
  */
 class StatsCommand(
     private val metabolismService: MetabolismService
@@ -33,23 +33,23 @@ class StatsCommand(
             return
         }
         
-        // Get player entity reference (just to identify the player)
+        // Get player entity reference
         val entityRef = ctx.senderAsPlayerRef() ?: run {
             MessageFormatter.commandError(ctx, "Unable to get player reference")
             return
         }
         
-        // Find player session by entity ref (no ECS access, just registry lookup)
+        // Find player session by entity ref
         val session = CoreModule.players.getAllSessions().find { it.entityRef == entityRef }
         if (session == null) {
             MessageFormatter.commandError(ctx, "Player session not found")
             return
         }
         
-        // Get player UUID from session (cached string)
+        // Get player UUID
         val playerId = session.playerId.toString()
         
-        // Get metabolism stats from service (cache access, no ECS)
+        // Get metabolism stats from service
         val stats = metabolismService.getStats(playerId)
         
         if (stats == null) {
@@ -57,48 +57,35 @@ class StatsCommand(
             return
         }
         
-        // Format the stats display
-        val hungerBar = formatStatBar(stats.hunger)
-        val thirstBar = formatStatBar(stats.thirst)
-        val energyBar = formatStatBar(stats.energy)
+        // Get buffs/debuffs from systems
+        val buffsSystem = metabolismService.getBuffsSystem()
+        val debuffsSystem = metabolismService.getDebuffsSystem()
         
-        // Colors for stats
-        val orange = Color(255, 170, 85)
-        val lightAqua = Color(170, 255, 255)
-        val yellow = Color(255, 255, 85)
-        val gray = Color(170, 170, 170)
+        val activeBuffs = buffsSystem?.getActiveBuffNames(session.playerId) ?: emptyList()
+        val activeDebuffs = debuffsSystem?.getActiveDebuffNames(session.playerId) ?: emptyList()
         
-        // Build and send the message
-        MessageFormatter.commandRaw(ctx, "")  // Empty line for spacing
-        MessageFormatter.commandRaw(ctx, "--- Metabolism Stats ---", yellow)
-        MessageFormatter.commandRaw(ctx, "")
-        MessageFormatter.commandRaw(ctx, "Hunger:  ${formatValue(stats.hunger)} / 100  $hungerBar", orange)
-        MessageFormatter.commandRaw(ctx, "Thirst:  ${formatValue(stats.thirst)} / 100  $thirstBar", lightAqua)
-        MessageFormatter.commandRaw(ctx, "Energy:  ${formatValue(stats.energy)} / 100  $energyBar", yellow)
-        MessageFormatter.commandRaw(ctx, "")
-        MessageFormatter.commandRaw(ctx, "------------------------", gray)
-    }
-    
-    /**
-     * Format a stat value for display (1 decimal place).
-     */
-    private fun formatValue(value: Float): String {
-        return String.format("%5.1f", value)
-    }
-    
-    /**
-     * Create a visual progress bar for a stat.
-     * 
-     * @param value Stat value (0-100)
-     * @return A text-based progress bar
-     */
-    private fun formatStatBar(value: Float): String {
-        val filledCount = (value / 10).toInt()
-        val emptyCount = 10 - filledCount
-        
-        val filled = "|".repeat(filledCount)
-        val empty = ".".repeat(emptyCount)
-        
-        return "[$filled$empty]"
+        // Open the stats page (must run on world thread)
+        session.world.execute {
+            try {
+                val player = session.store.getComponent(session.entityRef, Player.getComponentType())
+                if (player != null) {
+                    @Suppress("DEPRECATION")
+                    val playerRef = player.playerRef
+                    if (playerRef != null) {
+                        val page = MetabolismStatsPage(
+                            playerRef,
+                            stats.hunger,
+                            stats.thirst,
+                            stats.energy,
+                            activeBuffs,
+                            activeDebuffs
+                        )
+                        player.pageManager.openCustomPage(session.entityRef, session.store, page)
+                    }
+                }
+            } catch (e: Exception) {
+                MessageFormatter.commandError(ctx, "Failed to open stats page: ${e.message}")
+            }
+        }
     }
 }

@@ -22,7 +22,7 @@ class LivingLandsHud(
 ) : CustomUIHud(playerRef) {
 
     companion object {
-        private const val UI_FILE = "Hud/LivingLandsHud.ui"
+        private const val UI_FILE = "Common/UI/Custom/Hud/LivingLandsHud.ui"
     }
 
     /** Track if this is the first build (need to append UI file) */
