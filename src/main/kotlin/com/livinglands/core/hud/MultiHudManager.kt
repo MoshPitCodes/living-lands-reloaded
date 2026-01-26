@@ -2,282 +2,179 @@ package com.livinglands.core.hud
 
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
-import com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud
-import com.hypixel.hytale.server.core.entity.entities.player.hud.HudManager
-import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder
 import com.hypixel.hytale.server.core.universe.PlayerRef
-import java.lang.reflect.Method
+import com.livinglands.modules.metabolism.buffs.BuffsSystem
+import com.livinglands.modules.metabolism.buffs.DebuffsSystem
+import com.livinglands.modules.professions.ProfessionsService
+import com.livinglands.modules.professions.abilities.AbilityRegistry
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Manages multiple HUD elements per player using a composite pattern.
+ * Manages the unified Living Lands HUD for all players.
  * 
- * Hytale's HudManager only supports a single CustomUIHud per player at a time.
- * When one module sets a custom HUD, it overwrites any existing HUD from other modules.
+ * **IMPORTANT:** Hytale's CustomUI system can only handle ONE append() call per HudElement.
+ * Therefore, we use a SINGLE unified LivingLandsHudElement per player that contains
+ * ALL Living Lands UI elements (metabolism, professions, progress panels, etc.).
  * 
- * This manager implements the MHUD pattern (based on Buuz135's MHUD) to combine
- * multiple HUD elements into a single CompositeHud that delegates to all registered elements.
+ * This replaces the previous composite pattern which tried to combine multiple HUD elements
+ * but failed because each element called append() separately.
  * 
  * Usage:
  * ```kotlin
- * // Register a HUD element
- * CoreModule.hudManager.setHud(player, playerRef, "mymod:myhud", myHudElement)
+ * // Register the unified HUD for a player
+ * CoreModule.hudManager.registerHud(player, playerRef, playerId, buffsSystem, debuffsSystem, professionsService, abilityRegistry)
  * 
- * // Remove a HUD element
- * CoreModule.hudManager.removeHud(player, playerRef, "mymod:myhud")
+ * // Get the HUD element to update it
+ * val hud = CoreModule.hudManager.getHud(playerId)
+ * hud?.updateMetabolism(hunger, thirst, energy)
+ * hud?.updateMetabolismHud()
+ * 
+ * // Remove when player disconnects
+ * CoreModule.hudManager.removeHud(player, playerRef, playerId)
  * ```
  * 
- * @see CompositeHud
+ * @see LivingLandsHudElement
  */
 class MultiHudManager(
     @PublishedApi
     internal val logger: HytaleLogger
 ) {
     
-    /** Track composite HUDs by player UUID for cleanup on disconnect */
-    private val playerHuds = ConcurrentHashMap<UUID, CompositeHud>()
+    /** Track unified HUDs by player UUID */
+    private val playerHuds = ConcurrentHashMap<UUID, LivingLandsHudElement>()
     
-    /** Track individual HUD elements by player UUID and namespace for updates */
-    @PublishedApi
-    internal val hudElements = ConcurrentHashMap<UUID, ConcurrentHashMap<String, CustomUIHud>>()
-    
-    /**
-     * Reflection cache for calling the protected build() method on CustomUIHud.
-     * This is needed because build() is protected but we need to call it on child HUDs.
-     */
-    private val buildMethod: Method? by lazy {
-        try {
-            CustomUIHud::class.java.getDeclaredMethod(
-                "build",
-                UICommandBuilder::class.java
-            ).apply {
-                isAccessible = true
-            }
-        } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to get CustomUIHud.build() method via reflection")
-            null
-        }
-    }
+    /** Track Player/PlayerRef pairs for cleanup */
+    private val playerRefs = ConcurrentHashMap<UUID, Pair<Player, PlayerRef>>()
     
     /**
-     * Register a HUD element for a player.
+     * Register the unified HUD for a player.
      * 
-     * If the player already has a CompositeHud, the element is added to it.
-     * If not, a new CompositeHud is created to wrap all HUD elements.
+     * Creates a new LivingLandsHudElement and sets it as the player's custom HUD.
+     * This is the ONLY HUD element - all Living Lands UI is managed through it.
      * 
-     * @param player The player entity (used to access HudManager)
-     * @param playerRef The player reference (needed for CustomUIHud constructor)
-     * @param namespace Unique identifier for this HUD (e.g., "livinglands:metabolism")
-     * @param hud The CustomUIHud implementation to register
+     * @param player The player entity
+     * @param playerRef The player reference
+     * @param playerId Player's UUID
+     * @param buffsSystem Optional buffs system for buff display
+     * @param debuffsSystem Optional debuffs system for debuff display
+     * @param professionsService Optional professions service for profession data
+     * @param abilityRegistry Optional ability registry for ability data
      */
-    fun setHud(
+    fun registerHud(
         player: Player,
         playerRef: PlayerRef,
-        namespace: String,
-        hud: CustomUIHud
+        playerId: UUID,
+        buffsSystem: BuffsSystem? = null,
+        debuffsSystem: DebuffsSystem? = null,
+        professionsService: ProfessionsService? = null,
+        abilityRegistry: AbilityRegistry? = null
     ) {
-        logger.atInfo().log("=== MultiHudManager.setHud() called ===")
-        logger.atInfo().log("Player: $player")
-        logger.atInfo().log("PlayerRef: $playerRef")
-        logger.atInfo().log("Namespace: $namespace")
-        logger.atInfo().log("HUD: ${hud.javaClass.name}")
-        
-        @Suppress("DEPRECATION")
-        val playerId = playerRef.uuid
+        logger.atInfo().log("=== MultiHudManager.registerHud() called ===")
         logger.atInfo().log("Player UUID: $playerId")
         
-        val hudManager = player.hudManager
-        logger.atInfo().log("HudManager: ${hudManager.javaClass.name}")
+        // Store refs for cleanup
+        playerRefs[playerId] = Pair(player, playerRef)
         
-        // Track the element for later access
-        val playerElements = hudElements.getOrPut(playerId) { ConcurrentHashMap() }
-        playerElements[namespace] = hud
-        logger.atInfo().log("Tracked HUD element")
+        // Create the unified HUD element
+        val hudElement = LivingLandsHudElement(
+            playerRef = playerRef,
+            playerId = playerId,
+            buffsSystem = buffsSystem,
+            debuffsSystem = debuffsSystem,
+            professionsService = professionsService,
+            abilityRegistry = abilityRegistry
+        )
         
-        // Get or create composite HUD
-        val existingComposite = playerHuds[playerId]
-        logger.atInfo().log("Existing composite: $existingComposite")
+        // Store the HUD element
+        playerHuds[playerId] = hudElement
         
-        if (existingComposite != null) {
-            // Add to existing composite
-            logger.atInfo().log("Adding to existing composite")
-            existingComposite.addHud(namespace, hud)
-            // Refresh the composite to show new element
-            try {
-                hudManager.setCustomHud(playerRef, existingComposite)
-                existingComposite.show()
-                logger.atInfo().log("Refreshed composite HUD")
-            } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Failed to refresh composite HUD for player $playerId")
-            }
-        } else {
-            // Check for existing non-composite HUD
-            logger.atInfo().log("Creating new composite HUD")
-            val existingHud = hudManager.customHud
-            logger.atInfo().log("Existing HUD: $existingHud")
-            
-            val huds = ConcurrentHashMap<String, CustomUIHud>()
-            huds[namespace] = hud
-            
-            // Preserve any existing external HUD
-            if (existingHud != null && existingHud !is CompositeHud) {
-                huds["_external"] = existingHud
-                logger.atInfo().log("Preserved external HUD")
-            }
-            
-            // Create new composite
-            val composite = CompositeHud(playerRef, huds, buildMethod, logger)
-            playerHuds[playerId] = composite
-            logger.atInfo().log("Created composite: $composite")
-            
-            try {
-                logger.atInfo().log("Setting custom HUD...")
-                hudManager.setCustomHud(playerRef, composite)
-                logger.atInfo().log("Showing composite...")
-                composite.show()
-                logger.atInfo().log("Created composite HUD for player $playerId with namespace: $namespace")
-            } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Failed to set composite HUD for player $playerId")
-                e.printStackTrace()
-            }
-        }
-        logger.atInfo().log("=== MultiHudManager.setHud() complete ===")
-    }
-    
-    /**
-     * Remove a HUD element by namespace.
-     * 
-     * If this was the last HUD element, the composite is removed entirely.
-     * 
-     * @param player The player entity
-     * @param playerRef The player reference
-     * @param namespace The namespace of the HUD to remove
-     */
-    fun removeHud(player: Player, playerRef: PlayerRef, namespace: String) {
-        @Suppress("DEPRECATION")
-        val playerId = playerRef.uuid
-        val hudManager = player.hudManager
-        
-        // Remove from element tracking
-        hudElements[playerId]?.remove(namespace)
-        
-        val composite = playerHuds[playerId] ?: return
-        composite.removeHud(namespace)
-        
-        if (composite.isEmpty()) {
-            // No more HUDs, clear completely
-            try {
-                hudManager.setCustomHud(playerRef, null)
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to clear HUD for player $playerId")
-            }
-            playerHuds.remove(playerId)
-            hudElements.remove(playerId)
-            logger.atFine().log("Removed all HUDs for player $playerId")
-        } else {
-            // Refresh the composite without the removed element
-            try {
-                hudManager.setCustomHud(playerRef, composite)
-                composite.show()
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to refresh composite HUD for player $playerId")
-            }
-        }
-    }
-    
-    /**
-     * Clear all HUD elements for a player.
-     * 
-     * @param player The player entity
-     * @param playerRef The player reference
-     */
-    fun clearAllHuds(player: Player, playerRef: PlayerRef) {
-        @Suppress("DEPRECATION")
-        val playerId = playerRef.uuid
-        val hudManager = player.hudManager
-        
-        // Clear tracking
-        hudElements.remove(playerId)
-        playerHuds.remove(playerId)
-        
-        // Clear the HUD
+        // Set it as the player's custom HUD
         try {
-            hudManager.setCustomHud(playerRef, null)
-            logger.atFine().log("Cleared all HUDs for player $playerId")
+            val hudManager = player.hudManager
+            hudManager.setCustomHud(playerRef, hudElement)
+            hudElement.show()
+            logger.atInfo().log("Registered unified HUD for player $playerId")
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to clear HUDs for player $playerId")
+            logger.atSevere().withCause(e).log("Failed to register unified HUD for player $playerId")
         }
-    }
-    
-    /**
-     * Check if a HUD namespace is registered for a player.
-     * 
-     * @param playerId The player's UUID
-     * @param namespace The namespace to check
-     * @return true if the namespace is registered
-     */
-    fun hasHud(playerId: UUID, namespace: String): Boolean {
-        return hudElements[playerId]?.containsKey(namespace) == true
-    }
-    
-    /**
-     * Get a specific HUD element by namespace.
-     * 
-     * @param playerId The player's UUID
-     * @param namespace The namespace of the HUD
-     * @return The HUD element, or null if not found
-     */
-    @Suppress("UNCHECKED_CAST")
-    fun <T : CustomUIHud> getHud(playerId: UUID, namespace: String): T? {
-        return hudElements[playerId]?.get(namespace) as? T
-    }
-    
-    /**
-     * Update a HUD element with type-safe access using reified generics.
-     * Returns true if update was applied, false if HUD not found or type mismatch.
-     * 
-     * This is the recommended pattern for HUD updates from services:
-     * ```kotlin
-     * CoreModule.hudManager.updateHud<MetabolismHudElement>(playerId, namespace) { hud ->
-     *     hud.updateStats(hunger, thirst, energy)
-     *     hud.updateHud()
-     * }
-     * ```
-     * 
-     * @param playerId The player's UUID
-     * @param namespace The namespace of the HUD to update
-     * @param update Lambda to apply updates to the HUD element
-     * @return true if HUD was found and updated, false otherwise
-     */
-    @PublishedApi
-    internal inline fun <reified T : CustomUIHud> updateHud(
-        playerId: UUID,
-        namespace: String,
-        update: (T) -> Unit
-    ): Boolean {
-        val hud = hudElements[playerId]?.get(namespace) ?: return false
         
-        return if (hud is T) {
-            update(hud)
-            true
-        } else {
-            logger.atWarning().log(
-                "HUD type mismatch for $namespace: expected ${T::class.simpleName}, " +
-                "got ${hud::class.simpleName}"
-            )
-            false
+        logger.atInfo().log("=== MultiHudManager.registerHud() complete ===")
+    }
+    
+    /**
+     * Get the unified HUD element for a player.
+     * 
+     * @param playerId The player's UUID
+     * @return The HUD element, or null if not registered
+     */
+    fun getHud(playerId: UUID): LivingLandsHudElement? {
+        return playerHuds[playerId]
+    }
+    
+    /**
+     * Check if a player has a registered HUD.
+     * 
+     * @param playerId The player's UUID
+     * @return true if the player has a registered HUD
+     */
+    fun hasHud(playerId: UUID): Boolean {
+        return playerHuds.containsKey(playerId)
+    }
+    
+    /**
+     * Update profession services for all registered HUDs.
+     * Call this when ProfessionsModule starts up.
+     * 
+     * @param service The ProfessionsService instance
+     * @param registry The AbilityRegistry instance
+     */
+    fun setProfessionServicesForAll(service: ProfessionsService, registry: AbilityRegistry) {
+        logger.atInfo().log("Updating profession services for ${playerHuds.size} registered HUDs")
+        playerHuds.values.forEach { hud ->
+            hud.setProfessionServices(service, registry)
         }
     }
     
     /**
-     * Get all registered HUD namespaces for a player.
+     * Remove the HUD for a player.
      * 
-     * @param playerId The player's UUID
-     * @return Set of registered namespaces
+     * @param player The player entity
+     * @param playerRef The player reference
+     * @param playerId Player's UUID
      */
-    fun getNamespaces(playerId: UUID): Set<String> {
-        return hudElements[playerId]?.keys?.toSet() ?: emptySet()
+    fun removeHud(player: Player, playerRef: PlayerRef, playerId: UUID) {
+        logger.atFine().log("Removing HUD for player $playerId")
+        
+        playerHuds.remove(playerId)
+        playerRefs.remove(playerId)
+        
+        try {
+            val hudManager = player.hudManager
+            hudManager.setCustomHud(playerRef, null)
+            logger.atFine().log("Removed HUD for player $playerId")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Failed to remove HUD for player $playerId")
+        }
+    }
+    
+    /**
+     * Refresh a player's HUD.
+     * Call this after updating HUD state to push changes to the client.
+     * 
+     * @param player The player entity
+     * @param playerRef The player reference
+     */
+    fun refreshHud(player: Player, playerRef: PlayerRef) {
+        @Suppress("DEPRECATION")
+        val playerId = playerRef.uuid
+        val hud = playerHuds[playerId] ?: return
+        
+        try {
+            hud.show()
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
+        }
     }
     
     /**
@@ -288,110 +185,8 @@ class MultiHudManager(
      */
     fun onPlayerDisconnect(playerId: UUID) {
         playerHuds.remove(playerId)
-        hudElements.remove(playerId)
+        playerRefs.remove(playerId)
         logger.atFine().log("Cleaned up HUD state for disconnecting player $playerId")
-    }
-    
-    /**
-     * Refresh a player's composite HUD.
-     * Call this after updating HUD element state to push changes to the client.
-     * 
-     * @param player The player entity
-     * @param playerRef The player reference
-     */
-    fun refreshHud(player: Player, playerRef: PlayerRef) {
-        @Suppress("DEPRECATION")
-        val playerId = playerRef.uuid
-        val composite = playerHuds[playerId] ?: return
-        
-        try {
-            composite.show()
-        } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
-        }
-    }
-    
-    /**
-     * Verify composite integrity and restore if external mod overwrote it.
-     * 
-     * If another mod calls player.hudManager.setCustomHud() directly, it will
-     * overwrite our composite. This method detects that and restores our composite,
-     * preserving the external HUD if possible.
-     * 
-     * Call this periodically (e.g., every 100 ticks) from a tick system.
-     * 
-     * @param player The player entity
-     * @param playerRef The player reference
-     * @return true if composite is still valid, false if it was restored
-     */
-    fun verifyAndRestoreComposite(player: Player, playerRef: PlayerRef): Boolean {
-        @Suppress("DEPRECATION")
-        val playerId = playerRef.uuid
-        val expected = playerHuds[playerId] ?: return true  // No composite expected
-        
-        val current = player.hudManager.customHud
-        if (current !== expected) {
-            logger.atWarning().log("Composite HUD overwritten for $playerId by external mod, restoring...")
-            
-            // Preserve the external HUD if it's not our composite
-            if (current != null && current !is CompositeHud) {
-                expected.addHud("_external_restored", current)
-            }
-            
-            try {
-                player.hudManager.setCustomHud(playerRef, expected)
-                expected.show()
-                logger.atInfo().log("Restored composite HUD for $playerId")
-                return false  // Was overwritten, now restored
-            } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Failed to restore composite HUD for $playerId")
-                return false
-            }
-        }
-        return true  // Still ours
-    }
-    
-    /**
-     * Verify composite integrity for all online players.
-     * 
-     * This should be called periodically (e.g., every 5 seconds) from a tick system
-     * to detect and recover from external mod conflicts.
-     * 
-     * Returns the number of composites that were restored.
-     */
-    fun verifyAllComposites(): Int {
-        var restoredCount = 0
-        
-        playerHuds.forEach { (playerId, composite) ->
-            // Need Player and PlayerRef - require session
-            val session = com.livinglands.core.CoreModule.players.getSession(playerId)
-            if (session != null) {
-                session.world.execute {
-                    try {
-                        val player = session.store.getComponent(
-                            session.entityRef,
-                            Player.getComponentType()
-                        ) ?: return@execute
-                        
-                        @Suppress("DEPRECATION")
-                        val playerRef = player.playerRef ?: return@execute
-                        
-                        if (!verifyAndRestoreComposite(player, playerRef)) {
-                            restoredCount++
-                        }
-                    } catch (e: Exception) {
-                        logger.atWarning().withCause(e)
-                            .log("Error verifying composite for player $playerId")
-                    }
-                }
-            }
-        }
-        
-        if (restoredCount > 0) {
-            logger.atWarning().log("Restored $restoredCount composite HUDs")
-        }
-        
-        return restoredCount
     }
     
     /**
@@ -399,7 +194,151 @@ class MultiHudManager(
      */
     fun clear() {
         playerHuds.clear()
-        hudElements.clear()
+        playerRefs.clear()
         logger.atFine().log("MultiHudManager cleared")
+    }
+    
+    // ============ Legacy Compatibility Methods ============
+    // These methods exist for backward compatibility with the old composite pattern.
+    // They delegate to the unified HUD element.
+    
+    /**
+     * Legacy method - use registerHud() instead.
+     * 
+     * This method is kept for backward compatibility but internally just
+     * logs a warning since the composite pattern is no longer used.
+     */
+    @Deprecated("Use registerHud() instead. The composite HUD pattern is no longer used.")
+    fun setHud(
+        player: Player,
+        playerRef: PlayerRef,
+        namespace: String,
+        hud: com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud
+    ) {
+        @Suppress("DEPRECATION")
+        val playerId = playerRef.uuid
+        
+        logger.atWarning().log(
+            "setHud() called with namespace '$namespace' for player $playerId. " +
+            "This method is deprecated - the unified HUD should already be registered via registerHud(). " +
+            "Individual HUD elements are no longer supported."
+        )
+        
+        // If the unified HUD isn't registered yet and this is a LivingLandsHudElement, register it
+        if (!playerHuds.containsKey(playerId) && hud is LivingLandsHudElement) {
+            playerHuds[playerId] = hud
+            playerRefs[playerId] = Pair(player, playerRef)
+            
+            try {
+                val hudManager = player.hudManager
+                hudManager.setCustomHud(playerRef, hud)
+                hud.show()
+                logger.atInfo().log("Registered unified HUD via legacy setHud() for player $playerId")
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Failed to register HUD via legacy setHud() for player $playerId")
+            }
+        }
+    }
+    
+    /**
+     * Legacy method - use removeHud(player, playerRef, playerId) instead.
+     */
+    @Deprecated("Use removeHud(player, playerRef, playerId) instead. Namespaces are no longer used.")
+    fun removeHud(player: Player, playerRef: PlayerRef, namespace: String) {
+        @Suppress("DEPRECATION")
+        val playerId = playerRef.uuid
+        
+        logger.atWarning().log(
+            "removeHud() called with namespace '$namespace' for player $playerId. " +
+            "Namespace is ignored - removing the unified HUD."
+        )
+        
+        removeHud(player, playerRef, playerId)
+    }
+    
+    /**
+     * Legacy method - always returns null since we use unified HUD.
+     */
+    @Deprecated("The unified HUD doesn't use namespaces. Use getHud(playerId) instead.")
+    @Suppress("UNCHECKED_CAST")
+    fun <T : com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud> getHud(
+        playerId: UUID,
+        namespace: String
+    ): T? {
+        // For backward compatibility, if they ask for the old metabolism namespace,
+        // return the unified HUD (it contains metabolism functionality)
+        return when (namespace) {
+            LivingLandsHudElement.NAMESPACE,
+            "livinglands:metabolism",
+            "livinglands:professions",
+            "livinglands:progress" -> playerHuds[playerId] as? T
+            else -> null
+        }
+    }
+    
+    /**
+     * Legacy method - always returns false for specific namespaces.
+     */
+    @Deprecated("The unified HUD doesn't use namespaces. Use hasHud(playerId) instead.")
+    fun hasHud(playerId: UUID, namespace: String): Boolean {
+        return hasHud(playerId)
+    }
+    
+    /**
+     * Legacy method - returns the unified HUD namespace.
+     */
+    @Deprecated("The unified HUD doesn't use namespaces.")
+    fun getNamespaces(playerId: UUID): Set<String> {
+        return if (playerHuds.containsKey(playerId)) {
+            setOf(LivingLandsHudElement.NAMESPACE)
+        } else {
+            emptySet()
+        }
+    }
+    
+    /**
+     * Legacy method - no longer needed with unified HUD.
+     */
+    @Deprecated("Composite integrity verification is no longer needed with unified HUD.")
+    fun verifyAndRestoreComposite(player: Player, playerRef: PlayerRef): Boolean {
+        return true
+    }
+    
+    /**
+     * Legacy method - no longer needed with unified HUD.
+     */
+    @Deprecated("Composite integrity verification is no longer needed with unified HUD.")
+    fun verifyAllComposites(): Int {
+        return 0
+    }
+    
+    /**
+     * Legacy method - no-op with unified HUD.
+     */
+    @Deprecated("clearAllHuds is deprecated. Use removeHud() instead.")
+    fun clearAllHuds(player: Player, playerRef: PlayerRef) {
+        @Suppress("DEPRECATION")
+        val playerId = playerRef.uuid
+        removeHud(player, playerRef, playerId)
+    }
+    
+    /**
+     * Legacy method - returns unified HUD.
+     */
+    @Deprecated("updateHud is deprecated. Get the HUD and call methods on it directly.")
+    @Suppress("DEPRECATION")
+    inline fun <reified T : com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud> updateHud(
+        playerId: UUID,
+        namespace: String,
+        update: (T) -> Unit
+    ): Boolean {
+        val hud = getHud(playerId) ?: return false
+        
+        return if (hud is T) {
+            update(hud)
+            true
+        } else {
+            false
+        }
     }
 }

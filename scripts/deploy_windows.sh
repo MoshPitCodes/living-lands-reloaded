@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
-MODS_DIR="/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods"
+GLOBAL_MODS_DIR="/mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/Mods"
+ASSET_PACK_DIR="$GLOBAL_MODS_DIR/MPC_LivingLandsReloaded"
 
 echo "=== Deploying to Windows Hytale Client ==="
-echo "Mods Directory: $MODS_DIR"
+echo "Global Mods Directory: $GLOBAL_MODS_DIR"
+echo "Asset Pack Directory: $ASSET_PACK_DIR"
 echo ""
 
 # Check if main jar exists (with dependencies)
@@ -14,28 +16,61 @@ if [ ! -f "build/libs/livinglands-reloaded-1.0.0-beta.jar" ]; then
 fi
 
 # Remove old jars with different names (if exist)
-if [ -f "$MODS_DIR/livinglands-1.0.0-beta.jar" ]; then
+if [ -f "$GLOBAL_MODS_DIR/livinglands-1.0.0-beta.jar" ]; then
 	echo "Removing old jar: livinglands-1.0.0-beta.jar"
-	rm "$MODS_DIR/livinglands-1.0.0-beta.jar"
+	rm "$GLOBAL_MODS_DIR/livinglands-1.0.0-beta.jar"
 fi
-if [ -f "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar" ]; then
+if [ -f "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar" ]; then
 	echo "Removing old jar: livinglands-reloaded-1.0.0-beta-shadow.jar"
-	rm "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar"
+	rm "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar"
 fi
 
 # Copy main jar to mods directory
 echo "Copying JAR to mods directory..."
-cp build/libs/livinglands-reloaded-1.0.0-beta.jar "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
+cp build/libs/livinglands-reloaded-1.0.0-beta.jar "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
 
 # Verify copy
-JAR_SIZE=$(stat -c%s "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar")
+JAR_SIZE=$(stat -c%s "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar")
 echo "Deployed: livinglands-reloaded-1.0.0-beta.jar ($((JAR_SIZE / 1024 / 1024)) MB)"
+
+# Extract asset pack to separate folder
+echo ""
+echo "=== Extracting Asset Pack ==="
+
+# Create asset pack directory
+mkdir -p "$ASSET_PACK_DIR"
+
+# Extract Common/ folder and manifest.json from JAR to asset pack folder
+echo "Extracting assets from JAR..."
+
+# Extract Common/ directory
+unzip -o "build/libs/livinglands-reloaded-1.0.0-beta.jar" "Common/*" -d "$ASSET_PACK_DIR" 2>/dev/null || true
+
+# Create a proper asset pack manifest.json at root level
+# (The Common/manifest.json is for the Common assets subfolder, but the pack also needs a root manifest)
+cat >"$ASSET_PACK_DIR/manifest.json" <<'EOF'
+{
+  "Group": "MPC",
+  "Name": "LivingLandsReloaded"
+}
+EOF
+
+echo "Asset pack deployed to: $ASSET_PACK_DIR"
+
+# List what was extracted
+echo ""
+echo "Asset pack contents:"
+find "$ASSET_PACK_DIR" -type f | head -20
 
 echo ""
 echo "=== Deployment Complete ==="
 echo ""
+echo "Deployed files:"
+echo "  1. JAR: $GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
+echo "  2. Asset Pack: $ASSET_PACK_DIR/"
+echo ""
 echo "Next steps:"
-echo "1. Start/restart Hytale and host 'Test1' world"
-echo "2. Monitor logs with: ./watch_windows_logs.sh"
-echo "3. Join the server (as client or from another instance)"
-echo "4. Look for '=== ADD PLAYER TO WORLD EVENT FIRED ==='"
+echo "  1. Start/restart Hytale and host your world"
+echo "  2. Monitor logs with: ./scripts/watch_windows_logs.sh"
+echo "  3. Join the server"
+echo "  4. Check for 'Loaded pack: MPC:LivingLandsReloaded' in logs"

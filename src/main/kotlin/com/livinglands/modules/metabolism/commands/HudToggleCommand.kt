@@ -5,11 +5,12 @@ import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 
 /**
  * Toggle HUD element visibility.
  * Commands: /ll stats, /ll buffs, /ll debuffs (matching v2.6.0)
+ * 
+ * These toggle visibility of sections within the unified Living Lands HUD.
  */
 class HudToggleCommand(
     private val toggleType: ToggleType
@@ -52,11 +53,8 @@ class HudToggleCommand(
         // Get player UUID from session
         val playerId = session.playerId
         
-        // Get HUD element from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
-            playerId,
-            MetabolismHudElement.NAMESPACE
-        )
+        // Get unified HUD element from MultiHudManager
+        val hudElement = CoreModule.hudManager.getHud(playerId)
         
         if (hudElement == null) {
             MessageFormatter.commandError(ctx, "HUD not loaded yet. Please wait a moment and try again.")

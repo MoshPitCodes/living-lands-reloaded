@@ -62,15 +62,10 @@ class ProfessionsModule : AbstractModule(
     private lateinit var gatheringXpSystem: GatheringXpSystem
     
     /**
-     * Track HUD elements for each player for updates and cleanup.
-     * 
-     * Key: Player UUID
-     * Value: Pair of (ProfessionsPanelElement, ProfessionsProgressElement)
+     * NOTE: HUD elements are now managed by the unified LivingLandsHudElement.
+     * The unified HUD is registered by MetabolismModule and contains all Living Lands UI.
+     * This module just needs to call refresh methods on the unified HUD when data changes.
      */
-    private val playerHudElements = java.util.concurrent.ConcurrentHashMap<UUID, Pair<
-        com.livinglands.modules.professions.hud.ProfessionsPanelElement,
-        com.livinglands.modules.professions.hud.ProfessionsProgressElement
-    >>()
     
     /**
      * Module-level coroutine scope for async operations.
@@ -164,6 +159,14 @@ class ProfessionsModule : AbstractModule(
         
         logger.atInfo().log("Registered 5 XP event systems (Combat, Mining, Logging, Building, Gathering)")
         
+        // Update HUD manager with profession services so panels can display data
+        try {
+            CoreModule.hudManager.setProfessionServicesForAll(professionsService, abilityRegistry)
+            logger.atInfo().log("Updated HUD manager with profession services")
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Failed to update HUD manager with profession services")
+        }
+        
         // TODO: Register admin commands (Phase 11.6)
         // - /ll prof set <player> <profession> <level> (admin)
         // - /ll prof add <player> <profession> <xp> (admin)
@@ -238,10 +241,13 @@ class ProfessionsModule : AbstractModule(
     
     /**
      * Handle player join.
-     * Initialize professions with defaults immediately, load from DB async, register HUD elements.
+     * Initialize professions with defaults immediately, load from DB async.
+     * 
+     * NOTE: HUD registration is handled by MetabolismModule via the unified LivingLandsHudElement.
+     * This module just initializes professions data; the unified HUD will display it.
      * 
      * @param playerId Player's UUID
-     * @param session Player session (for HUD registration)
+     * @param session Player session
      */
     private fun handlePlayerJoin(playerId: UUID, session: com.livinglands.core.PlayerSession) {
         if (!professionsConfig.enabled) return
@@ -252,98 +258,22 @@ class ProfessionsModule : AbstractModule(
         // Load from database asynchronously
         professionsService.updatePlayerStateAsync(playerId, professionsRepository)
         
-        // Register HUD elements with MultiHudManager
-        val world = session.world
-        world.execute {
-            try {
-                val store = session.store
-                val entityRef = session.entityRef
-                val player = store.getComponent(entityRef, com.hypixel.hytale.server.core.entity.entities.Player.getComponentType())
-                if (player == null) {
-                    logger.atWarning().log("Player component not found for $playerId")
-                    return@execute
-                }
-                
-                @Suppress("DEPRECATION")
-                val playerRef = player.playerRef
-                if (playerRef == null) {
-                    logger.atWarning().log("PlayerRef is null for player $playerId")
-                    return@execute
-                }
-                
-                // Create and register professions panel
-                val panelElement = com.livinglands.modules.professions.hud.ProfessionsPanelElement(
-                    playerRef, playerId, professionsService, abilityRegistry
-                )
-                CoreModule.hudManager.setHud(
-                    player, playerRef,
-                    com.livinglands.modules.professions.hud.ProfessionsPanelElement.NAMESPACE,
-                    panelElement
-                )
-                
-                // Create and register progress panel element
-                val progressElement = com.livinglands.modules.professions.hud.ProfessionsProgressElement(
-                    playerRef, playerId, professionsService
-                )
-                CoreModule.hudManager.setHud(
-                    player, playerRef,
-                    com.livinglands.modules.professions.hud.ProfessionsProgressElement.NAMESPACE,
-                    progressElement
-                )
-                
-                // Store HUD elements for later updates
-                playerHudElements[playerId] = Pair(panelElement, progressElement)
-                
-                logger.atFine().log("Registered professions HUD elements for player $playerId")
-            } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Failed to register HUD elements for player $playerId")
-            }
-        }
-        
         logger.atFine().log("Initialized professions for player $playerId")
     }
     
     /**
      * Handle player disconnect.
-     * Save profession stats to database, cleanup cache, remove HUD elements.
+     * Save profession stats to database, cleanup cache.
+     * 
+     * NOTE: HUD cleanup is handled by MetabolismModule via the unified LivingLandsHudElement.
      * 
      * @param playerId Player's UUID
-     * @param session Player session (for HUD cleanup)
+     * @param session Player session
      */
     private fun handlePlayerDisconnect(playerId: UUID, session: com.livinglands.core.PlayerSession) {
         if (!professionsConfig.enabled) return
         
-        // Remove HUD elements tracking
-        playerHudElements.remove(playerId)
-        
-        // Remove HUD elements from MultiHudManager
-        val world = session.world
-        world.execute {
-            try {
-                val store = session.store
-                val entityRef = session.entityRef
-                val player = store.getComponent(entityRef, com.hypixel.hytale.server.core.entity.entities.Player.getComponentType())
-                if (player != null) {
-                    @Suppress("DEPRECATION")
-                    val playerRef = player.playerRef
-                    if (playerRef != null) {
-                        CoreModule.hudManager.removeHud(
-                            player, playerRef,
-                            com.livinglands.modules.professions.hud.ProfessionsPanelElement.NAMESPACE
-                        )
-                        CoreModule.hudManager.removeHud(
-                            player, playerRef,
-                            com.livinglands.modules.professions.hud.ProfessionsProgressElement.NAMESPACE
-                        )
-                        logger.atFine().log("Removed professions HUD elements for player $playerId")
-                    }
-                }
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to remove HUD elements for player $playerId")
-            }
-        }
-        
-        // Save stats synchronously (blocking, but fast)
+        // Save stats asynchronously
         moduleScope.launch {
             try {
                 professionsService.savePlayer(playerId, professionsRepository)
@@ -380,10 +310,10 @@ class ProfessionsModule : AbstractModule(
     // ============ Dynamic HUD Updates ============
     
     /**
-     * Notify HUD elements when XP is gained.
+     * Notify HUD when XP is gained.
      * Called by XP systems after awarding XP.
      * 
-     * Updates both the XP notification popup and professions panel (if visible).
+     * Updates the professions panels in the unified HUD (if visible).
      * 
      * @param playerId Player who gained XP
      * @param profession Profession that gained XP
@@ -391,18 +321,15 @@ class ProfessionsModule : AbstractModule(
      * @param didLevelUp Whether player leveled up
      */
     fun notifyXpGain(playerId: UUID, profession: Profession, xpAmount: Long, didLevelUp: Boolean) {
-        // Get HUD elements for this player
-        val hudElements = playerHudElements[playerId]
-        if (hudElements == null) {
-            logger.atFine().log("No HUD elements found for player $playerId (may not be ready yet)")
+        // Get the unified HUD element
+        val hudElement = CoreModule.hudManager.getHud(playerId)
+        if (hudElement == null) {
+            logger.atFine().log("No unified HUD found for player $playerId (may not be ready yet)")
             return
         }
         
-        val (panelElement, progressElement) = hudElements
-        
         // Mark panels for refresh (if visible, will update on next build)
-        panelElement.refresh()
-        progressElement.refresh()
+        hudElement.refreshAllProfessionsPanels()
         
         // Send player feedback if leveled up
         if (didLevelUp) {
@@ -423,11 +350,11 @@ class ProfessionsModule : AbstractModule(
                         val playerRef = player.playerRef
                         if (playerRef != null) {
                             CoreModule.hudManager.refreshHud(player, playerRef)
-                            logger.atFine().log("Refreshed HUD for player $playerId after XP gain (${profession.name}: +$xpAmount XP)")
+                            logger.atFine().log("Refreshed unified HUD for player $playerId after XP gain (${profession.name}: +$xpAmount XP)")
                         }
                     }
                 } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Failed to refresh HUD for XP gain")
+                    logger.atWarning().withCause(e).log("Failed to refresh unified HUD for XP gain")
                 }
             }
         }
