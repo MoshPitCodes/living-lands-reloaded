@@ -261,6 +261,9 @@ class MetabolismService(
      * Performance: Uses mutable PlayerMetabolismState to avoid allocations.
      * The timestamp is passed in to avoid multiple System.currentTimeMillis() calls.
      * 
+     * Depletion modifiers (from Professions Tier 3 abilities) are applied multiplicatively
+     * to the final depletion amount. Example: 0.85 modifier = 15% slower depletion.
+     * 
      * @param playerId Player's UUID as string
      * @param deltaTimeSeconds Time elapsed since last tick in seconds
      * @param activityState Current activity state of the player
@@ -278,32 +281,35 @@ class MetabolismService(
         
         val state = playerStates[playerId] ?: return
         
+        // Get combined depletion modifier once (applies to all stats)
+        val depletionMultiplier = state.getCombinedDepletionMultiplier().toFloat()
+        
         // Read current values from mutable state
         var newHunger = state.hunger
         var newThirst = state.thirst
         var newEnergy = state.energy
         
-        // Process hunger depletion (use world-specific config)
+        // Process hunger depletion (use world-specific config + depletion modifier)
         if (worldConfig.hunger.enabled && newHunger > 0f) {
-            val multiplier = worldConfig.hunger.getMultiplier(activityState.name).toFloat()
+            val activityMultiplier = worldConfig.hunger.getMultiplier(activityState.name).toFloat()
             val depletionPerSecond = 100f / worldConfig.hunger.baseDepletionRateSeconds.toFloat()
-            val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
+            val depletion = depletionPerSecond * deltaTimeSeconds * activityMultiplier * depletionMultiplier
             newHunger = max(0f, newHunger - depletion)
         }
         
-        // Process thirst depletion (use world-specific config)
+        // Process thirst depletion (use world-specific config + depletion modifier)
         if (worldConfig.thirst.enabled && newThirst > 0f) {
-            val multiplier = worldConfig.thirst.getMultiplier(activityState.name).toFloat()
+            val activityMultiplier = worldConfig.thirst.getMultiplier(activityState.name).toFloat()
             val depletionPerSecond = 100f / worldConfig.thirst.baseDepletionRateSeconds.toFloat()
-            val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
+            val depletion = depletionPerSecond * deltaTimeSeconds * activityMultiplier * depletionMultiplier
             newThirst = max(0f, newThirst - depletion)
         }
         
-        // Process energy depletion (use world-specific config)
+        // Process energy depletion (use world-specific config + depletion modifier)
         if (worldConfig.energy.enabled && newEnergy > 0f) {
-            val multiplier = worldConfig.energy.getMultiplier(activityState.name).toFloat()
+            val activityMultiplier = worldConfig.energy.getMultiplier(activityState.name).toFloat()
             val depletionPerSecond = 100f / worldConfig.energy.baseDepletionRateSeconds.toFloat()
-            val depletion = depletionPerSecond * deltaTimeSeconds * multiplier
+            val depletion = depletionPerSecond * deltaTimeSeconds * activityMultiplier * depletionMultiplier
             newEnergy = max(0f, newEnergy - depletion)
         }
         
@@ -390,6 +396,39 @@ class MetabolismService(
     }
     
     /**
+     * Restore energy for a player by UUID.
+     * Used by Professions abilities (e.g., Efficient Miner Tier 2).
+     * 
+     * @param playerId Player's UUID
+     * @param amount Amount to restore (0-100)
+     */
+    fun restoreEnergy(playerId: UUID, amount: Double) {
+        restoreEnergy(playerId.toCachedString(), amount.toFloat())
+    }
+    
+    /**
+     * Restore hunger for a player by UUID.
+     * Used by Professions abilities (e.g., Hearty Gatherer Tier 2).
+     * 
+     * @param playerId Player's UUID
+     * @param amount Amount to restore (0-100)
+     */
+    fun restoreHunger(playerId: UUID, amount: Double) {
+        restoreHunger(playerId.toCachedString(), amount.toFloat())
+    }
+    
+    /**
+     * Restore thirst for a player by UUID.
+     * Used by Professions abilities (e.g., Survivalist Tier 2).
+     * 
+     * @param playerId Player's UUID
+     * @param amount Amount to restore (0-100)
+     */
+    fun restoreThirst(playerId: UUID, amount: Double) {
+        restoreThirst(playerId.toCachedString(), amount.toFloat())
+    }
+    
+    /**
      * Set hunger directly (for admin commands).
      * Uses mutable state - no allocations.
      */
@@ -411,6 +450,74 @@ class MetabolismService(
      */
     fun setEnergy(playerId: String, value: Float) {
         playerStates[playerId]?.setEnergy(value)
+    }
+    
+    // ============ Depletion Modifier Management (for Professions Tier 3 abilities) ============
+    
+    /**
+     * Apply a depletion rate modifier to a player.
+     * Used by Professions Tier 3 abilities (e.g., Survivalist: -15% depletion).
+     * 
+     * Multiple modifiers stack multiplicatively:
+     * - Survivalist (0.85) + Endurance Training (0.90) = 0.765 (23.5% slower depletion)
+     * 
+     * @param playerId Player's UUID
+     * @param sourceId Unique modifier ID (e.g., "professions:survivalist")
+     * @param multiplier Depletion rate multiplier (0.85 = 15% slower, 1.5 = 50% faster)
+     */
+    fun applyDepletionModifier(playerId: UUID, sourceId: String, multiplier: Double) {
+        val state = playerStates[playerId.toCachedString()]
+        if (state == null) {
+            logger.atWarning().log("Cannot apply depletion modifier '$sourceId' to $playerId - player not in cache")
+            return
+        }
+        
+        state.applyDepletionModifier(sourceId, multiplier)
+        logger.atFine().log("Applied depletion modifier '$sourceId' (${multiplier}x) to player $playerId")
+    }
+    
+    /**
+     * Remove a depletion rate modifier from a player.
+     * 
+     * @param playerId Player's UUID
+     * @param sourceId The modifier to remove
+     * @return true if the modifier was removed, false if it didn't exist
+     */
+    fun removeDepletionModifier(playerId: UUID, sourceId: String): Boolean {
+        val state = playerStates[playerId.toCachedString()]
+        if (state == null) {
+            logger.atWarning().log("Cannot remove depletion modifier '$sourceId' from $playerId - player not in cache")
+            return false
+        }
+        
+        val removed = state.removeDepletionModifier(sourceId)
+        if (removed) {
+            logger.atFine().log("Removed depletion modifier '$sourceId' from player $playerId")
+        }
+        return removed
+    }
+    
+    /**
+     * Get all active depletion modifiers for a player (for debugging).
+     * 
+     * @param playerId Player's UUID
+     * @return Map of source ID to multiplier, or empty map if player not cached
+     */
+    fun getActiveModifiers(playerId: UUID): Map<String, Double> {
+        return playerStates[playerId.toCachedString()]?.getActiveModifiers() ?: emptyMap()
+    }
+    
+    /**
+     * Clear all depletion modifiers for a player (e.g., on death/reset).
+     * 
+     * @param playerId Player's UUID
+     */
+    fun clearDepletionModifiers(playerId: UUID) {
+        val state = playerStates[playerId.toCachedString()]
+        if (state != null) {
+            state.clearDepletionModifiers()
+            logger.atFine().log("Cleared all depletion modifiers for player $playerId")
+        }
     }
     
     /**

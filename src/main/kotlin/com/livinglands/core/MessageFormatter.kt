@@ -288,4 +288,91 @@ object MessageFormatter {
         
         playerRef.sendMessage(message)
     }
+    
+    // ============ Professions Messages ============
+    
+    /**
+     * Send a profession level-up message with ability unlock.
+     * 
+     * Format: [Living Lands] <Profession> leveled up! (Level X)
+     *         [Living Lands] ✓ Ability Unlocked: <AbilityName>
+     *         [Living Lands]   → <AbilityDescription>
+     * 
+     * @param playerRef Target player
+     * @param professionName Name of the profession
+     * @param newLevel New level achieved
+     * @param abilityName Name of the ability unlocked
+     * @param abilityDescription Description of the ability effect
+     */
+    fun professionLevelUpWithAbility(
+        playerRef: PlayerRef,
+        professionName: String,
+        newLevel: Int,
+        abilityName: String,
+        abilityDescription: String
+    ) {
+        // First message: Level up
+        val levelUpMsg = createPrefix()
+            .insert(Message.raw(" $professionName leveled up! ").color(GREEN))
+            .insert(Message.raw("(Level $newLevel)").color(DARK_GRAY))
+        playerRef.sendMessage(levelUpMsg)
+        
+        // Second message: Ability unlocked
+        val abilityMsg = createPrefix()
+            .insert(Message.raw(" ✓ Ability Unlocked: ").color(GOLD))
+            .insert(Message.raw(abilityName).color(YELLOW))
+        playerRef.sendMessage(abilityMsg)
+        
+        // Third message: Ability description
+        val descMsg = createPrefix()
+            .insert(Message.raw("   → $abilityDescription").color(AQUA))
+        playerRef.sendMessage(descMsg)
+    }
+    
+    /**
+     * Send a profession level-up message without ability unlock.
+     * 
+     * Format: [Living Lands] <Profession> leveled up! (Level X → Y)
+     * 
+     * @param playerRef Target player
+     * @param professionName Name of the profession
+     * @param oldLevel Previous level
+     * @param newLevel New level achieved
+     */
+    fun professionLevelUp(
+        playerRef: PlayerRef,
+        professionName: String,
+        oldLevel: Int,
+        newLevel: Int
+    ) {
+        val message = createPrefix()
+            .insert(Message.raw(" $professionName leveled up! ").color(GREEN))
+            .insert(Message.raw("(Level $oldLevel → $newLevel)").color(DARK_GRAY))
+        
+        playerRef.sendMessage(message)
+    }
+    
+    /**
+     * Send a death penalty message for XP loss.
+     * 
+     * Format: [Living Lands] Death Penalty: Lost <XP> XP in <Profession> (-X%)
+     * 
+     * @param playerRef Target player
+     * @param professionName Name of the profession
+     * @param xpLost Amount of XP lost
+     * @param penaltyPercent Percentage of XP lost (0.0 to 1.0)
+     */
+    fun professionDeathPenalty(
+        playerRef: PlayerRef,
+        professionName: String,
+        xpLost: Long,
+        penaltyPercent: Double
+    ) {
+        val message = createPrefix()
+            .insert(Message.raw(" Death Penalty: ").color(RED))
+            .insert(Message.raw("Lost $xpLost XP in $professionName ").color(YELLOW))
+            .insert(Message.raw("(-${(penaltyPercent * 100).toInt()}%)").color(DARK_GRAY))
+        
+        playerRef.sendMessage(message)
+    }
 }

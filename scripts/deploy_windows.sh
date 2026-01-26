@@ -7,9 +7,9 @@ echo "=== Deploying to Windows Hytale Client ==="
 echo "Mods Directory: $MODS_DIR"
 echo ""
 
-# Check if shadow jar exists (fat jar with dependencies)
-if [ ! -f "build/libs/livinglands-reloaded-1.0.0-beta-shadow.jar" ]; then
-	echo "ERROR: Shadow jar not found. Run './gradlew build' first."
+# Check if main jar exists (with dependencies)
+if [ ! -f "build/libs/livinglands-reloaded-1.0.0-beta.jar" ]; then
+	echo "ERROR: Main jar not found. Run './gradlew build' first."
 	exit 1
 fi
 
@@ -18,18 +18,18 @@ if [ -f "$MODS_DIR/livinglands-1.0.0-beta.jar" ]; then
 	echo "Removing old jar: livinglands-1.0.0-beta.jar"
 	rm "$MODS_DIR/livinglands-1.0.0-beta.jar"
 fi
-if [ -f "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar" ]; then
-	echo "Removing old jar: livinglands-reloaded-1.0.0-beta.jar"
-	rm "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
+if [ -f "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar" ]; then
+	echo "Removing old jar: livinglands-reloaded-1.0.0-beta-shadow.jar"
+	rm "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar"
 fi
 
-# Copy shadow jar (fat jar) to mods directory
-echo "Copying shadow JAR to mods directory..."
-cp build/libs/livinglands-reloaded-1.0.0-beta-shadow.jar "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar"
+# Copy main jar to mods directory
+echo "Copying JAR to mods directory..."
+cp build/libs/livinglands-reloaded-1.0.0-beta.jar "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
 
 # Verify copy
-JAR_SIZE=$(stat -c%s "$MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar")
-echo "Deployed: livinglands-reloaded-1.0.0-beta-shadow.jar ($((JAR_SIZE / 1024 / 1024)) MB)"
+JAR_SIZE=$(stat -c%s "$MODS_DIR/livinglands-reloaded-1.0.0-beta.jar")
+echo "Deployed: livinglands-reloaded-1.0.0-beta.jar ($((JAR_SIZE / 1024 / 1024)) MB)"
 
 echo ""
 echo "=== Deployment Complete ==="

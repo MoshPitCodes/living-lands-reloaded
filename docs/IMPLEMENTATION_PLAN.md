@@ -693,15 +693,358 @@ If users had v2.6.0 or earlier, no migration needed (new feature).
 
 ---
 
+## Phase 11: Professions Module (18-25 days) - 📋 PLANNED
+
+**Goal:** XP-based profession system with 5 professions, 15 passive abilities, and full UI
+
+**Scope:** Adapted from v2.6.0 leveling system with modern Kotlin architecture and global persistence
+
+### Prerequisites (Completed)
+
+- [x] **Phase 0: Professions Prerequisites** (2-3 days) - ✅ COMPLETE
+  - Hytale API verification (all XP source events exist)
+  - MetabolismService API extensions (UUID overloads, depletion modifiers)
+  - Unit tests (12/12 passing)
+  - API documentation (`docs/HYTALE_API_REFERENCE.md`)
+
+### Phase 11.1: Core Data Model (3-5 days)
+
+- [ ] **11.1.1** Create database schema
+  - Global `professions_stats` table (playerId, profession, xp, level)
+  - Schema version tracking for migrations
+  - Indices on (playerId, profession) for fast lookups
+  
+- [ ] **11.1.2** Implement ProfessionsRepository
+  - `ensureStats()` - Initialize defaults for new players
+  - `updateXp()` - Atomic XP updates
+  - `getStats()` - Load single profession or all 5
+  - `saveAll()` - Batch save on shutdown
+  - Uses global persistence (stats follow player across worlds)
+  
+- [ ] **11.1.3** Create data classes
+  - `Profession` enum (COMBAT, MINING, LOGGING, BUILDING, GATHERING)
+  - `ProfessionStats` (immutable for persistence)
+  - `PlayerProfessionState` (mutable for hot path, AtomicLong for XP)
+  - `Ability` sealed interface (3 tiers)
+  
+- [ ] **11.1.4** Implement XP Calculator
+  - Precomputed XP table (levels 1-100, exponential curve)
+  - O(1) level lookups via array indexing
+  - `calculateLevel(xp: Long): Int`
+  - `xpForNextLevel(level: Int): Long`
+  - Formula: `baseXp * (multiplier ^ (level - 1))`
+  
+- [ ] **11.1.5** Create config schema
+  - `professions.yml` with versioning
+  - XP amounts per activity (block break, kill, etc.)
+  - Level curve parameters (baseXp, multiplier)
+  - Ability enable/disable flags
+  - Death penalty config (-85% XP in 2 random professions)
+
+### Deliverable
+✅ Database stores profession stats, XP calculations work correctly
+
+---
+
+### Phase 11.2: Core Service (3-4 days)
+
+- [ ] **11.2.1** Implement ProfessionsService
+  - In-memory state per player (AtomicLong XP counters)
+  - `initializePlayer()` - Load from global DB async
+  - `awardXp()` - Thread-safe XP addition with atomic compare-and-set
+  - `getStats()` - Read current XP/levels
+  - `savePlayer()` - Persist to global DB
+  
+- [ ] **11.2.2** Create AbilityRegistry
+  - Registry of all 15 abilities (3 per profession, 3 tiers each)
+  - `getAbilitiesForProfession(profession: Profession): List<Ability>`
+  - `getUnlockedAbilities(playerId: UUID): List<Ability>`
+  - Check level requirements (Tier 1: level 3, Tier 2: level 7, Tier 3: level 10)
+  
+- [ ] **11.2.3** Implement level-up detection
+  - **CRITICAL:** Use `AtomicLong.compareAndSet()` to prevent race conditions
+  - Pattern from code review: detect level change after XP addition
+  - Trigger ability unlocks on level-up
+  - Apply death penalty on respawn (-85% XP in 2 random professions)
+  
+- [ ] **11.2.4** Register services
+  - `CoreModule.services.register<ProfessionsService>(instance)`
+  - `CoreModule.services.register<ProfessionsRepository>(instance)`
+  - `CoreModule.services.register<AbilityRegistry>(instance)`
+  
+- [ ] **11.2.5** Integrate lifecycle hooks
+  - `onPlayerJoin()` - Initialize with defaults, load from DB async
+  - `onPlayerDisconnect()` - Save stats to global DB
+  - `onConfigReload()` - Update XP amounts, ability flags
+
+### Deliverable
+✅ XP can be awarded, levels calculated, stats persisted
+
+---
+
+### Phase 11.3: XP Systems (3-4 days)
+
+Implement 5 ECS listeners for XP sources (one per profession).
+
+- [ ] **11.3.1** CombatXpListener
+  - Listen to `KillFeedEvent.KillerMessage`
+  - Check if killer is player, target is mob
+  - Award Combat XP based on mob type/damage
+  
+- [ ] **11.3.2** MiningXpListener
+  - Listen to `BreakBlockEvent`
+  - Filter ore blocks (`blockType.identifier` contains "ore")
+  - Award Mining XP based on ore tier (iron, gold, diamond, etc.)
+  
+- [ ] **11.3.3** LoggingXpListener
+  - Listen to `BreakBlockEvent`
+  - Filter log blocks (`blockType.identifier` contains "log")
+  - Award Logging XP per log broken
+  
+- [ ] **11.3.4** BuildingXpListener
+  - Listen to `PlaceBlockEvent`
+  - Award Building XP per block placed
+  - Anti-cheat: Cooldown per block location (prevent break/place spam)
+  
+- [ ] **11.3.5** GatheringXpListener
+  - Listen to `InteractivelyPickupItemEvent`
+  - Award Gathering XP based on item type
+  - **Performance note:** Filter by item type to avoid lag on mass pickups
+
+### Deliverable
+✅ XP awarded from all 5 activity types
+
+---
+
+### Phase 11.4: Ability System (4-5 days)
+
+Implement all 15 passive abilities (3 professions × 3 tiers + 2 professions × 3 tiers).
+
+#### Combat Abilities
+- [ ] **T1: Warrior (Level 3)** - +15% XP gain
+- [ ] **T2: Regeneration (Level 7)** - Restore 25% health on kill
+- [ ] **T3: Adrenaline Rush (Level 10)** - +10% speed for 5s on kill
+
+#### Mining Abilities
+- [ ] **T1: Prospector (Level 3)** - +15% XP gain
+- [ ] **T2: Efficient Miner (Level 7)** - -20% energy on ore break
+- [ ] **T3: Ore Sense (Level 10)** - +10% ore drop chance
+
+#### Logging Abilities
+- [ ] **T1: Lumberjack (Level 3)** - +15% XP gain
+- [ ] **T2: Swift Chopper (Level 7)** - -20% energy on log break
+- [ ] **T3: Timber! (Level 10)** - Tree felling bonus (extra logs)
+
+#### Building Abilities
+- [ ] **T1: Architect (Level 3)** - +15% XP gain
+- [ ] **T2: Efficient Builder (Level 7)** - -20% stamina on block place
+- [ ] **T3: Master Builder (Level 10)** - Faster block placement
+
+#### Gathering Abilities
+- [ ] **T1: Forager (Level 3)** - +15% XP gain
+- [ ] **T2: Hearty Gatherer (Level 7)** - +5 hunger per pickup
+- [ ] **T3: Survivalist (Level 10)** - -15% metabolism depletion (uses new modifier system!)
+
+### Implementation Notes:
+- **Tier 1 (XP Boost):** Multiply XP by 1.15 in XP award logic
+- **Tier 2 (Resource Restore):** Use `MetabolismService.restoreEnergy/Hunger()` APIs (Phase 0)
+- **Tier 3 (Permanent Passives):**  
+  - Adrenaline Rush: Use `SpeedManager` for temporary buff
+  - Survivalist: Use `MetabolismService.applyDepletionModifier(playerId, "professions:survivalist", 0.85)`
+  - Ore/log bonuses: Apply on relevant events
+
+### Deliverable
+✅ All 15 abilities functional and tested
+
+---
+
+### Phase 11.5: UI & Notifications (3-4 days)
+
+- [ ] **11.5.1** Level-up titles
+  - Display "Level Up!" title on screen
+  - Subtitle shows profession + new level
+  - Send to player via title API (verify API first!)
+  
+- [ ] **11.5.2** Ability unlock notifications
+  - Chat message: "Unlocked: [Ability Name] - [Description]"
+  - Or use title API for more prominent display
+  
+- [ ] **11.5.3** Skills panel HUD
+  - UI file: `src/main/resources/ui/ProfessionsHud.ui`
+  - Display all 5 professions with levels + XP bars
+  - Update on XP gain (threshold-based like metabolism HUD)
+  - Toggle command: `/ll professions` (show/hide)
+  
+- [ ] **11.5.4** XP gain feedback
+  - Action bar messages: "+25 Mining XP" (subtle, not spammy)
+  - Or particle effects on XP gain (optional)
+
+### Deliverable
+✅ Players see level-ups and can view profession progress
+
+---
+
+### Phase 11.6: Polish & Integration (2-3 days)
+
+- [ ] **11.6.1** Death penalty system
+  - On respawn: -85% XP in 2 random professions
+  - Cannot drop below level 1
+  - Chat notification: "You lost XP in Mining and Combat due to death"
+  
+- [ ] **11.6.2** Admin commands
+  - `/ll prof set <player> <profession> <level>` - Set profession level
+  - `/ll prof add <player> <profession> <xp>` - Add XP
+  - `/ll prof reset <player> [profession]` - Reset profession(s)
+  - `/ll prof show <player>` - View profession stats
+  
+- [ ] **11.6.3** Stats command
+  - `/ll professions` or `/ll prof` - Show own profession stats
+  - Display levels, XP, unlocked abilities
+  
+- [ ] **11.6.4** Config validation
+  - Warn if XP amounts are zero (abilities won't unlock)
+  - Warn if level curve too steep (unreachable levels)
+  
+- [ ] **11.6.5** Performance profiling
+  - Profile XP listeners (should be < 1ms per event)
+  - Profile AtomicLong operations (should be nanoseconds)
+  - Test with 100+ concurrent XP gains
+  
+- [ ] **11.6.6** Documentation
+  - Update README.md with Professions features
+  - Add CHANGELOG entry for Professions module
+  - Document all 15 abilities in user guide
+
+### Deliverable
+✅ Production-ready Professions module with admin tools
+
+---
+
+### Architecture Decisions
+
+**Based on v2.6.0 Analysis + Code Review:**
+
+1. **Global Persistence** - Stats in `data/global/livinglands.db` (follow player across worlds)
+2. **Thread Safety** - `AtomicLong` for XP counters, `compareAndSet()` for level-ups
+3. **Precomputed XP Table** - O(1) level lookups, no repeated calculations
+4. **Metabolism Integration** - Use extended APIs (Phase 0) for Tier 2/3 abilities
+5. **Death Penalty** - -85% XP in 2 random professions (matches v2.6.0)
+6. **Level Requirements** - Tier 1: level 3, Tier 2: level 7, Tier 3: level 10
+
+---
+
+### Critical Fixes (from Code Review)
+
+1. **🔴 BLOCKER: Level-Up Race Condition**
+   - **Problem:** Two threads could both detect level-up and double-apply abilities
+   - **Fix:** Use `AtomicLong.compareAndSet()` pattern:
+     ```kotlin
+     val oldXp = xpCounter.get()
+     val oldLevel = calculateLevel(oldXp)
+     
+     xpCounter.addAndGet(amount)
+     
+     val newXp = xpCounter.get()
+     val newLevel = calculateLevel(newXp)
+     
+     if (newLevel > oldLevel) {
+         // Level up detected - check if we're the first thread
+         if (lastProcessedLevel.compareAndSet(oldLevel, newLevel)) {
+             // We won the race - apply level-up logic
+             unlockAbilities(playerId, profession, newLevel)
+         }
+     }
+     ```
+
+2. **⚠️ WARNING: Gathering XP Performance**
+   - **Problem:** Mass item pickup (100+ items) could lag server
+   - **Fix:** Batch XP updates, debounce notifications
+
+3. **⚠️ WARNING: Building Anti-Cheat**
+   - **Problem:** Players could spam break/place for infinite XP
+   - **Fix:** Cooldown per block location (ConcurrentHashMap with TTL)
+
+---
+
+### File Structure
+
+```
+src/main/kotlin/com/livinglands/modules/professions/
+├── ProfessionsModule.kt          # Module lifecycle
+├── ProfessionsService.kt         # XP management, stats
+├── ProfessionsRepository.kt      # Global database persistence
+├── XpCalculator.kt               # Precomputed XP table
+├── config/
+│   ├── ProfessionsConfig.kt      # Config data classes
+│   └── ProfessionsConfigValidator.kt
+├── data/
+│   ├── Profession.kt             # Enum (5 professions)
+│   ├── ProfessionStats.kt        # Immutable (for DB)
+│   └── PlayerProfessionState.kt  # Mutable (with AtomicLong)
+├── abilities/
+│   ├── Ability.kt                # Sealed interface
+│   ├── AbilityRegistry.kt        # All 15 abilities
+│   ├── Tier1Abilities.kt         # XP boost abilities
+│   ├── Tier2Abilities.kt         # Resource restore abilities
+│   └── Tier3Abilities.kt         # Permanent passive abilities
+├── listeners/
+│   ├── CombatXpListener.kt       # KillFeedEvent
+│   ├── MiningXpListener.kt       # BreakBlockEvent (ores)
+│   ├── LoggingXpListener.kt      # BreakBlockEvent (logs)
+│   ├── BuildingXpListener.kt     # PlaceBlockEvent
+│   └── GatheringXpListener.kt    # InteractivelyPickupItemEvent
+├── hud/
+│   ├── ProfessionsHudElement.kt  # Skills panel HUD
+│   └── XpNotificationManager.kt  # Action bar XP messages
+└── commands/
+    ├── ProfessionsCommand.kt     # /ll prof (user command)
+    └── ProfessionsAdminCommand.kt # /ll prof set/add/reset (admin)
+```
+
+---
+
+### Testing Checklist
+
+- [ ] XP awarded from all 5 sources (combat, mining, logging, building, gathering)
+- [ ] Level-up detection works (no double level-ups from race condition)
+- [ ] All 15 abilities unlock at correct levels
+- [ ] Tier 2 abilities restore metabolism stats correctly
+- [ ] Tier 3 Survivalist ability reduces depletion rate
+- [ ] Death penalty applies correctly (-85% XP, min level 1)
+- [ ] Stats persist across server restarts
+- [ ] HUD updates on XP gain
+- [ ] Admin commands work (set, add, reset)
+- [ ] Config hot-reload works
+- [ ] Performance: < 1ms per XP event with 100 concurrent players
+
+---
+
+### Performance Targets
+
+- **XP Event Processing:** < 1ms per event (including DB async)
+- **Level Calculation:** < 1μs (precomputed table lookup)
+- **Ability Check:** < 0.5ms (registry lookup + level comparison)
+- **HUD Update:** < 5ms (threshold-based updates)
+- **Player Join:** < 100ms (async stat loading)
+- **Player Disconnect:** < 200ms (async stat saving)
+
+---
+
+### Migration from v2.6.0
+
+If users had v2.6.0 leveling system, migration is **not required** (different database schema). Old stats will be ignored, players start fresh at level 1.
+
+**Optional Migration Script (future):**
+- Read old `leveling_stats` table from per-world DBs
+- Sum XP across all worlds per profession
+- Insert into new global `professions_stats` table
+- Mark as migrated to prevent re-run
+
+---
+
 ## Future Phases (Post-MVP)
 
-These are deferred until core metabolism is solid:
-
-### Phase 11: Leveling Module
-- Profession system (Mining, Logging, Combat, etc.)
-- XP gain from activities
-- Level-up rewards
-- Achievement notifications (see: Notification Module in deferred features)
+These are deferred until Professions is complete:
 
 ### Phase 12: Claims Module
 - Plot claiming system
@@ -753,9 +1096,18 @@ These features have been designed but are deferred until there's a concrete use 
 | 8: Food Consumption | 2-3 days | ✅ Complete |
 | 9: Polish & Optimization | 2-3 days | 🚧 Needs Multi-Player Testing |
 | 10: Announcer Module | 1-2 days | 📋 Planned (MVP) |
+| **11: Professions Module** | **18-25 days** | **📋 Planned (Post-MVP)** |
+| ↳ Phase 0: Prerequisites | 2-3 days | ✅ Complete |
+| ↳ Phase 11.1: Core Data Model | 3-5 days | 📋 Planned |
+| ↳ Phase 11.2: Core Service | 3-4 days | 📋 Planned |
+| ↳ Phase 11.3: XP Systems | 3-4 days | 📋 Planned |
+| ↳ Phase 11.4: Ability System | 4-5 days | 📋 Planned |
+| ↳ Phase 11.5: UI & Notifications | 3-4 days | 📋 Planned |
+| ↳ Phase 11.6: Polish & Integration | 2-3 days | 📋 Planned |
 
-**Current MVP Progress:** ~95% Complete (8/9 phases done, 2 phases need testing)
-**With Announcer:** ~90% Complete (Phase 10 adds new MVP feature)
+**Current MVP Progress:** ~95% Complete (8/9 phases done, 2 phases need testing)  
+**With Announcer:** ~90% Complete (Phase 10 adds new MVP feature)  
+**With Professions:** Professions prerequisites complete, ready to begin Phase 11.1
 
 ---
 
