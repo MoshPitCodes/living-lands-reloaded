@@ -3,8 +3,8 @@ package com.livinglands.modules.metabolism
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.CoreModule
 import com.livinglands.core.WorldContext
+import com.livinglands.core.hud.LivingLandsHudElement
 import com.livinglands.modules.metabolism.config.MetabolismConfig
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 import com.livinglands.core.UuidStringCache
 import com.livinglands.core.toCachedString
 import kotlinx.coroutines.CoroutineScope
@@ -678,17 +678,14 @@ class MetabolismService(
             return false
         }
         
-        // Get HUD from MultiHudManager (single source of truth)
-        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
-            playerUuid,
-            MetabolismHudElement.NAMESPACE
-        ) ?: return false
+        // Get unified HUD from MultiHudManager
+        val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return false
         
-        // Update the HUD element with current values (direct field access)
-        hudElement.updateStats(state.hunger, state.thirst, state.energy)
+        // Update the HUD element with current values
+        hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
         
         // Push the update to the client
-        hudElement.updateHud()
+        hudElement.updateMetabolismHud()
         
         // Record that we displayed these stats (no allocation)
         state.markDisplayed()
@@ -706,14 +703,11 @@ class MetabolismService(
     fun forceUpdateHud(playerId: String, playerUuid: UUID) {
         val state = playerStates[playerId] ?: return
         
-        // Get HUD from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(
-            playerUuid,
-            MetabolismHudElement.NAMESPACE
-        ) ?: return
+        // Get unified HUD from MultiHudManager
+        val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return
         
-        hudElement.updateStats(state.hunger, state.thirst, state.energy)
-        hudElement.updateHud()
+        hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
+        hudElement.updateMetabolismHud()
         state.markDisplayed()
     }
 }

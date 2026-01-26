@@ -5,14 +5,13 @@ import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
-import com.livinglands.modules.professions.hud.ProfessionsPanelElement
 
 /**
  * Command to toggle the professions panel.
  * 
  * Usage: /ll profession
  * 
- * Shows/hides the professions panel HUD element displaying:
+ * Shows/hides the professions panel in the unified Living Lands HUD displaying:
  * - All 5 professions with current levels and XP
  * - All 15 abilities (3 per profession) with unlock status
  * - Total XP earned summary
@@ -47,20 +46,16 @@ class ProfessionCommand : CommandBase(
         
         val playerId = session.playerId
         
-        // Get the HUD manager
-        val hudManager = CoreModule.hudManager
+        // Get the unified HUD element for this player
+        val hudElement = CoreModule.hudManager.getHud(playerId)
         
-        // Get the professions panel element for this player
-        val hudElements = hudManager.hudElements[playerId]
-        val panelElement = hudElements?.get(ProfessionsPanelElement.NAMESPACE) as? ProfessionsPanelElement
-        
-        if (panelElement == null) {
-            MessageFormatter.commandError(ctx, "Professions panel not available. Please rejoin the server.")
+        if (hudElement == null) {
+            MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
             return
         }
         
-        // Toggle the panel
-        val newState = panelElement.togglePanel()
+        // Toggle the professions panel
+        val newState = hudElement.toggleProfessionsPanel()
         
         // Force HUD refresh by accessing the player entity
         val world = session.world
@@ -72,7 +67,7 @@ class ProfessionCommand : CommandBase(
                     @Suppress("DEPRECATION")
                     val playerRef = player.playerRef
                     if (playerRef != null) {
-                        hudManager.refreshHud(player, playerRef)
+                        CoreModule.hudManager.refreshHud(player, playerRef)
                     }
                 }
             } catch (e: Exception) {
@@ -82,9 +77,9 @@ class ProfessionCommand : CommandBase(
         
         // Send feedback to player
         val message = if (newState) {
-            "§aShowing professions panel"
+            "Showing professions panel"
         } else {
-            "§7Hiding professions panel"
+            "Hiding professions panel"
         }
         
         MessageFormatter.commandSuccess(ctx, message)

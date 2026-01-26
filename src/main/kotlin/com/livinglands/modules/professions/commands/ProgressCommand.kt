@@ -5,14 +5,13 @@ import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
-import com.livinglands.modules.professions.hud.ProfessionsProgressElement
 
 /**
  * Command to toggle the professions progress panel.
  * 
  * Usage: /ll progress
  * 
- * Shows/hides a compact progress panel displaying:
+ * Shows/hides a compact progress panel in the unified Living Lands HUD displaying:
  * - All 5 professions at once
  * - Current level (e.g., "Lv 5")
  * - Visual progress bar
@@ -49,20 +48,16 @@ class ProgressCommand : CommandBase(
         
         val playerId = session.playerId
         
-        // Get the HUD manager
-        val hudManager = CoreModule.hudManager
+        // Get the unified HUD element for this player
+        val hudElement = CoreModule.hudManager.getHud(playerId)
         
-        // Get the progress panel element for this player
-        val hudElements = hudManager.hudElements[playerId]
-        val progressElement = hudElements?.get(ProfessionsProgressElement.NAMESPACE) as? ProfessionsProgressElement
-        
-        if (progressElement == null) {
-            MessageFormatter.commandError(ctx, "Progress panel not available. Please rejoin the server.")
+        if (hudElement == null) {
+            MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
             return
         }
         
-        // Toggle the panel
-        val newState = progressElement.togglePanel()
+        // Toggle the progress panel
+        val newState = hudElement.toggleProgressPanel()
         
         // Force HUD refresh by accessing the player entity
         val world = session.world
@@ -74,7 +69,7 @@ class ProgressCommand : CommandBase(
                     @Suppress("DEPRECATION")
                     val playerRef = player.playerRef
                     if (playerRef != null) {
-                        hudManager.refreshHud(player, playerRef)
+                        CoreModule.hudManager.refreshHud(player, playerRef)
                     }
                 }
             } catch (e: Exception) {
@@ -84,9 +79,9 @@ class ProgressCommand : CommandBase(
         
         // Send feedback to player
         val message = if (newState) {
-            "§aShowing professions progress"
+            "Showing professions progress"
         } else {
-            "§7Hiding professions progress"
+            "Hiding professions progress"
         }
         
         MessageFormatter.commandSuccess(ctx, message)

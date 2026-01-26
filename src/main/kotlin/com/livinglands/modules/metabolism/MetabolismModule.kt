@@ -14,7 +14,7 @@ import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
 import com.livinglands.modules.metabolism.food.FoodDetectionTickSystem
 import com.livinglands.modules.metabolism.food.FoodEffectDetector
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
+import com.livinglands.core.hud.LivingLandsHudElement
 import com.livinglands.core.SpeedManager
 import com.livinglands.core.toCachedString
 import kotlinx.coroutines.CancellationException
@@ -419,11 +419,11 @@ class MetabolismModule : AbstractModule(
         }
         
         // Save HUD preferences before cleanup (fire and forget - not critical if it fails)
-        val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(playerId, MetabolismHudElement.NAMESPACE)
+        val hudElement = CoreModule.hudManager.getHud(playerId)
         if (hudElement != null) {
             persistenceScope.launch {
                 try {
-                    metabolismRepository.saveHudPreferences(playerId.toCachedString(), hudElement.preferences)
+                    metabolismRepository.saveHudPreferences(playerId.toCachedString(), hudElement.metabolismPreferences)
                     logger.atFine().log("Saved HUD preferences for disconnecting player $playerId")
                 } catch (e: Exception) {
                     logger.atWarning().withCause(e).log("Failed to save HUD preferences for $playerId")
@@ -599,49 +599,55 @@ class MetabolismModule : AbstractModule(
     }
     
     /**
-     * Register the metabolism HUD for a player.
+     * Register the unified Living Lands HUD for a player.
      * Called after metabolism stats are initialized.
      * 
      * **IMPORTANT:** This must be called from within world.execute {} to avoid nested queuing.
+     * 
+     * The unified HUD contains ALL Living Lands UI elements (metabolism, professions, progress panels).
+     * This solves Hytale's limitation of only allowing one append() call per CustomUIHud.
      */
     private fun registerHudForPlayer(player: Player, playerRef: PlayerRef, playerId: UUID) {
         if (!metabolismConfig.enabled) return
         
         try {
-            // Get world UUID from player's session
-            val session = CoreModule.players.getSession(playerId)
-            if (session == null) {
-                logger.atWarning().log("No session found for player $playerId")
-                return
+            // Get ProfessionsService and AbilityRegistry if they're registered
+            val professionsService = try {
+                CoreModule.services.get<com.livinglands.modules.professions.ProfessionsService>()
+            } catch (e: Exception) {
+                null
             }
             
-            // Get world context
-            val worldContext = CoreModule.worlds.getContext(session.worldId)
+            val abilityRegistry = try {
+                CoreModule.services.get<com.livinglands.modules.professions.abilities.AbilityRegistry>()
+            } catch (e: Exception) {
+                null
+            }
             
-            // Create the HUD element with default preferences (non-blocking)
-            val hudElement = MetabolismHudElement(
-                playerRef,
-                playerId,
-                if (::buffsSystem.isInitialized) buffsSystem else null,
-                if (::debuffsSystem.isInitialized) debuffsSystem else null
+            // Register the unified HUD with MultiHudManager
+            logger.atInfo().log("Registering unified HUD via MultiHudManager on world thread...")
+            CoreModule.hudManager.registerHud(
+                player = player,
+                playerRef = playerRef,
+                playerId = playerId,
+                buffsSystem = if (::buffsSystem.isInitialized) buffsSystem else null,
+                debuffsSystem = if (::debuffsSystem.isInitialized) debuffsSystem else null,
+                professionsService = professionsService,
+                abilityRegistry = abilityRegistry
             )
-            
-            // Register with MultiHudManager (standardized pattern)
-            logger.atInfo().log("Registering HUD via MultiHudManager on world thread...")
-            CoreModule.hudManager.setHud(player, playerRef, MetabolismHudElement.NAMESPACE, hudElement)
-            logger.atInfo().log("Registered metabolism HUD for player $playerId with default preferences")
+            logger.atInfo().log("Registered unified HUD for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
-                .log("Failed to register metabolism HUD for player $playerId")
+                .log("Failed to register unified HUD for player $playerId")
         }
         
         // Load preferences asynchronously (outside world.execute) and update
         persistenceScope.launch {
             try {
-                val hudElement = CoreModule.hudManager.getHud<MetabolismHudElement>(playerId, MetabolismHudElement.NAMESPACE)
+                val hudElement = CoreModule.hudManager.getHud(playerId)
                 if (hudElement != null) {
                     val preferences = metabolismRepository.loadHudPreferences(playerId.toCachedString())
-                    hudElement.preferences = preferences
+                    hudElement.metabolismPreferences = preferences
                     logger.atFine().log("Loaded HUD preferences for $playerId")
                 }
             } catch (e: Exception) {
@@ -659,7 +665,7 @@ class MetabolismModule : AbstractModule(
         if (refs != null) {
             val (player, playerRef) = refs
             try {
-                CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
+                CoreModule.hudManager.removeHud(player, playerRef, playerId)
                 CoreModule.hudManager.onPlayerDisconnect(playerId)
             } catch (e: Exception) {
                 logger.atWarning().withCause(e).log("Error cleaning up HUD for player $playerId")
@@ -668,7 +674,7 @@ class MetabolismModule : AbstractModule(
     }
     
     /**
-     * Cleanup the metabolism HUD for a disconnecting player.
+     * Cleanup the unified Living Lands HUD for a disconnecting player.
      * Note: This is called AFTER playerRefs entry has been removed in onPlayerDisconnect.
      * 
      * @param playerId The player's UUID
@@ -676,8 +682,6 @@ class MetabolismModule : AbstractModule(
      */
     private fun cleanupHudForPlayer(playerId: UUID, playerRef: PlayerRef) {
         try {
-            // HUD is managed by MultiHudManager (no service tracking needed)
-            
             // Get session to access world for thread-safe ECS operations
             val session = CoreModule.players.getSession(playerId)
             if (session != null) {
@@ -688,12 +692,12 @@ class MetabolismModule : AbstractModule(
                         val entityRef = session.entityRef
                         val player = store.getComponent(entityRef, Player.getComponentType())
                         if (player != null) {
-                            // Remove from MultiHudManager
-                            CoreModule.hudManager.removeHud(player, playerRef, MetabolismHudElement.NAMESPACE)
+                            // Remove unified HUD from MultiHudManager
+                            CoreModule.hudManager.removeHud(player, playerRef, playerId)
                         }
                     } catch (e: Exception) {
                         logger.atWarning().withCause(e)
-                            .log("Error removing HUD from MultiHudManager for player $playerId")
+                            .log("Error removing unified HUD for player $playerId")
                     }
                 }
             }
@@ -701,10 +705,10 @@ class MetabolismModule : AbstractModule(
             // Notify MultiHudManager about disconnect (doesn't need world thread)
             CoreModule.hudManager.onPlayerDisconnect(playerId)
             
-            debug("Cleaned up metabolism HUD for player $playerId")
+            debug("Cleaned up unified HUD for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
-                .log("Error cleaning up metabolism HUD for player $playerId")
+                .log("Error cleaning up unified HUD for player $playerId")
         }
     }
 }

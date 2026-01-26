@@ -14,7 +14,6 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
-import com.livinglands.modules.metabolism.hud.MetabolismHudElement
 import com.livinglands.core.SpeedManager
 import com.livinglands.core.toCachedString
 

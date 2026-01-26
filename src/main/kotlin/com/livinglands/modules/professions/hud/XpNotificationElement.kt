@@ -87,7 +87,8 @@ class XpNotificationElement(
      */
     override fun build(builder: UICommandBuilder) {
         // Always append the UI file (uses same file as professions panel)
-        builder.append("UI/Custom/Hud/ProfessionsPanel.ui")
+        // Path is relative to Common/UI/Custom/ - Hytale auto-prepends the base path
+        builder.append("Hud/ProfessionsPanel.ui")
         
         val now = System.currentTimeMillis()
         

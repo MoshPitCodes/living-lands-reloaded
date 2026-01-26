@@ -2,6 +2,9 @@
 // Toggled by /ll progress command
 // Shows condensed XP progress for all 5 professions
 
+// Anonymous root wrapper - required for Hytale's CustomUI append() to work
+Group {
+
 // === Progress Panel (top-left, below metabolism) ===
 Group #ProgressPanel {
   Anchor: (Top: 80, Left: 16, Width: 280, Height: 340);
@@ -60,7 +63,7 @@ Group #ProgressPanel {
         Background: #21262d;
 
         Group #CombatBar {
-          Anchor: (Width: 0%, Height: 6);
+          Anchor: (Width: 1, Height: 6);
           Background: #e74c3c;
         }
       }
@@ -106,7 +109,7 @@ Group #ProgressPanel {
         Background: #21262d;
 
         Group #MiningBar {
-          Anchor: (Width: 0%, Height: 6);
+          Anchor: (Width: 1, Height: 6);
           Background: #3498db;
         }
       }
@@ -152,7 +155,7 @@ Group #ProgressPanel {
         Background: #21262d;
 
         Group #LoggingBar {
-          Anchor: (Width: 0%, Height: 6);
+          Anchor: (Width: 1, Height: 6);
           Background: #27ae60;
         }
       }
@@ -198,7 +201,7 @@ Group #ProgressPanel {
         Background: #21262d;
 
         Group #BuildingBar {
-          Anchor: (Width: 0%, Height: 6);
+          Anchor: (Width: 1, Height: 6);
           Background: #f39c12;
         }
       }
@@ -243,7 +246,7 @@ Group #ProgressPanel {
         Background: #21262d;
 
         Group #GatheringBar {
-          Anchor: (Width: 0%, Height: 6);
+          Anchor: (Width: 1, Height: 6);
           Background: #9b59b6;
         }
       }
@@ -256,3 +259,5 @@ Group #ProgressPanel {
     }
   }
 }
+
+} // Close anonymous root wrapper
