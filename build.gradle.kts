@@ -33,6 +33,11 @@ dependencies {
     // Jackson for YAML configuration (cleaner serialization than SnakeYAML)
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.0")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0")
+    
+    // Testing dependencies
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
 }
 
 java {
@@ -55,14 +60,20 @@ tasks.withType<JavaCompile> {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+    
     processResources {
         filesMatching("manifest.json") {
             expand(mapOf("version" to version))
         }
     }
     
+    // Regular JAR (without dependencies) - mark as "thin"
     jar {
         archiveBaseName.set("livinglands-reloaded")
+        archiveClassifier.set("thin")  // Mark this as the thin JAR (not used for deployment)
         manifest {
             attributes(
                 "Implementation-Title" to project.name,
@@ -71,9 +82,10 @@ tasks {
         }
     }
     
+    // Shadow JAR (with all dependencies) - this is the primary artifact for deployment
     shadowJar {
         archiveBaseName.set("livinglands-reloaded")
-        archiveClassifier.set("shadow")
+        archiveClassifier.set("")  // No classifier - this becomes livinglands-reloaded-1.0.0-beta.jar
         
         // Relocate dependencies to avoid conflicts (NOT sqlite - it uses JDBC which needs original package)
         relocate("com.fasterxml.jackson", "com.livinglands.libs.jackson")

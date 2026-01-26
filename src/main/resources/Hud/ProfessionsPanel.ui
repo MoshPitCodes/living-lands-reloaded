@@ -1,0 +1,266 @@
+// Living Lands Professions Panel (Reloaded v1.0.0)
+// Toggled by /ll profession command
+// Shows all 5 professions with abilities and XP progress
+
+// === Professions Panel (right side overlay) ===
+Group #ProfessionsPanel {
+  Anchor: (Top: 16, Right: 16, Width: 360, Height: 780);
+  Visible: false;
+  Background: #0a1628(0.95);
+
+  // Header bar
+  Group #PanelHeader {
+    Anchor: (Top: 0, Width: 360, Height: 50);
+    Background: #152238;
+
+    Label #ProfessionsPanelTitle {
+      Text: "PROFESSIONS";
+      Anchor: (Left: 0, Top: 0, Width: 360, Height: 50);
+      Style: (FontSize: 18, RenderBold: true, RenderUppercase: true, TextColor: #ccd8e8, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 3);
+    }
+
+    Label #PanelSubtitle {
+      Text: "Your Abilities & Progress";
+      Anchor: (Left: 0, Top: 28, Width: 360, Height: 18);
+      Style: (FontSize: 11, TextColor: #8899aa, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 1);
+    }
+  }
+
+  Group #ProfessionsPanelContent {
+    LayoutMode: Top;
+    Anchor: (Top: 50, Width: 360, Height: 730);
+    Padding: (Full: 14);
+
+    // === COMBAT PROFESSION ===
+    Group #CombatSection {
+      LayoutMode: Top;
+      Anchor: (Height: 120);
+
+      // Header row with profession name and level/XP
+      Group #CombatHeaderRow {
+        LayoutMode: Left;
+        Anchor: (Height: 20);
+
+        Label #CombatHeader {
+          Text: "COMBAT";
+          Anchor: (Width: 90, Height: 20);
+          Style: (FontSize: 12, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #e74c3c, RenderUppercase: true, LetterSpacing: 1);
+        }
+
+        Label #CombatLevel {
+          Text: "";
+          Anchor: (Height: 20);
+          Style: (FontSize: 12, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        }
+      }
+
+      // Abilities - each with name line and description line
+      Group #CombatAbilities {
+        LayoutMode: Top;
+        Padding: (Left: 10, Top: 4);
+
+        Label #CombatAbility1 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #CombatAbility1Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #CombatAbility2 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #CombatAbility2Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #CombatAbility3 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #CombatAbility3Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+      }
+    }
+
+    // Separator
+    Group #Sep1 {
+      Anchor: (Height: 1, Top: 4, Bottom: 6);
+      Background: #30363d;
+    }
+
+    // === MINING PROFESSION ===
+    Group #MiningSection {
+      LayoutMode: Top;
+      Anchor: (Height: 120);
+
+      Group #MiningHeaderRow {
+        LayoutMode: Left;
+        Anchor: (Height: 20);
+
+        Label #MiningHeader {
+          Text: "MINING";
+          Anchor: (Width: 90, Height: 20);
+          Style: (FontSize: 12, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #3498db, RenderUppercase: true, LetterSpacing: 1);
+        }
+
+        Label #MiningLevel {
+          Text: "";
+          Anchor: (Height: 20);
+          Style: (FontSize: 12, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        }
+      }
+
+      Group #MiningAbilities {
+        LayoutMode: Top;
+        Padding: (Left: 10, Top: 4);
+
+        Label #MiningAbility1 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #MiningAbility1Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #MiningAbility2 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #MiningAbility2Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #MiningAbility3 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #MiningAbility3Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+      }
+    }
+
+    // Separator
+    Group #Sep2 {
+      Anchor: (Height: 1, Top: 4, Bottom: 6);
+      Background: #30363d;
+    }
+
+    // === LOGGING PROFESSION ===
+    Group #LoggingSection {
+      LayoutMode: Top;
+      Anchor: (Height: 120);
+
+      Group #LoggingHeaderRow {
+        LayoutMode: Left;
+        Anchor: (Height: 20);
+
+        Label #LoggingHeader {
+          Text: "LOGGING";
+          Anchor: (Width: 90, Height: 20);
+          Style: (FontSize: 12, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #27ae60, RenderUppercase: true, LetterSpacing: 1);
+        }
+
+        Label #LoggingLevel {
+          Text: "";
+          Anchor: (Height: 20);
+          Style: (FontSize: 12, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        }
+      }
+
+      Group #LoggingAbilities {
+        LayoutMode: Top;
+        Padding: (Left: 10, Top: 4);
+
+        Label #LoggingAbility1 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #LoggingAbility1Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #LoggingAbility2 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #LoggingAbility2Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #LoggingAbility3 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #LoggingAbility3Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+      }
+    }
+
+    // Separator
+    Group #Sep3 {
+      Anchor: (Height: 1, Top: 4, Bottom: 6);
+      Background: #30363d;
+    }
+
+    // === BUILDING PROFESSION ===
+    Group #BuildingSection {
+      LayoutMode: Top;
+      Anchor: (Height: 120);
+
+      Group #BuildingHeaderRow {
+        LayoutMode: Left;
+        Anchor: (Height: 20);
+
+        Label #BuildingHeader {
+          Text: "BUILDING";
+          Anchor: (Width: 90, Height: 20);
+          Style: (FontSize: 12, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #f39c12, RenderUppercase: true, LetterSpacing: 1);
+        }
+
+        Label #BuildingLevel {
+          Text: "";
+          Anchor: (Height: 20);
+          Style: (FontSize: 12, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        }
+      }
+
+      Group #BuildingAbilities {
+        LayoutMode: Top;
+        Padding: (Left: 10, Top: 4);
+
+        Label #BuildingAbility1 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #BuildingAbility1Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #BuildingAbility2 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #BuildingAbility2Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #BuildingAbility3 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #BuildingAbility3Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+      }
+    }
+
+    // Separator
+    Group #Sep4 {
+      Anchor: (Height: 1, Top: 4, Bottom: 6);
+      Background: #30363d;
+    }
+
+    // === GATHERING PROFESSION ===
+    Group #GatheringSection {
+      LayoutMode: Top;
+      Anchor: (Height: 120);
+
+      Group #GatheringHeaderRow {
+        LayoutMode: Left;
+        Anchor: (Height: 20);
+
+        Label #GatheringHeader {
+          Text: "GATHERING";
+          Anchor: (Width: 90, Height: 20);
+          Style: (FontSize: 12, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #9b59b6, RenderUppercase: true, LetterSpacing: 1);
+        }
+
+        Label #GatheringLevel {
+          Text: "";
+          Anchor: (Height: 20);
+          Style: (FontSize: 12, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        }
+      }
+
+      Group #GatheringAbilities {
+        LayoutMode: Top;
+        Padding: (Left: 10, Top: 4);
+
+        Label #GatheringAbility1 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #GatheringAbility1Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #GatheringAbility2 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #GatheringAbility2Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+        Label #GatheringAbility3 { Text: ""; Anchor: (Height: 16); Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #484f58); }
+        Label #GatheringAbility3Desc { Text: ""; Anchor: (Height: 14, Left: 14); Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681); }
+      }
+    }
+
+    // Footer with total XP summary
+    Group #PanelFooter {
+      Anchor: (Height: 30, Top: 10);
+
+      Label #TotalXpSummary {
+        Text: "";
+        Anchor: (Height: 30);
+        Style: (FontSize: 11, HorizontalAlignment: Center, VerticalAlignment: Center, TextColor: #484f58);
+      }
+    }
+  }
+}
+
+// XP Gain notification (top left, next to metabolism bars)
+Group #XpNotification {
+  LayoutMode: Top;
+  Anchor: (Top: 16, Left: 310, Width: 180, Height: 55);
+  Padding: (Full: 4);
+  Visible: false;
+
+  Label #XpProfessionName {
+    Text: "";
+    Anchor: (Height: 16);
+    Style: (FontSize: 11, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #95a5a6, RenderUppercase: true);
+  }
+
+  Label #XpGainText {
+    Text: "";
+    Anchor: (Height: 18);
+    Style: (FontSize: 13, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #2ecc71, RenderBold: true);
+  }
+}

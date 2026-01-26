@@ -6,6 +6,7 @@ import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.commands.StatsCommand
+import com.livinglands.modules.metabolism.commands.TestMetabolismCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
@@ -222,6 +223,10 @@ class MetabolismModule : AbstractModule(
         // Register commands as subcommands of /ll
         CoreModule.mainCommand.registerSubCommand(StatsCommand(metabolismService))
         logger.atFine().log("Registered /ll show command")
+        
+        // Register test command for Metabolism API validation (Phase 0 - Professions Prerequisites)
+        CoreModule.mainCommand.registerSubCommand(TestMetabolismCommand())
+        logger.atFine().log("Registered /ll testmeta command")
         
         // Register HUD toggle commands (matching v2.6.0: /ll stats, /ll buffs, /ll debuffs)
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(

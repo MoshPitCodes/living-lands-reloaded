@@ -13,6 +13,7 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.core.commands.LLCommand
 import com.livinglands.modules.metabolism.MetabolismModule
+import com.livinglands.modules.professions.ProfessionsModule
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -91,9 +92,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
     private fun registerModules() {
         // Register all modules here
         CoreModule.registerModule(MetabolismModule())
+        CoreModule.registerModule(ProfessionsModule())
         
         // Future modules will be registered here:
-        // CoreModule.registerModule(LevelingModule())
         // CoreModule.registerModule(ClaimsModule())
         
         logger.atFine().log("Registered ${CoreModule.getModuleCount()} modules")

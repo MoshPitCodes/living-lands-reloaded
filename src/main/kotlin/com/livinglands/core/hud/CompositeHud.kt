@@ -45,6 +45,7 @@ internal class CompositeHud(
             return
         }
         
+        // Delegate to all child HUDs - they append their own files
         huds.forEach { (namespace, hud) ->
             try {
                 buildMethod.invoke(hud, builder)

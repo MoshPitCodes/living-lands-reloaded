@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 /**
@@ -78,6 +79,18 @@ class PlayerMetabolismState(
     /** Last energy value displayed on HUD (for threshold-based updates). */
     @Volatile var lastDisplayedEnergy: Float = initialEnergy
         private set
+    
+    // ============ Depletion Modifier System (for Professions Tier 3 abilities) ============
+    
+    /**
+     * Map of active depletion modifiers (source ID -> multiplier).
+     * Multiple modifiers stack multiplicatively.
+     * 
+     * Example: Survivalist Tier 3 applies "professions:survivalist" with 0.85 (15% slower depletion)
+     * 
+     * Thread-safe using ConcurrentHashMap.
+     */
+    private val depletionModifiers = ConcurrentHashMap<String, Double>()
     
     // ============ Stat Update Methods (mutable - no allocations) ============
     
@@ -173,6 +186,58 @@ class PlayerMetabolismState(
         lastDisplayedHunger = hunger
         lastDisplayedThirst = thirst
         lastDisplayedEnergy = energy
+    }
+    
+    // ============ Depletion Modifier Methods ============
+    
+    /**
+     * Apply a depletion rate modifier.
+     * Multiple modifiers stack multiplicatively.
+     * 
+     * Example: Survivalist Tier 3 applies "professions:survivalist" with 0.85 (15% slower depletion)
+     * 
+     * @param sourceId Unique identifier for this modifier (e.g., "professions:survivalist")
+     * @param multiplier Depletion rate multiplier (0.85 = 15% slower, 1.5 = 50% faster)
+     */
+    fun applyDepletionModifier(sourceId: String, multiplier: Double) {
+        depletionModifiers[sourceId] = multiplier
+    }
+    
+    /**
+     * Remove a depletion rate modifier.
+     * 
+     * @param sourceId The modifier to remove
+     * @return true if the modifier was removed, false if it didn't exist
+     */
+    fun removeDepletionModifier(sourceId: String): Boolean {
+        return depletionModifiers.remove(sourceId) != null
+    }
+    
+    /**
+     * Get the combined depletion multiplier from all active modifiers.
+     * Modifiers stack multiplicatively (0.85 * 0.90 = 0.765 = 23.5% slower).
+     * 
+     * @return Combined multiplier (1.0 if no modifiers active)
+     */
+    fun getCombinedDepletionMultiplier(): Double {
+        if (depletionModifiers.isEmpty()) return 1.0
+        return depletionModifiers.values.fold(1.0) { acc, mult -> acc * mult }
+    }
+    
+    /**
+     * Get all active depletion modifiers (for debugging/inspection).
+     * 
+     * @return Map of source ID to multiplier
+     */
+    fun getActiveModifiers(): Map<String, Double> {
+        return depletionModifiers.toMap()
+    }
+    
+    /**
+     * Clear all depletion modifiers (e.g., on death/reset).
+     */
+    fun clearDepletionModifiers() {
+        depletionModifiers.clear()
     }
     
     // ============ Persistence Conversion ============
