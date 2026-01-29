@@ -1,5 +1,6 @@
 package com.livinglands.core.hud
 
+import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder
 import com.hypixel.hytale.server.core.universe.PlayerRef
@@ -53,6 +54,8 @@ class LivingLandsHudElement(
         /** Maximum number of buffs/debuffs to display */
         const val MAX_BUFFS = 3
         const val MAX_DEBUFFS = 3
+        
+        private val logger = HytaleLogger.getLogger()
     }
     
     // ============ Metabolism State ============
@@ -96,6 +99,7 @@ class LivingLandsHudElement(
      */
     override fun build(builder: UICommandBuilder) {
         // SINGLE append - all UI in one file
+        // Path is relative to: Common/UI/Custom/ (per hytale-basic-uis pattern)
         builder.append("Hud/LivingLandsHud.ui")
         
         // Build metabolism section
@@ -105,23 +109,25 @@ class LivingLandsHudElement(
         buildProfessionsPanelSection(builder)
         
         // Build progress panel section
-        buildProgressPanelSection(builder)
+        // TODO: Fix progress panel graphical bars - currently disabled
+        // buildProgressPanelSection(builder)
     }
     
     // ============ Metabolism Section ============
     
     /**
      * Build the metabolism section (stats, buffs, debuffs).
+     * Uses vanilla-styled layered progress bars matching Hytale's experience bar design.
      */
     private fun buildMetabolismSection(builder: UICommandBuilder) {
         // Set stats visibility
         builder.set("#MetabolismBars.Visible", metabolismPreferences.statsVisible)
         
-        // Set all three bars
+        // Set all three bars with vanilla-styled progress
         val stats = metabolismStats.get()
-        builder.set("#HungerBar.Text", buildTextBar(stats.hunger))
-        builder.set("#ThirstBar.Text", buildTextBar(stats.thirst))
-        builder.set("#EnergyBar.Text", buildTextBar(stats.energy))
+        updateProgressBar(builder, "Hunger", stats.hunger, "#27ae60")
+        updateProgressBar(builder, "Thirst", stats.thirst, "#3498db")
+        updateProgressBar(builder, "Energy", stats.energy, "#f39c12")
         
         // Set buffs/debuffs (respecting visibility preferences)
         if (metabolismPreferences.buffsVisible) {
@@ -142,16 +148,71 @@ class LivingLandsHudElement(
     }
     
     /**
-     * Build a text-based progress bar matching v2.6.0 format.
-     * Example: "[||||||....] 60"
+     * Update a text-based progress bar (v2.8.0 style).
+     * Uses Unicode block characters to create visual progress bars.
+     * 
+     * @param builder UI command builder
+     * @param barName Bar name (e.g., "Hunger", "Thirst", "Energy")
+     * @param value Current stat value (0-100)
+     * @param baseColor Base color for healthy state (unused in text mode, kept for compatibility)
      */
-    private fun buildTextBar(value: Float): String {
-        val barLength = 10
-        val filled = (value / 10).toInt().coerceIn(0, barLength)
-        val empty = barLength - filled
+    private fun updateProgressBar(builder: UICommandBuilder, barName: String, value: Float, baseColor: String) {
+        // Create text-based progress bar using Unicode blocks
+        val barText = buildTextProgressBar(value)
         
-        val bar = "|".repeat(filled) + ".".repeat(empty)
-        return "[${bar}] ${value.toInt()}"
+        // Update the bar label (e.g., #HungerBar, #ThirstBar, #EnergyBar)
+        builder.set("#${barName}Bar.Text", barText)
+    }
+    
+    /**
+     * Build a text-based progress bar using simple ASCII characters.
+     * Example: "[========--] 80%" or "[=====-----] 50%"
+     * 
+     * @param value Current stat value (0-100)
+     * @return Text representation of progress bar
+     */
+    private fun buildTextProgressBar(value: Float): String {
+        val barLength = 10 // Number of characters in the bar
+        val filledBlocks = ((value / 100.0f) * barLength).toInt().coerceIn(0, barLength)
+        val emptyBlocks = barLength - filledBlocks
+        
+        val filled = "=".repeat(filledBlocks)
+        val empty = "-".repeat(emptyBlocks)
+        val percentage = value.toInt()
+        
+        return "[$filled$empty] $percentage%"
+    }
+    
+    /**
+     * Calculate progress bar width in pixels.
+     * Vanilla-inspired: uses exact pixel values, not percentages.
+     * 
+     * @param value Current stat value (0-100)
+     * @param maxWidth Maximum bar width in pixels (default 200)
+     * @return Width in pixels (1-maxWidth), or 0 if value is 0
+     */
+    private fun calculateBarWidth(value: Float, maxWidth: Int = 200): Int {
+        val percentage = (value / 100.0f).coerceIn(0.0f, 1.0f)
+        val width = (percentage * maxWidth).toInt()
+        // Return minimum 1px if value > 0 for visibility, otherwise 0
+        return if (value > 0.0f) width.coerceAtLeast(1) else 0
+    }
+    
+    /**
+     * Get stat color based on value thresholds.
+     * Transitions from green (healthy) → orange (warning) → red (critical).
+     * 
+     * @param value Current stat value (0-100)
+     * @param baseColor Base color for healthy state (>70%)
+     * @return Hex color string
+     */
+    private fun getStatColor(value: Float, baseColor: String): String {
+        return when {
+            value >= 70.0f -> baseColor           // Healthy: use base color
+            value >= 40.0f -> "#e67e22"          // Warning: orange
+            value >= 20.0f -> "#e74c3c"          // Critical: red
+            else -> "#c0392b"                     // Danger: dark red
+        }
     }
     
     /**
@@ -214,11 +275,11 @@ class LivingLandsHudElement(
         val debuffs = currentDebuffs.get()
         val builder = UICommandBuilder()
         
-        // Set the text values for all bars (only if stats visible)
+        // Set the progress bars (only if stats visible)
         if (metabolismPreferences.statsVisible) {
-            builder.set("#HungerBar.Text", buildTextBar(stats.hunger))
-            builder.set("#ThirstBar.Text", buildTextBar(stats.thirst))
-            builder.set("#EnergyBar.Text", buildTextBar(stats.energy))
+            updateProgressBar(builder, "Hunger", stats.hunger, "#27ae60")
+            updateProgressBar(builder, "Thirst", stats.thirst, "#3498db")
+            updateProgressBar(builder, "Energy", stats.energy, "#f39c12")
         }
         
         // Update buffs/debuffs display
@@ -295,7 +356,8 @@ class LivingLandsHudElement(
     private fun buildProfessionsPanelSection(builder: UICommandBuilder) {
         builder.set("#ProfessionsPanel.Visible", professionsPanelVisible.get())
         
-        if (professionsPanelVisible.get() && professionsPanelNeedsRefresh && professionsService != null) {
+        // Always populate data if needed (even when hidden, so it's ready when shown)
+        if (professionsPanelNeedsRefresh && professionsService != null) {
             populateProfessionsData(builder)
             professionsPanelNeedsRefresh = false
         }
@@ -305,14 +367,25 @@ class LivingLandsHudElement(
      * Populate all profession data into the UI.
      */
     private fun populateProfessionsData(builder: UICommandBuilder) {
-        val service = professionsService ?: return
+        val service = professionsService ?: run {
+            logger.atInfo().log("populateProfessionsData: professionsService is null")
+            return
+        }
         val registry = abilityRegistry
         
+        logger.atInfo().log("populateProfessionsData: Starting population for player $playerId")
+        
         var totalXp = 0L
+        var populatedCount = 0
         
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
-            if (stats == null) return@forEach
+            if (stats == null) {
+                logger.atInfo().log("populateProfessionsData: Stats null for ${profession.name}")
+                return@forEach
+            }
+            
+            populatedCount++
             
             val level = stats.level
             val professionTotalXp = stats.xp
@@ -329,6 +402,7 @@ class LivingLandsHudElement(
             // Set level and XP text
             val progressPercent = (progress * 100).toInt()
             val levelText = "Lv $level | ${formatXp(xpInLevel)}/${formatXp(xpNeeded)} XP ($progressPercent%)"
+            logger.atInfo().log("Setting #${prefix}Level.Text = $levelText")
             builder.set("#${prefix}Level.Text", levelText)
             
             // Get abilities for this profession
@@ -354,7 +428,8 @@ class LivingLandsHudElement(
             }
         }
         
-        builder.set("#TotalXpSummary.Text", "Total XP Earned: ${formatXp(totalXp)}")
+        logger.atInfo().log("populateProfessionsData: Populated $populatedCount professions, total XP: $totalXp")
+        builder.set("#ProfessionsTotalXp.Text", "Total XP Earned: ${formatXp(totalXp)}")
     }
     
     /**
@@ -369,10 +444,8 @@ class LivingLandsHudElement(
         val builder = UICommandBuilder()
         builder.set("#ProfessionsPanel.Visible", newState)
         
-        if (newState && professionsService != null) {
-            populateProfessionsData(builder)
-            professionsPanelNeedsRefresh = false
-        }
+        // Don't populate here - let the subsequent refreshHud() call handle it
+        // via buildProfessionsPanelSection() to avoid double population
         
         update(false, builder)
         return newState
@@ -423,14 +496,16 @@ class LivingLandsHudElement(
             val professionName = profession.name.lowercase().replaceFirstChar { it.uppercase() }
             
             // Set level text
-            builder.set("#${professionName}ProgressLevel.Text", "Lv $level")
+            builder.set("#${professionName}Level.Text", "Lv $level")
             
             // Set progress percentage
             val progressPercent = (progress * 100).toInt()
             builder.set("#${professionName}Percent.Text", "$progressPercent%")
             
-            // Set ProgressBar value (0.0 to 1.0) - uses Hytale's built-in ProgressBar component
-            builder.set("#${professionName}Bar.Value", progress.coerceIn(0.0, 1.0))
+            // Set progress bar width (dynamic width based on progress)
+            val maxBarWidth = 256 // Max width in pixels for the progress bar
+            val barWidth = (progress * maxBarWidth).toInt().coerceIn(1, maxBarWidth)
+            builder.set("#${professionName}Bar.Anchor.Width", barWidth)
             
             // Set XP text
             val xpText = "${formatXp(xpInLevel)} / ${formatXp(xpNeeded)} XP"
@@ -478,6 +553,7 @@ class LivingLandsHudElement(
      * This is called by ProfessionsModule when it starts up.
      */
     fun setProfessionServices(service: ProfessionsService, registry: AbilityRegistry) {
+        logger.atInfo().log("setProfessionServices called for player $playerId")
         this.professionsService = service
         this.abilityRegistry = registry
         
@@ -485,10 +561,8 @@ class LivingLandsHudElement(
         professionsPanelNeedsRefresh = true
         progressPanelNeedsRefresh = true
         
-        // Refresh visible panels immediately
-        if (professionsPanelVisible.get() || progressPanelVisible.get()) {
-            refreshAllProfessionsPanels()
-        }
+        // Data will be populated when the panel is toggled visible via /ll profession
+        logger.atInfo().log("setProfessionServices: Profession services ready, panel will populate on toggle")
     }
     
     // ============ Utility Methods ============
