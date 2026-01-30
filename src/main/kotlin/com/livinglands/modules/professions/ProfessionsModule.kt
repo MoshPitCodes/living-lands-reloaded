@@ -384,7 +384,7 @@ class ProfessionsModule : AbstractModule(
                         com.livinglands.core.MessageFormatter.success(
                             playerRef,
                             "Welcome back to Living Lands!",
-                            "Your v2.6.0 profession data has been migrated to v1.0.1"
+                            "Your v2.6.0 profession data has been migrated to v1.1.0"
                         )
                         
                         // Get migrated professions with levels > 1 to show in message

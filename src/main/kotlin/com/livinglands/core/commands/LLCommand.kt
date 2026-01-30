@@ -39,7 +39,7 @@ class LLCommand : CommandBase(
         val aqua = Color(85, 255, 255)
         val gray = Color(170, 170, 170)
         
-        MessageFormatter.commandRaw(ctx, "=== Living Lands v1.0.1 ===", gold)
+        MessageFormatter.commandRaw(ctx, "=== Living Lands v1.1.0 ===", gold)
         MessageFormatter.commandRaw(ctx, "", gray)
         MessageFormatter.commandRaw(ctx, "Commands:", gold)
         MessageFormatter.commandRaw(ctx, "/ll reload - Reload configuration files", aqua)
