@@ -125,12 +125,21 @@ class ProfessionsService(
     /**
      * Initialize player with default profession stats (all level 1, 0 XP).
      * Creates in-memory state immediately for non-blocking access.
-     * 
+     *
+     * CRITICAL: Checks if player already exists in cache to prevent overwriting
+     * existing data on world switch or quick reconnect.
+     *
      * @param playerId Player's UUID
      */
     fun initializePlayerWithDefaults(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
-        
+
+        // Check if player already exists in cache (rejoin or world switch)
+        if (playerStates.containsKey(playerIdStr)) {
+            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
+            return
+        }
+
         // Create default state for all 5 professions
         val professionsMap = mutableMapOf<Profession, PlayerProfessionState>()
         Profession.entries.forEach { profession ->
@@ -141,9 +150,9 @@ class ProfessionsService(
                 initialLevel = 1
             )
         }
-        
+
         playerStates[playerIdStr] = professionsMap
-        
+
         logger.atFine().log("Initialized professions with defaults for player $playerId")
     }
     
