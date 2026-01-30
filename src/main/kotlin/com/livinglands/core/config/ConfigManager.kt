@@ -131,7 +131,7 @@ class ConfigManager(
             // Create default config
             save(moduleId, default)
             configs[moduleId] = default
-            logger.atInfo().log("Created default config '$moduleId'")
+            logger.atFine().log("Created default config '$moduleId'")
             default
         }
     }
@@ -175,7 +175,7 @@ class ConfigManager(
         if (!Files.exists(configFile)) {
             save(moduleId, default)
             configs[moduleId] = default
-            logger.atInfo().log("Created default config '$moduleId' (v$targetVersion)")
+            logger.atFine().log("Created default config '$moduleId' (v$targetVersion)")
             return default
         }
         
@@ -228,7 +228,7 @@ class ConfigManager(
         }
         
         // Migration needed
-        logger.atInfo().log("Config '$moduleId' needs migration: v$currentVersion -> v$targetVersion")
+        logger.atFine().log("Config '$moduleId' needs migration: v$currentVersion -> v$targetVersion")
         
         // Check if migration path exists
         if (!migrations.hasMigrationPath(moduleId, currentVersion, targetVersion)) {
@@ -287,9 +287,9 @@ class ConfigManager(
         // Log migration details
         val migrationPath = migrations.getMigrationPath(moduleId, currentVersion, targetVersion)
         migrationPath.forEach { migration ->
-            logger.atInfo().log("  Applied: ${migration.description}")
+            logger.atFine().log("  Applied: ${migration.description}")
         }
-        logger.atInfo().log("Config '$moduleId' migrated successfully: v$currentVersion -> v$targetVersion")
+        logger.atFine().log("Config '$moduleId' migrated successfully: v$currentVersion -> v$targetVersion")
         
         return migrated
     }
@@ -313,7 +313,7 @@ class ConfigManager(
         
         return try {
             Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING)
-            logger.atInfo().log("Created backup: $backupName")
+            logger.atFine().log("Created backup: $backupName")
             backupFile
         } catch (e: Exception) {
             logger.atWarning().log("Failed to create backup for '$moduleId': ${e.message}")
@@ -415,7 +415,7 @@ class ConfigManager(
                         if (loaded != null) {
                             configs[id] = loaded
                             reloaded.add(id)
-                            logger.atInfo().log("Reloaded config '$id'")
+                            logger.atFine().log("Reloaded config '$id'")
                         }
                     }
                 } catch (e: Exception) {

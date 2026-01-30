@@ -91,7 +91,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("Applied Iron Stomach (+${IronStomachAbility.maxHungerBonus.toInt()} max hunger) to player $playerId")
+        logger.atFine().log("Applied Iron Stomach (+${IronStomachAbility.maxHungerBonus.toInt()} max hunger) to player $playerId")
     }
     
     /**
@@ -117,7 +117,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("Applied Desert Nomad (+${DesertNomadAbility.maxThirstBonus.toInt()} max thirst) to player $playerId")
+        logger.atFine().log("Applied Desert Nomad (+${DesertNomadAbility.maxThirstBonus.toInt()} max thirst) to player $playerId")
     }
     
     /**
@@ -143,7 +143,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("Applied Tireless Woodsman (+${TirelessWoodsmanAbility.maxEnergyBonus.toInt()} max energy) to player $playerId")
+        logger.atFine().log("Applied Tireless Woodsman (+${TirelessWoodsmanAbility.maxEnergyBonus.toInt()} max energy) to player $playerId")
     }
     
     /**
@@ -165,7 +165,7 @@ class AbilityEffectService(
         // For now, just log and track the ability
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("Enduring Builder unlocked for player $playerId (stamina API pending)")
+        logger.atFine().log("Enduring Builder unlocked for player $playerId (stamina API pending)")
     }
     
     /**
@@ -188,7 +188,7 @@ class AbilityEffectService(
         // Track that this ability was unlocked
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("Hearty Gatherer unlocked for player $playerId (trigger-based, +4 hunger/thirst on food pickup)")
+        logger.atFine().log("Hearty Gatherer unlocked for player $playerId (trigger-based, +4 hunger/thirst on food pickup)")
     }
     
     // ============ Tier 3 Ability Application ============
@@ -228,7 +228,7 @@ class AbilityEffectService(
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atInfo().log("Adrenaline Rush unlocked for player $playerId (trigger-based, +10% speed on kill)")
+        logger.atFine().log("Adrenaline Rush unlocked for player $playerId (trigger-based, +10% speed on kill)")
     }
     
     /**
@@ -244,7 +244,7 @@ class AbilityEffectService(
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atInfo().log("Ore Sense unlocked for player $playerId (trigger-based, +10% ore drop)")
+        logger.atFine().log("Ore Sense unlocked for player $playerId (trigger-based, +10% ore drop)")
     }
     
     /**
@@ -260,7 +260,7 @@ class AbilityEffectService(
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atInfo().log("Timber! unlocked for player $playerId (trigger-based, +25% extra logs)")
+        logger.atFine().log("Timber! unlocked for player $playerId (trigger-based, +25% extra logs)")
     }
     
     /**
@@ -276,7 +276,7 @@ class AbilityEffectService(
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atInfo().log("Efficient Architect unlocked for player $playerId (trigger-based, 12% block save)")
+        logger.atFine().log("Efficient Architect unlocked for player $playerId (trigger-based, 12% block save)")
     }
     
     /**
@@ -305,7 +305,7 @@ class AbilityEffectService(
         )
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atInfo().log("Applied Survivalist (-15% depletion) to player $playerId")
+        logger.atFine().log("Applied Survivalist (-15% depletion) to player $playerId")
     }
     
     // ============ Re-application on World Switch ============
@@ -365,7 +365,7 @@ class AbilityEffectService(
         appliedTier2Abilities.remove(playerIdStr)
         appliedTier3Abilities.remove(playerIdStr)
         
-        logger.atInfo().log("Removed all ability effects for player $playerId (config reload)")
+        logger.atFine().log("Removed all ability effects for player $playerId (config reload)")
     }
     
     // ============ Check Methods (for XP systems) ============

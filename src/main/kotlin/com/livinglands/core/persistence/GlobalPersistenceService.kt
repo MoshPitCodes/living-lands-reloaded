@@ -35,7 +35,7 @@ class GlobalPersistenceService(
         val globalDir = File(dataDir, "global")
         if (!globalDir.exists()) {
             globalDir.mkdirs()
-            logger.atInfo().log("Created global data directory: ${globalDir.absolutePath}")
+            logger.atFine().log("Created global data directory: ${globalDir.absolutePath}")
         }
         
         dbFile = File(globalDir, "livinglands.db")
@@ -96,7 +96,7 @@ class GlobalPersistenceService(
             """.trimIndent())
         }
         
-        logger.atInfo().log("Global database initialized: ${dbFile.absolutePath}")
+        logger.atFine().log("Global database initialized: ${dbFile.absolutePath}")
     }
     
     /**
@@ -220,7 +220,7 @@ class GlobalPersistenceService(
                         conn.close()
                     }
                 }
-                logger.atInfo().log("Global database connection closed")
+                logger.atFine().log("Global database connection closed")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e).log("Error closing global database connection")
             } finally {

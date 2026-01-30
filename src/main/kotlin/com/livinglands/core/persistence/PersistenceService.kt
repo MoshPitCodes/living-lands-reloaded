@@ -41,7 +41,7 @@ class PersistenceService(
         try {
             initializeDatabase()
         } catch (e: Exception) {
-            logger.atInfo().log("Failed to initialize database for world $worldId: ${e.message}")
+            logger.atFine().log("Failed to initialize database for world $worldId: ${e.message}")
             throw e
         }
     }
@@ -97,7 +97,7 @@ class PersistenceService(
                 block(conn)
             }
         } catch (e: Exception) {
-            logger.atInfo().log("Database operation failed: ${e.message}")
+            logger.atFine().log("Database operation failed: ${e.message}")
             throw e
         }
     }
@@ -124,9 +124,9 @@ class PersistenceService(
                 try {
                     conn.rollback()
                 } catch (rollbackException: Exception) {
-                    logger.atInfo().log("Rollback failed: ${rollbackException.message}")
+                    logger.atFine().log("Rollback failed: ${rollbackException.message}")
                 }
-                logger.atInfo().log("Transaction failed: ${e.message}")
+                logger.atFine().log("Transaction failed: ${e.message}")
                 throw e
             } finally {
                 conn.autoCommit = originalAutoCommit
@@ -204,7 +204,7 @@ class PersistenceService(
                 }
                 logger.atFine().log("Database connection closed for world $worldId")
             } catch (e: Exception) {
-                logger.atInfo().log("Error closing database connection: ${e.message}")
+                logger.atFine().log("Error closing database connection: ${e.message}")
             } finally {
                 connection = null
             }

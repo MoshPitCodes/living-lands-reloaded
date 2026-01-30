@@ -98,7 +98,7 @@ class ProfessionsModule : AbstractModule(
     private val migratedPlayers = mutableSetOf<UUID>()
     
     override suspend fun onSetup() {
-        logger.atInfo().log("Professions module setting up...")
+        logger.atFine().log("Professions module setting up...")
         
         // TODO: Register migrations when we have v2 config
         // CoreModule.config.registerMigrations(
@@ -122,21 +122,21 @@ class ProfessionsModule : AbstractModule(
         
         // Log XP curve stats for debugging
         val curveStats = xpCalculator.getStats()
-        logger.atInfo().log("XP Curve: baseXp=${curveStats.baseXp}, multiplier=${curveStats.multiplier}, maxLevel=${curveStats.maxLevel}")
-        logger.atInfo().log("XP Milestones: L10=${curveStats.level10Xp}, L25=${curveStats.level25Xp}, L50=${curveStats.level50Xp}")
+        logger.atFine().log("XP Curve: baseXp=${curveStats.baseXp}, multiplier=${curveStats.multiplier}, maxLevel=${curveStats.maxLevel}")
+        logger.atFine().log("XP Milestones: L10=${curveStats.level10Xp}, L25=${curveStats.level25Xp}, L50=${curveStats.level50Xp}")
         
         // Create global repository (server-wide profession stats)
         professionsRepository = ProfessionsRepository(CoreModule.globalPersistence, logger)
         professionsRepository.initialize()
-        logger.atInfo().log("Initialized global professions repository")
+        logger.atFine().log("Initialized global professions repository")
         
         // Create ability registry
         abilityRegistry = AbilityRegistry()
-        logger.atInfo().log("Initialized ability registry with ${abilityRegistry.getAllAbilities().size} abilities")
+        logger.atFine().log("Initialized ability registry with ${abilityRegistry.getAllAbilities().size} abilities")
         
         // Create ability effect service (handles applying ability bonuses)
         abilityEffectService = AbilityEffectService(logger)
-        logger.atInfo().log("Initialized ability effect service")
+        logger.atFine().log("Initialized ability effect service")
         
         // Create service
         professionsService = ProfessionsService(professionsConfig, xpCalculator, logger)
@@ -155,28 +155,28 @@ class ProfessionsModule : AbstractModule(
         
         // Register commands (must be in onSetup before main command registration)
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.ProfessionCommand())
-        logger.atInfo().log("Registered /ll profession command")
+        logger.atFine().log("Registered /ll profession command")
         
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.ProgressCommand())
-        logger.atInfo().log("Registered /ll progress command")
+        logger.atFine().log("Registered /ll progress command")
         
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.MigrateCommand())
-        logger.atInfo().log("Registered /ll migrate command")
+        logger.atFine().log("Registered /ll migrate command")
 
         // Register admin commands
         CoreModule.mainCommand.registerSubCommand(
             com.livinglands.modules.professions.commands.ProfAdminCommand(professionsService, abilityRegistry)
         )
-        logger.atInfo().log("Registered /ll prof admin command")
+        logger.atFine().log("Registered /ll prof admin command")
 
-        logger.atInfo().log("Professions module setup complete")
+        logger.atFine().log("Professions module setup complete")
     }
     
     override suspend fun onStart() {
-        logger.atInfo().log("Professions module starting...")
+        logger.atFine().log("Professions module starting...")
         
         if (!professionsConfig.enabled) {
-            logger.atInfo().log("Professions module is disabled in config")
+            logger.atFine().log("Professions module is disabled in config")
             return
         }
         
@@ -196,12 +196,12 @@ class ProfessionsModule : AbstractModule(
         gatheringXpSystem = GatheringXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(gatheringXpSystem)
         
-        logger.atInfo().log("Registered 5 XP event systems (Combat, Mining, Logging, Building, Gathering)")
+        logger.atFine().log("Registered 5 XP event systems (Combat, Mining, Logging, Building, Gathering)")
         
         // Update HUD manager with profession services so panels can display data
         try {
             CoreModule.hudManager.setProfessionServicesForAll(professionsService, abilityRegistry)
-            logger.atInfo().log("Updated HUD manager with profession services")
+            logger.atFine().log("Updated HUD manager with profession services")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to update HUD manager with profession services")
         }
@@ -214,11 +214,11 @@ class ProfessionsModule : AbstractModule(
         // - /ll prof add <player> <profession> <xp> (admin)
         // - /ll prof reset <player> [profession] (admin)
         
-        logger.atInfo().log("Professions module started")
+        logger.atFine().log("Professions module started")
     }
     
     override suspend fun onShutdown() {
-        logger.atInfo().log("Professions module shutting down...")
+        logger.atFine().log("Professions module shutting down...")
         
         // Cancel moduleScope first to stop new operations
         moduleScope.cancel()
@@ -229,7 +229,7 @@ class ProfessionsModule : AbstractModule(
         val pendingCount = pendingSaves.get()
         
         if (pendingCount > 0) {
-            logger.atInfo().log("Waiting for $pendingCount pending save operation(s) to complete...")
+            logger.atFine().log("Waiting for $pendingCount pending save operation(s) to complete...")
             
             while (pendingSaves.get() > 0 && System.currentTimeMillis() - startTime < maxWaitMs) {
                 delay(100)
@@ -239,14 +239,14 @@ class ProfessionsModule : AbstractModule(
             if (remaining > 0) {
                 logger.atWarning().log("Shutdown timeout with $remaining pending saves - some player data may be lost")
             } else {
-                logger.atInfo().log("All pending saves completed successfully")
+                logger.atFine().log("All pending saves completed successfully")
             }
         }
         
         // Save all remaining cached players (bulk save)
         val cachedPlayerCount = professionsService.getCacheSize()
         if (cachedPlayerCount > 0) {
-            logger.atInfo().log("Saving $cachedPlayerCount remaining players' profession stats...")
+            logger.atFine().log("Saving $cachedPlayerCount remaining players' profession stats...")
             
             try {
                 professionsService.saveAllPlayers(professionsRepository)
@@ -262,7 +262,7 @@ class ProfessionsModule : AbstractModule(
         // Now cancel saveScope (all critical saves should be done)
         saveScope.cancel()
         
-        logger.atInfo().log("Professions module shutdown complete")
+        logger.atFine().log("Professions module shutdown complete")
     }
     
     // ============ Config Reload ============
@@ -272,7 +272,7 @@ class ProfessionsModule : AbstractModule(
      * Called by ConfigManager when professions.yml is reloaded.
      */
     private fun handleConfigReload() {
-        logger.atInfo().log("Reloading professions config...")
+        logger.atFine().log("Reloading professions config...")
         
         // Reload configuration
         val newConfig = CoreModule.config.load(
@@ -284,7 +284,7 @@ class ProfessionsModule : AbstractModule(
         professionsService.updateConfig(newConfig)
         professionsConfig = newConfig
         
-        logger.atInfo().log("Professions config reloaded: enabled=${newConfig.enabled}")
+        logger.atFine().log("Professions config reloaded: enabled=${newConfig.enabled}")
     }
     
     // ============ Lifecycle Hooks (called by CoreModule) ============
@@ -437,7 +437,7 @@ class ProfessionsModule : AbstractModule(
                             )
                         }
                         
-                        logger.atInfo().log("Sent migration welcome message to player $playerId")
+                        logger.atFine().log("Sent migration welcome message to player $playerId")
                     }
                 }
             } catch (e: Exception) {
@@ -462,8 +462,8 @@ class ProfessionsModule : AbstractModule(
      * onStart() is already a suspend function, so we can call other suspend functions directly.
      */
     private suspend fun migrateV260Data() {
-        logger.atInfo().log("Checking for v2.6.0 data migration...")
-        logger.atInfo().log("Plugin data directory: ${context.dataDir}")
+        logger.atFine().log("Checking for v2.6.0 data migration...")
+        logger.atFine().log("Plugin data directory: ${context.dataDir}")
         
         try {
             val migration = V260DataMigration(professionsRepository, xpCalculator, logger)
@@ -473,14 +473,14 @@ class ProfessionsModule : AbstractModule(
             val pluginDataDir = context.dataDir
             
             if (migration.hasLegacyData(pluginDataDir)) {
-                logger.atInfo().log("Detected v2.6.0 legacy data, starting migration...")
+                logger.atFine().log("Detected v2.6.0 legacy data, starting migration...")
                 
                 // This suspend call will complete before onStart() returns
                 // Ensures migration finishes before player joins are processed
                 val result = migration.migrate(pluginDataDir)
                 
                 if (result.migratedPlayers > 0) {
-                    logger.atInfo().log(
+                    logger.atFine().log(
                         "Successfully migrated ${result.migratedPlayers} players from v2.6.0"
                     )
                     // Track migrated players so we can send welcome message on login
@@ -493,13 +493,13 @@ class ProfessionsModule : AbstractModule(
                     )
                 }
             } else {
-                logger.atInfo().log("No v2.6.0 legacy data found, skipping migration")
+                logger.atFine().log("No v2.6.0 legacy data found, skipping migration")
             }
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("v2.6.0 migration failed")
         }
         
-        logger.atInfo().log("v2.6.0 migration check complete")
+        logger.atFine().log("v2.6.0 migration check complete")
     }
     
     /**
@@ -515,7 +515,7 @@ class ProfessionsModule : AbstractModule(
         val result = professionsService.applyDeathPenalty(playerId)
         
         if (result.lostXpMap.isNotEmpty()) {
-            logger.atInfo().log("Applied death penalty to player $playerId: ${result.lostXpMap.size} professions affected, death count: ${result.deathCount}, penalty: ${(result.penaltyPercent * 100).toInt()}%")
+            logger.atFine().log("Applied death penalty to player $playerId: ${result.lostXpMap.size} professions affected, death count: ${result.deathCount}, penalty: ${(result.penaltyPercent * 100).toInt()}%")
             
             // Send chat messages to player about XP loss
             sendDeathPenaltyFeedback(playerId, result.lostXpMap, result.penaltyPercent)

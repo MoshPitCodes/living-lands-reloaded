@@ -40,7 +40,13 @@ class ClaimsModule : AbstractModule(
     dependencies = emptySet()  // Standalone module
 ) {
     
-    // Module-specific fields
+    /**
+     * Safety flag to prevent accidental enablement of incomplete module.
+     * Set to `true` when implementation is complete (Phase 3).
+     */
+    private val isImplemented = false
+    
+    // Module-specific fields (will be initialized when isImplemented = true)
     private lateinit var config: ClaimsConfig
     private lateinit var service: ClaimsService
     
@@ -51,7 +57,19 @@ class ClaimsModule : AbstractModule(
     private val playerClaimCounts = ConcurrentHashMap<UUID, Int>()
     
     override suspend fun onSetup() {
-        logger.atInfo().log("Claims module setting up...")
+        // Safety guard: Prevent enabling incomplete module
+        if (!isImplemented) {
+            logger.atSevere().log("❌ ClaimsModule is NOT IMPLEMENTED - refusing to start")
+            logger.atSevere().log("This is a stub module. Do not enable until Phase 3 implementation is complete.")
+            logger.atSevere().log("See docs/FUTURE_MODULES.md for design documentation and implementation checklist.")
+            throw UnsupportedOperationException(
+                "ClaimsModule is a stub and cannot be enabled. " +
+                "Set isImplemented = true after completing implementation. " +
+                "See docs/FUTURE_MODULES.md for details."
+            )
+        }
+        
+        logger.atFine().log("Claims module setting up...")
         
         // TODO: Load configuration
         // config = CoreModule.config.loadWithMigration(...)
@@ -67,11 +85,11 @@ class ClaimsModule : AbstractModule(
         // TODO: Register commands (/ll claim, /ll unclaim, /ll trust, /ll untrust, /ll claims)
         // TODO: Register visualization tick system (show boundaries when near claim edge)
         
-        logger.atInfo().log("Claims module setup complete (MOCK)")
+        logger.atFine().log("Claims module setup complete")
     }
     
     override suspend fun onStart() {
-        logger.atInfo().log("Claims module started (MOCK)")
+        logger.atFine().log("Claims module started (MOCK)")
     }
     
     override suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {
@@ -87,7 +105,7 @@ class ClaimsModule : AbstractModule(
     }
     
     override suspend fun onShutdown() {
-        logger.atInfo().log("Claims module shutting down (MOCK)")
+        logger.atFine().log("Claims module shutting down (MOCK)")
         claims.clear()
         playerClaimCounts.clear()
     }

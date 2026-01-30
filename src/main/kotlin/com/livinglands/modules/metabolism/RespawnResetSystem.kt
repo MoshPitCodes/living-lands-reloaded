@@ -115,7 +115,7 @@ class RespawnResetSystem(
      * This ensures no WorldThread blocking during ECS tick.
      */
     private fun handleRespawn(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        logger.atInfo().log("Player respawned: $playerId - resetting metabolism")
+        logger.atFine().log("Player respawned: $playerId - resetting metabolism")
         
         try {
             // 1. Immediate in-memory reset (synchronous, no blocking)
@@ -152,7 +152,7 @@ class RespawnResetSystem(
             // 5. Force HUD update immediately (synchronous)
             metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
             
-            logger.atInfo().log("Metabolism reset complete for player $playerId (persisting async)")
+            logger.atFine().log("Metabolism reset complete for player $playerId (persisting async)")
             
         } catch (e: Exception) {
             logger.atSevere().withCause(e)

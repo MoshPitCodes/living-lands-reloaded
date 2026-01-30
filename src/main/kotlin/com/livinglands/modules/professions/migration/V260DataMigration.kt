@@ -53,7 +53,7 @@ class V260DataMigration(
      */
     fun hasLegacyData(pluginDataDir: Path): Boolean {
         val absolutePluginDataDir = pluginDataDir.toAbsolutePath()
-        logger.atInfo().log("Absolute plugin data directory: $absolutePluginDataDir")
+        logger.atFine().log("Absolute plugin data directory: $absolutePluginDataDir")
         
         // Navigate from Saves\new1\mods\MPC_LivingLandsReloaded\data to UserData\Mods\LivingLands
         // Go up to UserData: data -> MPC_LivingLandsReloaded -> mods -> new1 -> Saves -> UserData
@@ -61,10 +61,10 @@ class V260DataMigration(
         val userDataDir = absolutePluginDataDir.parent?.parent?.parent?.parent?.parent
         val legacyDir = userDataDir?.resolve("Mods")?.resolve("LivingLands")?.resolve("leveling")?.resolve("playerdata")
         
-        logger.atInfo().log("Looking for v2.6.0 data at: $legacyDir")
+        logger.atFine().log("Looking for v2.6.0 data at: $legacyDir")
         
         if (legacyDir == null || !legacyDir.exists()) {
-            logger.atInfo().log("v2.6.0 legacy directory does not exist")
+            logger.atFine().log("v2.6.0 legacy directory does not exist")
             return false
         }
         
@@ -74,9 +74,9 @@ class V260DataMigration(
         }
         
         if (hasFiles) {
-            logger.atInfo().log("Found v2.6.0 legacy data at: $legacyDir")
+            logger.atFine().log("Found v2.6.0 legacy data at: $legacyDir")
         } else {
-            logger.atInfo().log("v2.6.0 directory exists but contains no .json files")
+            logger.atFine().log("v2.6.0 directory exists but contains no .json files")
         }
         
         return hasFiles
@@ -96,11 +96,11 @@ class V260DataMigration(
             val legacyDir = userDataDir?.resolve("Mods")?.resolve("LivingLands")?.resolve("leveling")?.resolve("playerdata")
             
             if (legacyDir == null || !legacyDir.exists()) {
-                logger.atInfo().log("No v2.6.0 legacy data found at: $legacyDir")
+                logger.atFine().log("No v2.6.0 legacy data found at: $legacyDir")
                 return@withContext MigrationResult(0, 0, 0)
             }
             
-            logger.atInfo().log("Starting v2.6.0 data migration from: $legacyDir")
+            logger.atFine().log("Starting v2.6.0 data migration from: $legacyDir")
             
             var totalPlayers = 0
             var migratedPlayers = 0
@@ -137,7 +137,7 @@ class V260DataMigration(
                 }
             }
             
-            logger.atInfo().log(
+            logger.atFine().log(
                 "v2.6.0 migration complete: $migratedPlayers/$totalPlayers migrated, $failedPlayers failed"
             )
             
@@ -184,10 +184,10 @@ class V260DataMigration(
             val hasRealProgress = existing.any { it.level > 1 || it.xp > 1000 }
             
             if (hasRealProgress) {
-                logger.atInfo().log("Player $playerId already has real progress (levels > 1), skipping migration to preserve data")
+                logger.atFine().log("Player $playerId already has real progress (levels > 1), skipping migration to preserve data")
                 return null
             } else {
-                logger.atInfo().log("Player $playerId has default data (all level 1), overwriting with v2.6.0 data")
+                logger.atFine().log("Player $playerId has default data (all level 1), overwriting with v2.6.0 data")
                 // Delete existing default data before migration
                 repository.deletePlayer(playerIdString)
             }

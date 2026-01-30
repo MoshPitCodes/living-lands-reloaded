@@ -73,7 +73,7 @@ abstract class AbstractModule(
         try {
             onStart()
             state = ModuleState.STARTED
-            logger.atInfo().log("Module '$id' v$version started")
+            logger.atFine().log("Module '$id' v$version started")
         } catch (e: Exception) {
             state = ModuleState.ERROR
             logger.atSevere().withCause(e).log("Failed to start module $id")
@@ -96,7 +96,7 @@ abstract class AbstractModule(
         try {
             onShutdown()
             state = ModuleState.STOPPED
-            logger.atInfo().log("Module '$id' shutdown complete")
+            logger.atFine().log("Module '$id' shutdown complete")
         } catch (e: Exception) {
             // Don't rethrow - allow other modules to continue shutdown
             state = ModuleState.ERROR

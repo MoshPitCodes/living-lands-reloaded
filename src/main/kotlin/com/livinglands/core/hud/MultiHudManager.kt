@@ -70,8 +70,8 @@ class MultiHudManager(
         professionsService: ProfessionsService? = null,
         abilityRegistry: AbilityRegistry? = null
     ) {
-        logger.atInfo().log("=== MultiHudManager.registerHud() called ===")
-        logger.atInfo().log("Player UUID: $playerId")
+        logger.atFine().log("=== MultiHudManager.registerHud() called ===")
+        logger.atFine().log("Player UUID: $playerId")
         
         // Store refs for cleanup
         playerRefs[playerId] = Pair(player, playerRef)
@@ -94,12 +94,12 @@ class MultiHudManager(
             val hudManager = player.hudManager
             hudManager.setCustomHud(playerRef, hudElement)
             hudElement.show()
-            logger.atInfo().log("Registered unified HUD for player $playerId")
+            logger.atFine().log("Registered unified HUD for player $playerId")
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("Failed to register unified HUD for player $playerId")
         }
         
-        logger.atInfo().log("=== MultiHudManager.registerHud() complete ===")
+        logger.atFine().log("=== MultiHudManager.registerHud() complete ===")
     }
     
     /**
@@ -130,7 +130,7 @@ class MultiHudManager(
      * @param registry The AbilityRegistry instance
      */
     fun setProfessionServicesForAll(service: ProfessionsService, registry: AbilityRegistry) {
-        logger.atInfo().log("Updating profession services for ${playerHuds.size} registered HUDs")
+        logger.atFine().log("Updating profession services for ${playerHuds.size} registered HUDs")
         playerHuds.values.forEach { hud ->
             hud.setProfessionServices(service, registry)
         }
@@ -233,7 +233,7 @@ class MultiHudManager(
                 val hudManager = player.hudManager
                 hudManager.setCustomHud(playerRef, hud)
                 hud.show()
-                logger.atInfo().log("Registered unified HUD via legacy setHud() for player $playerId")
+                logger.atFine().log("Registered unified HUD via legacy setHud() for player $playerId")
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Failed to register HUD via legacy setHud() for player $playerId")
             }

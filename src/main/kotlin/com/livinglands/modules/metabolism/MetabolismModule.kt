@@ -114,7 +114,7 @@ class MetabolismModule : AbstractModule(
     private val playerRefs = ConcurrentHashMap<UUID, Pair<Player, PlayerRef>>()
     
     override suspend fun onSetup() {
-        logger.atInfo().log("Metabolism module setting up...")
+        logger.atFine().log("Metabolism module setting up...")
         
         // Register migrations first
         CoreModule.config.registerMigrations(
@@ -138,7 +138,7 @@ class MetabolismModule : AbstractModule(
         // Create global repository (server-wide metabolism stats)
         metabolismRepository = MetabolismRepository(CoreModule.globalPersistence, logger)
         metabolismRepository.initialize()
-        logger.atInfo().log("Initialized global metabolism repository")
+        logger.atFine().log("Initialized global metabolism repository")
         
         // Create service
         metabolismService = MetabolismService(metabolismConfig, logger)
@@ -167,7 +167,7 @@ class MetabolismModule : AbstractModule(
                 logger
             )
             registerSystem(foodTickSystem)
-            logger.atInfo().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
+            logger.atFine().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
         }
         
         // Initialize buffs and debuffs system
@@ -244,11 +244,11 @@ class MetabolismModule : AbstractModule(
             onConfigReloaded()
         }
         
-        logger.atInfo().log("Metabolism module setup complete")
+        logger.atFine().log("Metabolism module setup complete")
     }
     
     override suspend fun onStart() {
-        logger.atInfo().log("Metabolism module started")
+        logger.atFine().log("Metabolism module started")
         
         // Initialize metabolism for any players already online
         initializeOnlinePlayers()
@@ -261,7 +261,7 @@ class MetabolismModule : AbstractModule(
      * Called by plugin through CoreModule after session is registered.
      */
     override suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {
-        logger.atInfo().log("Metabolism: onPlayerJoin called for $playerId")
+        logger.atFine().log("Metabolism: onPlayerJoin called for $playerId")
         
         // Get world context from session
         val worldContext = CoreModule.worlds.getContext(session.worldId)
@@ -406,7 +406,7 @@ class MetabolismModule : AbstractModule(
      * Called by plugin through CoreModule BEFORE session is unregistered.
      */
     override suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {
-        logger.atInfo().log("Metabolism: onPlayerDisconnect called for $playerId")
+        logger.atFine().log("Metabolism: onPlayerDisconnect called for $playerId")
         
         // Get world context from session
         val worldContext = CoreModule.worlds.getContext(session.worldId)
@@ -440,7 +440,7 @@ class MetabolismModule : AbstractModule(
         // Save metabolism stats to global database (this is blocking - we need to complete before session is removed)
         try {
             metabolismService.savePlayer(playerId, metabolismRepository)
-            logger.atInfo().log("Saved metabolism for disconnecting player $playerId (to global database)")
+            logger.atFine().log("Saved metabolism for disconnecting player $playerId (to global database)")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
                 .log("Failed to save metabolism for disconnecting player $playerId")
@@ -479,12 +479,12 @@ class MetabolismModule : AbstractModule(
     }
     
     override suspend fun onShutdown() {
-        logger.atInfo().log("Metabolism module shutting down...")
+        logger.atFine().log("Metabolism module shutting down...")
         
         // First, cancel the persistence scope to prevent new saves from starting
         // and wait for any in-flight saves to complete (with timeout)
         try {
-            logger.atInfo().log("Waiting for pending persistence operations...")
+            logger.atFine().log("Waiting for pending persistence operations...")
             
             // Get the supervisor job to wait on it
             val supervisorJob = persistenceScope.coroutineContext[Job]
@@ -497,11 +497,11 @@ class MetabolismModule : AbstractModule(
                 withTimeout(5000) {
                     supervisorJob.join()
                 }
-                logger.atInfo().log("All pending persistence operations completed")
+                logger.atFine().log("All pending persistence operations completed")
             }
         } catch (e: CancellationException) {
             // Expected when timeout occurs or scope is cancelled
-            logger.atInfo().log("Persistence scope cancelled (some saves may have been interrupted)")
+            logger.atFine().log("Persistence scope cancelled (some saves may have been interrupted)")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Error waiting for persistence operations")
         }
@@ -509,7 +509,7 @@ class MetabolismModule : AbstractModule(
         // Save all remaining players' metabolism data to global database (fallback for any not saved on disconnect)
         try {
             metabolismService.saveAllPlayers(metabolismRepository)
-            logger.atInfo().log("Saved all remaining metabolism data to global database")
+            logger.atFine().log("Saved all remaining metabolism data to global database")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Error saving metabolism data during shutdown")
         }
@@ -520,7 +520,7 @@ class MetabolismModule : AbstractModule(
         // Unregister config reload callback
         CoreModule.config.removeReloadCallback("metabolism")
         
-        logger.atInfo().log("Metabolism module shutdown complete")
+        logger.atFine().log("Metabolism module shutdown complete")
     }
     
     override fun onConfigReload() {
@@ -539,7 +539,7 @@ class MetabolismModule : AbstractModule(
         )
         metabolismConfig = newConfig
         metabolismService.updateConfig(newConfig)
-        logger.atInfo().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
+        logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
         
         // Re-resolve world-specific configs for all existing worlds
         var worldsResolved = 0
@@ -547,13 +547,13 @@ class MetabolismModule : AbstractModule(
             try {
                 worldContext.resolveMetabolismConfig(newConfig)
                 worldsResolved++
-                logger.atInfo().log("Re-resolved metabolism config for world ${worldContext.worldName}")
+                logger.atFine().log("Re-resolved metabolism config for world ${worldContext.worldName}")
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
                     .log("Failed to re-resolve metabolism config for world ${worldContext.worldName}")
             }
         }
-        logger.atInfo().log("Metabolism configs re-resolved for $worldsResolved worlds")
+        logger.atFine().log("Metabolism configs re-resolved for $worldsResolved worlds")
     }
     
     /**
@@ -593,7 +593,7 @@ class MetabolismModule : AbstractModule(
         
         val playerCount = metabolismService.getCacheSize()
         if (playerCount > 0) {
-            logger.atInfo().log("Initialized metabolism for $playerCount online players")
+            logger.atFine().log("Initialized metabolism for $playerCount online players")
         }
     }
     
@@ -624,7 +624,7 @@ class MetabolismModule : AbstractModule(
             }
             
             // Register the unified HUD with MultiHudManager
-            logger.atInfo().log("Registering unified HUD via MultiHudManager on world thread...")
+            logger.atFine().log("Registering unified HUD via MultiHudManager on world thread...")
             CoreModule.hudManager.registerHud(
                 player = player,
                 playerRef = playerRef,
@@ -634,7 +634,7 @@ class MetabolismModule : AbstractModule(
                 professionsService = professionsService,
                 abilityRegistry = abilityRegistry
             )
-            logger.atInfo().log("Registered unified HUD for player $playerId")
+            logger.atFine().log("Registered unified HUD for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
                 .log("Failed to register unified HUD for player $playerId")
@@ -689,10 +689,17 @@ class MetabolismModule : AbstractModule(
                     try {
                         val store = session.store
                         val entityRef = session.entityRef
-                        val player = store.getComponent(entityRef, Player.getComponentType())
-                        if (player != null) {
-                            // Remove unified HUD from MultiHudManager
-                            CoreModule.hudManager.removeHud(player, playerRef, playerId)
+                        
+                        // Check if entity ref is still valid (may be invalidated during disconnect)
+                        if (entityRef.isValid) {
+                            val player = store.getComponent(entityRef, Player.getComponentType())
+                            if (player != null) {
+                                // Remove unified HUD from MultiHudManager
+                                CoreModule.hudManager.removeHud(player, playerRef, playerId)
+                            }
+                        } else {
+                            // Entity already removed, just notify manager
+                            logger.atFine().log("Player entity already removed for $playerId, skipping HUD cleanup")
                         }
                     } catch (e: Exception) {
                         logger.atWarning().withCause(e)

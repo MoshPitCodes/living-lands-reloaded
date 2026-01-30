@@ -234,7 +234,7 @@ class ProfessionsService(
         val didLevelUp = newLevel > oldLevel
         
         if (didLevelUp) {
-            logger.atInfo().log("Player $playerId leveled up in ${profession.displayName}: $oldLevel -> $newLevel")
+            logger.atFine().log("Player $playerId leveled up in ${profession.displayName}: $oldLevel -> $newLevel")
         }
         
         return XpAwardResult(
@@ -381,7 +381,7 @@ class ProfessionsService(
             
             lostXpMap[profession] = lostXp
             
-            logger.atInfo().log("Applied death penalty to ${profession.displayName} for player $playerId: -$lostXp XP (${(penaltyPercent * 100).toInt()}% penalty, death $deathCount)")
+            logger.atFine().log("Applied death penalty to ${profession.displayName} for player $playerId: -$lostXp XP (${(penaltyPercent * 100).toInt()}% penalty, death $deathCount)")
         }
         
         // Send warning messages if thresholds crossed
@@ -405,15 +405,15 @@ class ProfessionsService(
         
         when (deathCount) {
             warningConfig.softWarningDeaths -> {
-                logger.atInfo().log("⚠️ Soft death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
+                logger.atFine().log("⚠️ Soft death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
                 // TODO: Send in-game message when player messaging API is available
             }
             warningConfig.hardWarningDeaths -> {
-                logger.atInfo().log("🚨 Hard death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
+                logger.atFine().log("🚨 Hard death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
                 // TODO: Send in-game message with actionable advice
             }
             warningConfig.criticalWarningDeaths -> {
-                logger.atInfo().log("💀 Critical death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty, mercy active: $mercyActive")
+                logger.atFine().log("💀 Critical death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty, mercy active: $mercyActive")
                 // TODO: Send in-game message with mercy system preview
             }
         }
@@ -475,7 +475,7 @@ class ProfessionsService(
         
         state.setXp(requiredXp, clampedLevel)
         
-        logger.atInfo().log("Set ${profession.displayName} level to $clampedLevel for player $playerId")
+        logger.atFine().log("Set ${profession.displayName} level to $clampedLevel for player $playerId")
     }
     
     /**
@@ -503,7 +503,7 @@ class ProfessionsService(
         
         state.setXp(0L, 1)
         
-        logger.atInfo().log("Reset ${profession.displayName} for player $playerId")
+        logger.atFine().log("Reset ${profession.displayName} for player $playerId")
     }
     
     // ============ Persistence ============
@@ -531,7 +531,7 @@ class ProfessionsService(
             // Save in batch transaction
             repository.saveAll(statsList)
             
-            logger.atInfo().log("Saved profession stats for player $playerId")
+            logger.atFine().log("Saved profession stats for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to save profession stats for player $playerId")
             throw e
@@ -565,7 +565,7 @@ class ProfessionsService(
             return
         }
         
-        logger.atInfo().log("Saving ${playerIds.size} players' profession stats during shutdown...")
+        logger.atFine().log("Saving ${playerIds.size} players' profession stats during shutdown...")
         
         var saved = 0
         var failed = 0
@@ -582,7 +582,7 @@ class ProfessionsService(
             }
         }
         
-        logger.atInfo().log("Shutdown save complete: $saved saved, $failed failed")
+        logger.atFine().log("Shutdown save complete: $saved saved, $failed failed")
     }
     
     /**
