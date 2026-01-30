@@ -54,6 +54,7 @@ class FoodEffectDetector(
     /**
      * Timestamp of last cleanup operation (milliseconds).
      */
+    @Volatile
     private var lastCleanupTime = System.currentTimeMillis()
     
     /**
@@ -182,12 +183,17 @@ class FoodEffectDetector(
      * 
      * Removes effects that haven't been seen for processedEffectTTL milliseconds.
      * This allows rapid consecutive consumption while preventing duplicates.
+     * 
+     * Also removes empty player effect maps to prevent memory leaks.
      */
     private fun cleanupIfNeeded() {
         val now = System.currentTimeMillis()
         if (now - lastCleanupTime >= cleanupIntervalMs) {
             // Remove effects older than TTL
-            for (playerEffects in processedEffectIndexes.values) {
+            val playersToRemove = mutableListOf<UUID>()
+            
+            for ((playerId, playerEffects) in processedEffectIndexes) {
+                // Remove expired effect indexes
                 val toRemove = mutableListOf<Int>()
                 for ((index, timestamp) in playerEffects) {
                     if (now - timestamp > processedEffectTTL) {
@@ -195,8 +201,39 @@ class FoodEffectDetector(
                     }
                 }
                 toRemove.forEach { playerEffects.remove(it) }
+                
+                // Mark player for removal if they have no active tracked effects
+                if (playerEffects.isEmpty()) {
+                    playersToRemove.add(playerId)
+                }
             }
+            
+            // Remove players with no tracked effects
+            playersToRemove.forEach { playerId ->
+                processedEffectIndexes.remove(playerId)
+            }
+            
+            // Also clean up previousEffects map for players with no effects
+            // This prevents memory leaks from offline players
+            val previousToRemove = mutableListOf<UUID>()
+            for ((playerId, effects) in previousEffects) {
+                if (effects.isEmpty() && !processedEffectIndexes.containsKey(playerId)) {
+                    previousToRemove.add(playerId)
+                }
+            }
+            previousToRemove.forEach { playerId ->
+                previousEffects.remove(playerId)
+            }
+            
             lastCleanupTime = now
+            
+            // Log cleanup stats if significant cleanup occurred
+            if (playersToRemove.size > 0 || previousToRemove.size > 0) {
+                logger.atFine().log(
+                    "FoodEffectDetector cleanup: removed ${playersToRemove.size} processed maps, " +
+                    "${previousToRemove.size} previous effect maps"
+                )
+            }
         }
     }
     
