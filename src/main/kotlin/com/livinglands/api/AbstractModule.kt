@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.command.system.AbstractCommand
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
+import com.livinglands.core.logging.LoggingManager
 import java.util.UUID
 
 /**
@@ -204,17 +205,10 @@ abstract class AbstractModule(
     }
     
     /**
-     * Check if debug mode is enabled.
-     */
-    protected fun isDebug(): Boolean = CoreModule.isDebug()
-    
-    /**
-     * Log a debug message (only if debug mode is enabled).
+     * Log a debug message using LoggingManager.
      */
     protected fun debug(message: String) {
-        if (isDebug()) {
-            logger.atFine().log("[$id] $message")
-        }
+        LoggingManager.debug(logger, id) { message }
     }
     
     // ============ Player Lifecycle Hooks ============

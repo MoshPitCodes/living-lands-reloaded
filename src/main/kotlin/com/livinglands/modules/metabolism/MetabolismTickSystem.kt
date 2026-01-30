@@ -12,6 +12,7 @@ import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.core.SpeedManager
@@ -133,9 +134,7 @@ class MetabolismTickSystem(
             }
         } catch (e: Exception) {
             // Log but don't crash - metabolism is not critical
-            if (CoreModule.isDebug()) {
-                logger.atFine().log("Error processing metabolism tick for $playerId: ${e.message}")
-            }
+            LoggingManager.debug(logger, "metabolism") { "Error processing metabolism tick for $playerId: ${e.message}" }
         }
     }
 }

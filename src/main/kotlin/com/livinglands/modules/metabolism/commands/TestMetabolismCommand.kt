@@ -39,8 +39,7 @@ class TestMetabolismCommand : CommandBase(
     
     override fun executeSync(ctx: CommandContext) {
         // Parse command arguments from input string
-        val inputString = ctx.inputString ?: ""
-        val args = inputString.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val args = ctx.inputString.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         
         if (args.isEmpty()) {
             sendUsage(ctx)
