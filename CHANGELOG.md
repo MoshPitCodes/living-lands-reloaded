@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-01-30
+
+### Fixed
+- **CRITICAL: Food Consumption Bug** - Fixed bug where consuming food only restored metabolism stats on the first consumption
+  - Root cause: Effect detection logic was incorrectly filtering out re-applied food effects
+  - Changed `FoodEffectDetector` to properly detect when the same food is consumed multiple times
+  - Food now correctly restores hunger/thirst/energy on every consumption
+- Removed duplicate cleanup call in `MetabolismModule` player disconnect handler
+- Reduced `processedEffectTTL` from 5s to 2s for better memory efficiency
+
+### Changed
+- Added debug logging for re-detected food effects to aid troubleshooting
+
 ## [1.1.0] - 2026-01-30
 
 ### Added
@@ -61,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/MoshPitCodes/living-lands-reloaded/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/MoshPitCodes/living-lands-reloaded/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.2.3
 [1.1.0]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.1.0
 [1.0.1-beta]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.0.1-beta
 [1.0.0-beta]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.0.0-beta

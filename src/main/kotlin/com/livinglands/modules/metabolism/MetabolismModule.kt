@@ -458,7 +458,7 @@ class MetabolismModule : AbstractModule(
                 speedManager.cleanup(playerId)
             }
             
-            // Cleanup food detection
+            // Cleanup food detection tracking
             if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
                 foodEffectDetector.cleanup(playerId)
             }
@@ -468,13 +468,8 @@ class MetabolismModule : AbstractModule(
                 respawnResetSystem.cleanup(playerId)
             }
             
-            // Always cleanup cache
+            // Always cleanup cache (includes UUID string cache cleanup)
             metabolismService.removeFromCache(playerId)
-            
-            // Cleanup food effect detector tracking
-            if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
-                foodEffectDetector.removePlayer(playerId)
-            }
         }
     }
     
