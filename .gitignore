@@ -63,5 +63,7 @@ docs/api-reference/
 docs/STANDARD_MODULE_STRUCTURE.md
 docs/HYTALE_WORLDGEN_V2.md
 docs/NIX_DEVELOPMENT_ENVIRONMENT.md
-docs/archive/AGENTS.md
 docs/social-media/
+
+# Agent instructions (kept locally only)
+AGENTS.md
