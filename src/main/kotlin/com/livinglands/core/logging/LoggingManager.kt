@@ -125,6 +125,7 @@ object LoggingManager {
     /**
      * Log a TRACE message (most verbose).
      * Only logged if the module's effective level is TRACE.
+     * Maps to java.util.logging.Level.FINEST
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier (e.g., "metabolism")
@@ -132,13 +133,14 @@ object LoggingManager {
      */
     inline fun trace(logger: HytaleLogger, moduleId: String, message: () -> String) {
         if (shouldLog(moduleId, LogLevel.TRACE)) {
-            logger.atFine().log("[TRACE][$moduleId] ${message()}")
+            logger.atFinest().log("[TRACE][$moduleId] ${message()}")
         }
     }
     
     /**
      * Log a DEBUG message.
      * Only logged if the module's effective level is DEBUG or lower.
+     * Maps to java.util.logging.Level.FINE
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier
@@ -151,8 +153,24 @@ object LoggingManager {
     }
     
     /**
+     * Log a CONFIG message.
+     * Only logged if the module's effective level is CONFIG or lower.
+     * Maps to java.util.logging.Level.CONFIG
+     * 
+     * @param logger Hytale logger instance
+     * @param moduleId Module identifier
+     * @param message Lazy message supplier
+     */
+    inline fun config(logger: HytaleLogger, moduleId: String, message: () -> String) {
+        if (shouldLog(moduleId, LogLevel.CONFIG)) {
+            logger.atConfig().log("[CONFIG][$moduleId] ${message()}")
+        }
+    }
+    
+    /**
      * Log an INFO message.
      * Only logged if the module's effective level is INFO or lower.
+     * Maps to java.util.logging.Level.INFO
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier
@@ -167,6 +185,7 @@ object LoggingManager {
     /**
      * Log a WARN message.
      * Only logged if the module's effective level is WARN or lower.
+     * Maps to java.util.logging.Level.WARNING
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier
@@ -181,6 +200,7 @@ object LoggingManager {
     /**
      * Log an ERROR message.
      * Only logged if the module's effective level is ERROR or lower.
+     * Maps to java.util.logging.Level.SEVERE
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier
@@ -188,13 +208,14 @@ object LoggingManager {
      */
     inline fun error(logger: HytaleLogger, moduleId: String, message: () -> String) {
         if (shouldLog(moduleId, LogLevel.ERROR)) {
-            logger.atWarning().log("[ERROR][$moduleId] ${message()}")
+            logger.atSevere().log("[ERROR][$moduleId] ${message()}")
         }
     }
     
     /**
      * Log an ERROR message with exception.
      * Always includes the exception stack trace.
+     * Maps to java.util.logging.Level.SEVERE
      * 
      * @param logger Hytale logger instance
      * @param moduleId Module identifier
@@ -203,7 +224,7 @@ object LoggingManager {
      */
     inline fun error(logger: HytaleLogger, moduleId: String, exception: Throwable, message: () -> String) {
         if (shouldLog(moduleId, LogLevel.ERROR)) {
-            logger.atWarning().withCause(exception).log("[ERROR][$moduleId] ${message()}")
+            logger.atSevere().withCause(exception).log("[ERROR][$moduleId] ${message()}")
         }
     }
     

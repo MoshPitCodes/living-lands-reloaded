@@ -8,18 +8,21 @@ Living Lands uses a configurable log level system that allows fine-grained contr
 
 From most to least verbose:
 
-| Level | Usage | When to Use |
-|-------|-------|-------------|
-| **TRACE** | Extremely detailed logging | Hot path details, every tick, every calculation. **Very verbose**, use sparingly. |
-| **DEBUG** | Detailed diagnostic information | State changes, important calculations, method entries/exits. For development debugging. |
-| **INFO** | General informational messages | Module lifecycle, player events, configuration changes. **Default level**. |
-| **WARN** | Warning messages | Degraded functionality, deprecated API usage, recoverable errors. |
-| **ERROR** | Error messages | Unrecoverable errors, exceptions, data corruption. |
-| **OFF** | No logging | Disables all logging. Not recommended except for performance testing. |
+| Level | Usage | Java Level | When to Use |
+|-------|-------|------------|-------------|
+| **TRACE** | Extremely detailed logging | FINEST (300) | Hot path details, every tick, every calculation. **Very verbose**, use sparingly. |
+| **DEBUG** | Detailed diagnostic information | FINE (500) | State changes, important calculations, method entries/exits. For development debugging. |
+| **CONFIG** | Configuration-related messages | CONFIG (700) | Config loading, validation, migration, hot-reload events. |
+| **INFO** | General informational messages | INFO (800) | Module lifecycle, player events, configuration changes. **Default level**. |
+| **WARN** | Warning messages | WARNING (900) | Degraded functionality, deprecated API usage, recoverable errors. |
+| **ERROR** | Error messages | SEVERE (1000) | Unrecoverable errors, exceptions, data corruption. |
+| **OFF** | No logging | N/A | Disables all logging. Not recommended except for performance testing. |
 
 **Hierarchy:** When you set a log level, all messages at that level **and above** are shown.
 
-**Example:** Setting level to `INFO` shows `INFO`, `WARN`, and `ERROR` messages, but hides `TRACE` and `DEBUG`.
+**Example:** Setting level to `INFO` shows `INFO`, `WARN`, and `ERROR` messages, but hides `TRACE`, `DEBUG`, and `CONFIG`.
+
+**Note:** Numeric values align with Java's `java.util.logging.Level` (higher number = more severe).
 
 ## Configuration
 
@@ -65,7 +68,7 @@ logging:
   moduleOverrides:
     metabolism: DEBUG    # Metabolism module uses DEBUG
     professions: TRACE   # Professions module uses TRACE (very verbose!)
-    core: WARN           # Core module only shows warnings and errors
+    core: CONFIG         # Core module shows config messages and above
 ```
 
 **Available Module IDs:**
@@ -74,14 +77,99 @@ logging:
 - `professions` - Professions system (XP, leveling, abilities)
 - `claims` - Land claims system (future)
 
+## Direct Logger vs LoggingManager
+
+Living Lands has two ways to log messages. Understanding when to use each is important:
+
+### When to Use LoggingManager (Preferred for Module Code)
+
+Use `LoggingManager` for module-specific logs that should respect per-module configuration:
+
+```kotlin
+import com.livinglands.core.logging.LoggingManager
+
+class MyModule {
+    private val logger = CoreModule.logger
+    
+    fun doWork() {
+        LoggingManager.trace(logger, "metabolism") { "Hot path details" }
+        LoggingManager.debug(logger, "metabolism") { "State: $value" }
+        LoggingManager.config(logger, "metabolism") { "Config loaded" }
+        LoggingManager.info(logger, "metabolism") { "Player joined" }
+        LoggingManager.warn(logger, "metabolism") { "Potential issue" }
+        LoggingManager.error(logger, "metabolism") { "Critical error" }
+    }
+}
+```
+
+**Benefits:**
+- Respects per-module log level configuration
+- Zero-cost logging when disabled (lambda evaluation is skipped)
+- Consistent `[LEVEL][MODULE]` prefix formatting
+- Perfect for hot paths (tick systems, frequent operations)
+
+### When to Use Direct Logger (Core Systems Only)
+
+Use direct `logger.atX()` calls for core system logs that should **always appear** regardless of module config:
+
+```kotlin
+class AbstractModule {
+    fun setup() {
+        logger.atInfo().log("Module '$id' setup complete")
+        
+        try {
+            riskyOperation()
+        } catch (e: Exception) {
+            logger.atSevere().withCause(e).log("Failed to setup module $id")
+        }
+    }
+}
+```
+
+**When to use:**
+- Plugin lifecycle events (setup, start, shutdown)
+- Core module initialization (CoreModule, ConfigManager)
+- Critical errors that must always be logged
+- AbstractModule lifecycle events
+
+**Trade-off:** These logs **bypass** per-module configuration and always respect Java's default log level.
+
+### Migration Strategy
+
+**Existing code:**
+- Direct logger calls in `AbstractModule` and `CoreModule` are **intentional** and should remain
+- These are core lifecycle logs that should always appear
+
+**New module code:**
+- Always use `LoggingManager` for module-specific functionality
+- Use appropriate log levels based on message importance
+- Use `CONFIG` level for configuration-related messages
+
+### Example: Configuration Loading
+
+```kotlin
+// OLD (using DEBUG)
+logger.atFine().log("Loaded metabolism config: enabled=${config.enabled}")
+
+// NEW (using CONFIG level)
+LoggingManager.config(logger, "metabolism") {
+    "Loaded config: enabled=${config.enabled}, version=${config.configVersion}"
+}
+```
+
 ## Common Scenarios
 
 ### Development / Debugging
 
 ```yaml
 logging:
-  globalLevel: DEBUG
+  globalLevel: INFO  # Valid values: TRACE, DEBUG, CONFIG, INFO, WARN, ERROR, OFF
   moduleOverrides: {}
+
+# Enabled modules
+enabledModules:
+  - metabolism
+  - professions
 ```
 
 This enables detailed logging across all modules for debugging issues.
@@ -224,7 +312,7 @@ class MyFeature {
     private val logger: HytaleLogger = CoreModule.logger
     
     fun doWork() {
-        // TRACE - Hot path details
+        // TRACE - Hot path details (very verbose!)
         LoggingManager.trace(logger, "metabolism") {
             "Processing tick for ${playerCount} players"
         }
@@ -232,6 +320,11 @@ class MyFeature {
         // DEBUG - Detailed diagnostic info
         LoggingManager.debug(logger, "metabolism") {
             "Player state: hunger=$hunger, thirst=$thirst"
+        }
+        
+        // CONFIG - Configuration-related messages
+        LoggingManager.config(logger, "metabolism") {
+            "Loaded config: enabled=$enabled, version=$configVersion"
         }
         
         // INFO - General events
