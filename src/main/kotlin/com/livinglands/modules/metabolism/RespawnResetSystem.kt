@@ -14,6 +14,7 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.toCachedString
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
+import com.livinglands.modules.professions.ProfessionsModule
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -103,6 +104,9 @@ class RespawnResetSystem(
             runBlocking {
                 metabolismService.resetStats(playerId, metabolismRepository)
             }
+            
+            // Trigger death penalty for professions
+            CoreModule.getModule<ProfessionsModule>("professions")?.handlePlayerRespawn(playerId)
             
             // Cleanup buffs and debuffs (remove all active effects)
             debuffsSystem?.cleanup(playerId, entityRef, store)
