@@ -185,7 +185,7 @@ class ProfAdminCommand(
         }
 
         professionsService.setLevel(playerId, data.profession, data.level)
-        logger.atInfo().log("Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}")
+        logger.atFine().log("Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}")
         
         // Notify player if online
         notifyPlayer(playerId, "[Admin] Your ${data.profession.displayName} was set to level ${data.level}")
@@ -202,10 +202,10 @@ class ProfAdminCommand(
         val result = professionsService.addXp(playerId, data.profession, data.xp)
 
         if (result.didLevelUp) {
-            logger.atInfo().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName} - Level up! ${result.oldLevel} → ${result.newLevel}")
+            logger.atFine().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName} - Level up! ${result.oldLevel} → ${result.newLevel}")
             notifyPlayer(playerId, "[Admin] You gained ${data.xp} XP in ${data.profession.displayName}! Level up: ${result.oldLevel} → ${result.newLevel}")
         } else {
-            logger.atInfo().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName}")
+            logger.atFine().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName}")
         }
     }
 
@@ -243,13 +243,13 @@ class ProfAdminCommand(
 
         if (data.profession != null) {
             professionsService.resetProfession(playerId, data.profession)
-            logger.atInfo().log("Reset ${data.profession.displayName} for ${data.playerName}")
+            logger.atFine().log("Reset ${data.profession.displayName} for ${data.playerName}")
             notifyPlayer(playerId, "[Admin] Your ${data.profession.displayName} has been reset to level 1")
         } else {
             Profession.values().forEach { profession ->
                 professionsService.resetProfession(playerId, profession)
             }
-            logger.atInfo().log("Reset all professions for ${data.playerName}")
+            logger.atFine().log("Reset all professions for ${data.playerName}")
             notifyPlayer(playerId, "[Admin] All your professions have been reset to level 1")
         }
     }

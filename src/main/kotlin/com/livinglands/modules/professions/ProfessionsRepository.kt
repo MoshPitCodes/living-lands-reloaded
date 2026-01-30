@@ -45,7 +45,7 @@ class ProfessionsRepository(
         
         if (currentVersion == 0) {
             // First-time setup
-            logger.atInfo().log("Initializing professions database schema (v$SCHEMA_VERSION)...")
+            logger.atFine().log("Initializing professions database schema (v$SCHEMA_VERSION)...")
             
             persistence.transaction { conn ->
                 // Create professions_stats table
@@ -72,10 +72,10 @@ class ProfessionsRepository(
             // Set schema version
             persistence.setModuleSchemaVersion(MODULE_ID, SCHEMA_VERSION)
             
-            logger.atInfo().log("Professions database schema initialized successfully")
+            logger.atFine().log("Professions database schema initialized successfully")
         } else if (currentVersion < SCHEMA_VERSION) {
             // Future migrations go here
-            logger.atInfo().log("Professions schema at v$currentVersion, migrations not yet implemented")
+            logger.atFine().log("Professions schema at v$currentVersion, migrations not yet implemented")
         } else {
             logger.atFine().log("Professions schema up-to-date (v$currentVersion)")
         }
@@ -288,7 +288,7 @@ class ProfessionsRepository(
             stmt.close()
         }
         
-        logger.atInfo().log("Reset profession ${profession.displayName} for player $playerId")
+        logger.atFine().log("Reset profession ${profession.displayName} for player $playerId")
     }
     
     /**
@@ -313,7 +313,7 @@ class ProfessionsRepository(
         // Re-initialize with defaults
         ensureStats(playerId)
         
-        logger.atInfo().log("Reset all professions for player $playerId")
+        logger.atFine().log("Reset all professions for player $playerId")
     }
     
     /**
@@ -332,7 +332,7 @@ class ProfessionsRepository(
             val deleted = stmt.executeUpdate()
             stmt.close()
             
-            logger.atInfo().log("Deleted $deleted profession records for player $playerId")
+            logger.atFine().log("Deleted $deleted profession records for player $playerId")
         }
     }
 }

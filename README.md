@@ -33,21 +33,18 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.1.0** - Metabolism system complete. Professions ~60% complete (XP systems, Tier 1 abilities, death penalty, and admin commands working. Tier 2/3 abilities are stubs).
+**Current Status:** **v1.2.2** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Code cleanup and logging improvements.
 
 ---
 
-## ⚠️ Known Limitations
+## Recent Updates
 
-**Professions Module - Partial Implementation:**
-- ✅ XP systems work (all 5 professions award XP)
-- ✅ Tier 1 abilities work (+15% XP boosts)
-- ✅ Death penalty system works (progressive 10-35% XP loss)
-- ✅ Admin commands implemented (`/ll prof set/add/reset/show`)
-- ❌ **Tier 2 abilities defined but NOT integrated** (no stat bonuses applied)
-- ❌ **Tier 3 abilities defined but NOT triggered** (no passive effects)
-
-See [Implementation Status](#implementation-status) for detailed breakdown.
+**v1.2.2 Changes:**
+- ✅ Logging system improvements (aligned with Java log levels)
+- ✅ Codebase cleanup (removed 770 lines of stub code)
+- ✅ Fixed player disconnect race condition
+- ✅ All INFO logs changed to FINE for cleaner output
+- ✅ Added safety guards to prevent incomplete module enablement
 
 ---
 
@@ -102,10 +99,10 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 | | Buffs/Debuffs | ✅ Complete | Hysteresis-based states |
 | **Professions** | XP Systems | ✅ Complete | All 5 professions award XP |
 | | Tier 1 Abilities | ✅ Complete | +15% XP boosts work |
+| | Tier 2 Abilities | ✅ Complete | Max stat bonuses integrated |
 | | Death Penalty | ✅ Complete | Progressive 10-35% XP loss |
 | | Admin Commands | ✅ Complete | `/ll prof set/add/reset/show` |
-| | Tier 2 Abilities | ❌ **Stubs** | Classes defined, no MetabolismService integration |
-| | Tier 3 Abilities | ❌ **Stubs** | Classes defined, no trigger code |
+| | Tier 3 Abilities | 🚧 Planned | Passive effects (future) |
 
 ---
 
@@ -120,7 +117,7 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 
 ### Quick Start
 
-1. Download `livinglands-reloaded-1.1.0.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+1. Download `livinglands-reloaded-1.2.2.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
 2. Place in Hytale server's `plugins/` directory
 3. Start server - configs auto-generated in `LivingLandsReloaded/config/`
 
@@ -130,7 +127,7 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 git clone https://github.com/MoshPitCodes/living-lands-reloaded.git
 cd living-lands-reloaded
 ./gradlew build
-# JAR: build/libs/livinglands-reloaded-1.1.0.jar
+# JAR: build/libs/livinglands-reloaded-1.2.2.jar
 ```
 
 ---
@@ -235,20 +232,22 @@ src/main/kotlin/com/livinglands/
 
 ## Roadmap
 
-### v1.1.0 (Current)
+### v1.2.2 (Current)
 - ✅ Metabolism system complete
 - ✅ Core infrastructure stable
 - ✅ Professions XP systems complete
-- ✅ Tier 1 abilities (+15% XP boosts)
+- ✅ Tier 1 & Tier 2 abilities fully integrated
 - ✅ Death penalty system
 - ✅ Admin commands (`/ll prof set/add/reset/show`)
 - ✅ Thread safety improvements
-- ✅ Async command execution
+- ✅ Logging system aligned with Java standards
+- ✅ Codebase cleanup (removed stub modules)
+- ✅ Player disconnect race condition fixed
 
-### Next Sprint (v1.2.0)
-- [ ] Tier 2 ability integration (stat bonuses at level 45)
+### Next Sprint (v1.3.0)
 - [ ] Tier 3 ability triggers (passive effects at level 100)
 - [ ] World switch handling for ability persistence
+- [ ] Performance optimizations
 
 ### Future
 - [ ] Claims module (land protection)

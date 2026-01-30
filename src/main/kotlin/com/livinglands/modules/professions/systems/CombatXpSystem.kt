@@ -106,7 +106,7 @@ class CombatXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atInfo().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
         }
         
         // Notify HUD elements (panel + notification)
@@ -119,7 +119,7 @@ class CombatXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atInfo().log("Player ${playerUuid} leveled up Combat: ${result.oldLevel} → ${result.newLevel}")
+            logger.atFine().log("Player ${playerUuid} leveled up Combat: ${result.oldLevel} → ${result.newLevel}")
         }
         
         // Debug logging

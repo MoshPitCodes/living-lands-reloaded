@@ -178,7 +178,7 @@ object LoggingManager {
      */
     inline fun info(logger: HytaleLogger, moduleId: String, message: () -> String) {
         if (shouldLog(moduleId, LogLevel.INFO)) {
-            logger.atInfo().log("[INFO][$moduleId] ${message()}")
+            logger.atFine().log("[INFO][$moduleId] ${message()}")
         }
     }
     

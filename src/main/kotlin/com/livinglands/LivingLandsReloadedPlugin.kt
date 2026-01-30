@@ -46,11 +46,11 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         instance = this
         
         // Startup banner
-        logger.atInfo().log("========================================")
-        logger.atInfo().log("  $PLUGIN_NAME v$VERSION")
-        logger.atInfo().log("  https://github.com/MoshPitCodes")
-        logger.atInfo().log("========================================")
-        logger.atInfo().log("$PLUGIN_NAME setting up...")
+        logger.atFine().log("========================================")
+        logger.atFine().log("  $PLUGIN_NAME v$VERSION")
+        logger.atFine().log("  https://github.com/MoshPitCodes")
+        logger.atFine().log("========================================")
+        logger.atFine().log("$PLUGIN_NAME setting up...")
         
         // Initialize core module
         CoreModule.initialize(this)
@@ -73,16 +73,16 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // Start all modules
         startAllModules()
         
-        logger.atInfo().log("========================================")
-        logger.atInfo().log("  $PLUGIN_NAME v$VERSION - STARTED")
-        logger.atInfo().log("  Worlds: ${CoreModule.worlds.getWorldCount()}")
-        logger.atInfo().log("  Players: ${CoreModule.players.getSessionCount()}")
-        logger.atInfo().log("  Modules: ${CoreModule.getModuleCount()}")
-        logger.atInfo().log("========================================")
+        logger.atFine().log("========================================")
+        logger.atFine().log("  $PLUGIN_NAME v$VERSION - STARTED")
+        logger.atFine().log("  Worlds: ${CoreModule.worlds.getWorldCount()}")
+        logger.atFine().log("  Players: ${CoreModule.players.getSessionCount()}")
+        logger.atFine().log("  Modules: ${CoreModule.getModuleCount()}")
+        logger.atFine().log("========================================")
     }
     
     override fun shutdown() {
-        logger.atInfo().log("$PLUGIN_NAME shutting down...")
+        logger.atFine().log("$PLUGIN_NAME shutting down...")
         
         // Shutdown all modules first
         shutdownAllModules()
@@ -157,37 +157,37 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      * Register all event listeners for core functionality.
      */
     private fun registerEventListeners() {
-        logger.atInfo().log("=== REGISTERING EVENT LISTENERS ===")
+        logger.atFine().log("=== REGISTERING EVENT LISTENERS ===")
         val events = eventRegistry
         
         // World lifecycle events
         events.register(AddWorldEvent::class.java) { event ->
-            logger.atInfo().log("=== ADD WORLD EVENT FIRED ===")
-            logger.atInfo().log("World: ${event.world.worldConfig.uuid}")
+            logger.atFine().log("=== ADD WORLD EVENT FIRED ===")
+            logger.atFine().log("World: ${event.world.worldConfig.uuid}")
             try {
                 CoreModule.worlds.onWorldAdded(event)
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Error in AddWorldEvent")
             }
         }
-        logger.atInfo().log("Registered: AddWorldEvent")
+        logger.atFine().log("Registered: AddWorldEvent")
         
         events.register(RemoveWorldEvent::class.java) { event ->
-            logger.atInfo().log("=== REMOVE WORLD EVENT FIRED ===")
-            logger.atInfo().log("World: ${event.world.worldConfig.uuid}")
+            logger.atFine().log("=== REMOVE WORLD EVENT FIRED ===")
+            logger.atFine().log("World: ${event.world.worldConfig.uuid}")
             try {
                 CoreModule.worlds.onWorldRemoved(event)
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Error in RemoveWorldEvent")
             }
         }
-        logger.atInfo().log("Registered: RemoveWorldEvent")
+        logger.atFine().log("Registered: RemoveWorldEvent")
         
         // Player lifecycle events
         // NOTE: PlayerReadyEvent has KeyType=String, use registerGlobal (like v2.6.0)
         events.registerGlobal(PlayerReadyEvent::class.java) { event ->
-            logger.atInfo().log("=== PLAYER READY EVENT FIRED ===")
-            logger.atInfo().log("Player: ${event?.player}")
+            logger.atFine().log("=== PLAYER READY EVENT FIRED ===")
+            logger.atFine().log("Player: ${event?.player}")
             try {
                 if (event != null) {
                     onPlayerReady(event)
@@ -196,11 +196,11 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
                 logger.atSevere().withCause(e).log("Error in PlayerReadyEvent")
             }
         }
-        logger.atInfo().log("Registered: PlayerReadyEvent (global)")
+        logger.atFine().log("Registered: PlayerReadyEvent (global)")
         
         events.register(PlayerDisconnectEvent::class.java) { event ->
-            logger.atInfo().log("=== PLAYER DISCONNECT EVENT FIRED ===")
-            logger.atInfo().log("PlayerRef: ${event?.playerRef}")
+            logger.atFine().log("=== PLAYER DISCONNECT EVENT FIRED ===")
+            logger.atFine().log("PlayerRef: ${event?.playerRef}")
             try {
                 if (event != null) {
                     onPlayerDisconnect(event)
@@ -209,9 +209,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
                 logger.atSevere().withCause(e).log("Error in PlayerDisconnectEvent")
             }
         }
-        logger.atInfo().log("Registered: PlayerDisconnectEvent")
+        logger.atFine().log("Registered: PlayerDisconnectEvent")
         
-        logger.atInfo().log("=== EVENT LISTENERS REGISTERED ===")
+        logger.atFine().log("=== EVENT LISTENERS REGISTERED ===")
     }
     
     /**
@@ -219,14 +219,14 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      * Subcommands will be added during module setup.
      */
     private fun createMainCommand() {
-        logger.atInfo().log("=== CREATING MAIN COMMAND ===")
+        logger.atFine().log("=== CREATING MAIN COMMAND ===")
         try {
             val llCmd = LLCommand()
-            logger.atInfo().log("Created LLCommand: name='${llCmd.name}', description='${llCmd.description}'")
+            logger.atFine().log("Created LLCommand: name='${llCmd.name}', description='${llCmd.description}'")
             
             // Store in CoreModule so modules can register subcommands
             CoreModule.mainCommand = llCmd
-            logger.atInfo().log("Main command created (subcommands will be added by modules)")
+            logger.atFine().log("Main command created (subcommands will be added by modules)")
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("FAILED to create main command")
             e.printStackTrace()
@@ -237,15 +237,15 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      * Register the main command (after modules have added their subcommands).
      */
     private fun registerMainCommand() {
-        logger.atInfo().log("=== REGISTERING MAIN COMMAND ===")
+        logger.atFine().log("=== REGISTERING MAIN COMMAND ===")
         try {
             commandRegistry.registerCommand(CoreModule.mainCommand)
-            logger.atInfo().log("LLCommand registered successfully with all subcommands")
+            logger.atFine().log("LLCommand registered successfully with all subcommands")
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("FAILED to register main command")
             e.printStackTrace()
         }
-        logger.atInfo().log("=== COMMAND REGISTRATION COMPLETE ===")
+        logger.atFine().log("=== COMMAND REGISTRATION COMPLETE ===")
     }
     
     /**
@@ -254,29 +254,29 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      */
     @Suppress("DEPRECATION")
     private fun onPlayerReady(event: PlayerReadyEvent) {
-        logger.atInfo().log(">>> onPlayerReady() called")
+        logger.atFine().log(">>> onPlayerReady() called")
         val player = event.player
-        logger.atInfo().log("Player object: $player")
+        logger.atFine().log("Player object: $player")
         
         // Note: getUuid() and getPlayerRef() are deprecated but necessary
         val playerId = player.getUuid()
-        logger.atInfo().log("Player UUID: $playerId")
+        logger.atFine().log("Player UUID: $playerId")
         
         if (playerId == null) {
-            logger.atInfo().log("Player has no UUID, skipping session creation")
+            logger.atFine().log("Player has no UUID, skipping session creation")
             return
         }
         
         val world = player.world
-        logger.atInfo().log("Player world: $world")
+        logger.atFine().log("Player world: $world")
         
         if (world == null) {
-            logger.atInfo().log("Player $playerId has no world, skipping session creation")
+            logger.atFine().log("Player $playerId has no world, skipping session creation")
             return
         }
         
         val worldId = world.worldConfig.uuid
-        logger.atInfo().log("World UUID: $worldId")
+        logger.atFine().log("World UUID: $worldId")
         
         // Get the entity reference from the event (this is Ref<EntityStore>)
         val entityRef = event.playerRef
@@ -293,11 +293,11 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         val isNewSession = !CoreModule.players.hasSession(playerId)
         val oldSession = if (isNewSession) {
             CoreModule.players.register(session)
-            logger.atInfo().log("Registered new player session: $playerId in world ${world.name}")
+            logger.atFine().log("Registered new player session: $playerId in world ${world.name}")
             null
         } else {
             val old = CoreModule.players.update(session)
-            logger.atInfo().log("Updated player session: $playerId switched from world ${old?.world?.name} to ${world.name}")
+            logger.atFine().log("Updated player session: $playerId switched from world ${old?.world?.name} to ${world.name}")
             old
         }
         
@@ -308,7 +308,7 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         val playerRef = player.getPlayerRef()
         val playerName = playerRef?.username ?: "Unknown"
         worldContext.onPlayerJoin(playerId.toString(), playerName)
-        logger.atInfo().log("Player joined: $playerName ($playerId) in world ${world.name}")
+        logger.atFine().log("Player joined: $playerName ($playerId) in world ${world.name}")
         
         // Notify all modules of player join asynchronously (non-blocking)
         // Each module handles their own async initialization internally
@@ -380,7 +380,7 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // This is normal for duplicate events (e.g., server shutdown)
         val session = CoreModule.players.getSession(playerId) ?: return
         
-        logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId}")
+        logger.atFine().log("Player disconnecting: $playerId from world ${session.worldId}")
         
         // Persist player leave to database (fire-and-forget, non-blocking)
         val worldContext = CoreModule.worlds.getContext(session.worldId)
@@ -400,7 +400,7 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
             } finally {
                 // ALWAYS unregister session after modules complete (or fail) to prevent memory leak
                 CoreModule.players.unregister(playerId)
-                logger.atInfo().log("Unregistered player session: $playerId")
+                logger.atFine().log("Unregistered player session: $playerId")
             }
         }
     }

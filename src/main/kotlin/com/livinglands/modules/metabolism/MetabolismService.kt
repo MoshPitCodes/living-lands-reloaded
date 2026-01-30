@@ -162,7 +162,7 @@ class MetabolismService(
         state.updateStats(100f, 100f, 100f, currentTime)
         state.lastDepletionTime = currentTime
         
-        logger.atInfo().log("Reset metabolism in-memory for player $playerId to defaults (H=100, T=100, E=100)")
+        logger.atFine().log("Reset metabolism in-memory for player $playerId to defaults (H=100, T=100, E=100)")
         return true
     }
     
@@ -182,7 +182,7 @@ class MetabolismService(
         // Use cached string representation (avoids allocation on subsequent calls)
         val playerIdStr = playerId.toCachedString()
         
-        logger.atInfo().log("🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr")
+        logger.atFine().log("🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr")
         
         // Load or create stats from global database
         val stats = repository.ensureStats(playerIdStr)
@@ -193,7 +193,7 @@ class MetabolismService(
         // Cache the state (single map entry instead of 4)
         playerStates[playerIdStr] = state
         
-        logger.atInfo().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+        logger.atFine().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
     }
     
     /**
@@ -691,7 +691,7 @@ class MetabolismService(
         // Use cached string
         val playerIdStr = playerId.toCachedString()
         
-        logger.atInfo().log("savePlayer() called for $playerId")
+        logger.atFine().log("savePlayer() called for $playerId")
         
         val state = playerStates[playerIdStr]
         if (state == null) {
@@ -702,9 +702,9 @@ class MetabolismService(
         try {
             // Convert mutable state to immutable for database
             val stats = state.toImmutableStats()
-            logger.atInfo().log("About to save stats for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+            logger.atFine().log("About to save stats for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
             repository.updateStats(stats)
-            logger.atInfo().log("Successfully saved metabolism for player $playerId")
+            logger.atFine().log("Successfully saved metabolism for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to save metabolism for player $playerId")
             throw e  // Re-throw so caller knows save failed
@@ -728,7 +728,7 @@ class MetabolismService(
         try {
             // Save all stats to global database in one transaction
             repository.saveAll(allStats)
-            logger.atInfo().log("Saved metabolism for ${allStats.size} players to global database")
+            logger.atFine().log("Saved metabolism for ${allStats.size} players to global database")
         } catch (e: Exception) {
             logger.atWarning().withCause(e)
                 .log("Failed to save metabolism stats to global database")

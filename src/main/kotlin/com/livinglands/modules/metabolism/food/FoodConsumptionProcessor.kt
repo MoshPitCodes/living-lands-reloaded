@@ -57,7 +57,7 @@ class FoodConsumptionProcessor(
         )
         
         // Log food consumption at INFO level (useful for server monitoring)
-        logger.atInfo().log(
+        logger.atFine().log(
             "Food consumed: ${detection.effectId} " +
             "(type=${detection.foodType}, tier=${detection.tier}) -> " +
             "H+%.2f, T+%.2f, E+%.2f".format(hungerRestore, thirstRestore, energyRestore)

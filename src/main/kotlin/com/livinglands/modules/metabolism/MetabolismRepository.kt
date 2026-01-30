@@ -89,17 +89,17 @@ class MetabolismRepository(
      */
     suspend fun ensureStats(playerId: String): MetabolismStats {
         return persistence.execute { conn ->
-            logger.atInfo().log("ensureStats() called for player: $playerId")
+            logger.atFine().log("ensureStats() called for player: $playerId")
             val existing = findByIdInternal(conn, playerId)
             
             if (existing != null) {
-                logger.atInfo().log("✅ LOADED existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
+                logger.atFine().log("✅ LOADED existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
                 existing
             } else {
                 // Create default stats
                 val stats = MetabolismStats.createDefault(playerId)
                 insertInternal(conn, stats)
-                logger.atInfo().log("✅ CREATED default metabolism stats for player: $playerId (H=100, T=100, E=100)")
+                logger.atFine().log("✅ CREATED default metabolism stats for player: $playerId (H=100, T=100, E=100)")
                 stats
             }
         }
@@ -190,7 +190,7 @@ class MetabolismRepository(
                 stmt.setFloat(4, stats.energy)
                 stmt.setLong(5, stats.lastUpdated)
                 val rowsAffected = stmt.executeUpdate()
-                logger.atInfo().log("SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+                logger.atFine().log("SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
             }
         }
     }

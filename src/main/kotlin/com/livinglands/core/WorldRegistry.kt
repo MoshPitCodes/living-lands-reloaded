@@ -105,7 +105,7 @@ class WorldRegistry(
         val worldId = world.worldConfig.uuid
         val worldName = world.name
         return worlds.getOrPut(worldId) {
-            logger.atInfo().log("Creating lazy WorldContext for $worldName ($worldId)")
+            logger.atFine().log("Creating lazy WorldContext for $worldName ($worldId)")
             // Also update name mapping for lazy-created worlds
             nameToUuid[worldName.lowercase()] = worldId
             WorldContext(

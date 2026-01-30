@@ -31,7 +31,7 @@ class LivingLandsHud(
     override fun build(builder: UICommandBuilder) {
         // Only append UI file on first build
         if (firstBuild) {
-            logger.atInfo().log("LivingLandsHud: First build, appending UI file: $UI_FILE")
+            logger.atFine().log("LivingLandsHud: First build, appending UI file: $UI_FILE")
             builder.append(UI_FILE)
             firstBuild = false
         }

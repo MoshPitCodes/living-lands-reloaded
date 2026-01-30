@@ -367,12 +367,12 @@ class LivingLandsHudElement(
      */
     private fun populateProfessionsData(builder: UICommandBuilder) {
         val service = professionsService ?: run {
-            logger.atInfo().log("populateProfessionsData: professionsService is null")
+            logger.atFine().log("populateProfessionsData: professionsService is null")
             return
         }
         val registry = abilityRegistry
         
-        logger.atInfo().log("populateProfessionsData: Starting population for player $playerId")
+        logger.atFine().log("populateProfessionsData: Starting population for player $playerId")
         
         var totalXp = 0L
         var populatedCount = 0
@@ -380,7 +380,7 @@ class LivingLandsHudElement(
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
             if (stats == null) {
-                logger.atInfo().log("populateProfessionsData: Stats null for ${profession.name}")
+                logger.atFine().log("populateProfessionsData: Stats null for ${profession.name}")
                 return@forEach
             }
             
@@ -401,7 +401,7 @@ class LivingLandsHudElement(
             // Set level and XP text
             val progressPercent = (progress * 100).toInt()
             val levelText = "Lv $level | ${formatXp(xpInLevel)}/${formatXp(xpNeeded)} XP ($progressPercent%)"
-            logger.atInfo().log("Setting #${prefix}Level.Text = $levelText")
+            logger.atFine().log("Setting #${prefix}Level.Text = $levelText")
             builder.set("#${prefix}Level.Text", levelText)
             
             // Get abilities for this profession
@@ -427,7 +427,7 @@ class LivingLandsHudElement(
             }
         }
         
-        logger.atInfo().log("populateProfessionsData: Populated $populatedCount professions, total XP: $totalXp")
+        logger.atFine().log("populateProfessionsData: Populated $populatedCount professions, total XP: $totalXp")
         builder.set("#ProfessionsTotalXp.Text", "Total XP Earned: ${formatXp(totalXp)}")
     }
     
@@ -488,18 +488,18 @@ class LivingLandsHudElement(
      */
     private fun populateProgressData(builder: UICommandBuilder) {
         val service = professionsService ?: run {
-            logger.atInfo().log("populateProgressData: professionsService is null")
+            logger.atFine().log("populateProgressData: professionsService is null")
             return
         }
         
-        logger.atInfo().log("populateProgressData: Starting population for player $playerId")
+        logger.atFine().log("populateProgressData: Starting population for player $playerId")
         
         var populatedCount = 0
         
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
             if (stats == null) {
-                logger.atInfo().log("populateProgressData: Stats null for ${profession.name}")
+                logger.atFine().log("populateProgressData: Stats null for ${profession.name}")
                 return@forEach
             }
             
@@ -514,7 +514,7 @@ class LivingLandsHudElement(
             
             // Set level text (fix: use ProgressLevel to match UI element IDs)
             val levelText = "Lv $level"
-            logger.atInfo().log("Setting #${professionName}ProgressLevel.Text = $levelText")
+            logger.atFine().log("Setting #${professionName}ProgressLevel.Text = $levelText")
             builder.set("#${professionName}ProgressLevel.Text", levelText)
             
             // Set progress percentage
@@ -530,7 +530,7 @@ class LivingLandsHudElement(
             builder.set("#${professionName}Xp.Text", xpText)
         }
         
-        logger.atInfo().log("populateProgressData: Populated $populatedCount professions")
+        logger.atFine().log("populateProgressData: Populated $populatedCount professions")
     }
     
     /**
@@ -577,7 +577,7 @@ class LivingLandsHudElement(
      * This is called by ProfessionsModule when it starts up.
      */
     fun setProfessionServices(service: ProfessionsService, registry: AbilityRegistry) {
-        logger.atInfo().log("setProfessionServices called for player $playerId")
+        logger.atFine().log("setProfessionServices called for player $playerId")
         this.professionsService = service
         this.abilityRegistry = registry
         
@@ -586,7 +586,7 @@ class LivingLandsHudElement(
         progressPanelNeedsRefresh = true
         
         // Data will be populated when the panel is toggled visible via /ll profession
-        logger.atInfo().log("setProfessionServices: Profession services ready, panel will populate on toggle")
+        logger.atFine().log("setProfessionServices: Profession services ready, panel will populate on toggle")
     }
     
     // ============ Utility Methods ============

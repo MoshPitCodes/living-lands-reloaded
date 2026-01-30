@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
  * 
  * **Important:** Since command execution is async, you cannot send messages back to the player
  * via `ctx.sendMessage()` in `executeAsync()`. Instead:
- * - Use `logger.atInfo()` for operational feedback
+ * - Use `logger.atFine()` for operational feedback
  * - Use `CoreModule.players.getSession()` to find the player and send messages via the world thread
  * - Or design commands to be "fire and forget" where results are visible through gameplay
  */

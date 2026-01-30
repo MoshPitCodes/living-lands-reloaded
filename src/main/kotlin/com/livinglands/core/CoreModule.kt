@@ -174,8 +174,8 @@ object CoreModule {
         applyLoggingConfig(coreConfig)
         
         initialized = true
-        logger.atInfo().log("CoreModule initialized (logLevel=${coreConfig.logging.globalLevel})")
-        logger.atInfo().log(com.livinglands.core.logging.LoggingManager.getConfigurationSummary())
+        logger.atFine().log("CoreModule initialized (logLevel=${coreConfig.logging.globalLevel})")
+        logger.atFine().log(com.livinglands.core.logging.LoggingManager.getConfigurationSummary())
     }
     
     /**
@@ -199,7 +199,7 @@ object CoreModule {
             try {
                 context.cleanup()
             } catch (e: Exception) {
-                logger.atInfo().log("Error cleaning up world ${context.worldId}: ${e.message}")
+                logger.atFine().log("Error cleaning up world ${context.worldId}: ${e.message}")
             }
         }
         
@@ -222,7 +222,7 @@ object CoreModule {
         services.clear()
         
         initialized = false
-        logger.atInfo().log("CoreModule shutdown complete")
+        logger.atFine().log("CoreModule shutdown complete")
     }
     
     /**
@@ -303,7 +303,7 @@ object CoreModule {
             }
         }
         
-        logger.atInfo().log("Logging configuration applied: global=$globalLevel, overrides=${config.logging.moduleOverrides.size}")
+        logger.atFine().log("Logging configuration applied: global=$globalLevel, overrides=${config.logging.moduleOverrides.size}")
     }
     
     // ============ Module Registration & Lifecycle ============
@@ -367,7 +367,7 @@ object CoreModule {
         moduleOrder.clear()
         moduleOrder.addAll(sorted)
         
-        logger.atInfo().log("Setting up ${moduleOrder.size} modules in order: ${moduleOrder.joinToString(" -> ")}")
+        logger.atFine().log("Setting up ${moduleOrder.size} modules in order: ${moduleOrder.joinToString(" -> ")}")
         
         // Setup each module in order
         for (moduleId in moduleOrder) {
@@ -384,7 +384,7 @@ object CoreModule {
         
         val setupCount = modules.values.count { it.state == ModuleState.SETUP }
         val errorCount = modules.values.count { it.state == ModuleState.ERROR }
-        logger.atInfo().log("Module setup complete: $setupCount succeeded, $errorCount failed")
+        logger.atFine().log("Module setup complete: $setupCount succeeded, $errorCount failed")
     }
     
     /**
@@ -397,7 +397,7 @@ object CoreModule {
             return
         }
         
-        logger.atInfo().log("Starting ${moduleOrder.size} modules...")
+        logger.atFine().log("Starting ${moduleOrder.size} modules...")
         
         for (moduleId in moduleOrder) {
             val module = modules[moduleId] ?: continue
@@ -418,7 +418,7 @@ object CoreModule {
         
         val startedCount = modules.values.count { it.state == ModuleState.STARTED }
         val errorCount = modules.values.count { it.state == ModuleState.ERROR }
-        logger.atInfo().log("Module start complete: $startedCount running, $errorCount failed")
+        logger.atFine().log("Module start complete: $startedCount running, $errorCount failed")
     }
     
     /**
@@ -433,7 +433,7 @@ object CoreModule {
         
         // Shutdown in reverse order so dependents shutdown before dependencies
         val reverseOrder = moduleOrder.reversed()
-        logger.atInfo().log("Shutting down ${reverseOrder.size} modules...")
+        logger.atFine().log("Shutting down ${reverseOrder.size} modules...")
         
         for (moduleId in reverseOrder) {
             val module = modules[moduleId] ?: continue
@@ -446,7 +446,7 @@ object CoreModule {
             }
         }
         
-        logger.atInfo().log("All modules shutdown complete")
+        logger.atFine().log("All modules shutdown complete")
     }
     
     /**
