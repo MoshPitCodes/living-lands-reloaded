@@ -10,28 +10,28 @@ echo "Asset Pack Directory: $ASSET_PACK_DIR"
 echo ""
 
 # Check if main jar exists (with dependencies)
-if [ ! -f "build/libs/livinglands-reloaded-1.0.0-beta.jar" ]; then
+if [ ! -f "build/libs/livinglands-reloaded-1.0.1.jar" ]; then
 	echo "ERROR: Main jar not found. Run './gradlew build' first."
 	exit 1
 fi
 
 # Remove old jars with different names (if exist)
-if [ -f "$GLOBAL_MODS_DIR/livinglands-1.0.0-beta.jar" ]; then
-	echo "Removing old jar: livinglands-1.0.0-beta.jar"
-	rm "$GLOBAL_MODS_DIR/livinglands-1.0.0-beta.jar"
+if [ -f "$GLOBAL_MODS_DIR/livinglands-1.0.1.jar" ]; then
+	echo "Removing old jar: livinglands-1.0.1.jar"
+	rm "$GLOBAL_MODS_DIR/livinglands-1.0.1.jar"
 fi
-if [ -f "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar" ]; then
-	echo "Removing old jar: livinglands-reloaded-1.0.0-beta-shadow.jar"
-	rm "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta-shadow.jar"
+if [ -f "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.1-shadow.jar" ]; then
+	echo "Removing old jar: livinglands-reloaded-1.0.1-shadow.jar"
+	rm "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.1-shadow.jar"
 fi
 
 # Copy main jar to mods directory
 echo "Copying JAR to mods directory..."
-cp build/libs/livinglands-reloaded-1.0.0-beta.jar "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
+cp build/libs/livinglands-reloaded-1.0.1.jar "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.1.jar"
 
 # Verify copy
-JAR_SIZE=$(stat -c%s "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar")
-echo "Deployed: livinglands-reloaded-1.0.0-beta.jar ($((JAR_SIZE / 1024 / 1024)) MB)"
+JAR_SIZE=$(stat -c%s "$GLOBAL_MODS_DIR/livinglands-reloaded-1.0.1.jar")
+echo "Deployed: livinglands-reloaded-1.0.1.jar ($((JAR_SIZE / 1024 / 1024)) MB)"
 
 # Extract asset pack to separate folder
 echo ""
@@ -44,7 +44,7 @@ mkdir -p "$ASSET_PACK_DIR"
 echo "Extracting assets from JAR..."
 
 # Extract Common/ directory
-unzip -o "build/libs/livinglands-reloaded-1.0.0-beta.jar" "Common/*" -d "$ASSET_PACK_DIR" 2>/dev/null || true
+unzip -o "build/libs/livinglands-reloaded-1.0.1.jar" "Common/*" -d "$ASSET_PACK_DIR" 2>/dev/null || true
 
 # Create a proper asset pack manifest.json at root level
 # (The Common/manifest.json is for the Common assets subfolder, but the pack also needs a root manifest)
@@ -66,7 +66,7 @@ echo ""
 echo "=== Deployment Complete ==="
 echo ""
 echo "Deployed files:"
-echo "  1. JAR: $GLOBAL_MODS_DIR/livinglands-reloaded-1.0.0-beta.jar"
+echo "  1. JAR: $GLOBAL_MODS_DIR/livinglands-reloaded-1.0.1.jar"
 echo "  2. Asset Pack: $ASSET_PACK_DIR/"
 echo ""
 echo "⚠️  IMPORTANT: Full Hytale restart required!"
