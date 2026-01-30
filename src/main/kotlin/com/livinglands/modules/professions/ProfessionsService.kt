@@ -126,19 +126,13 @@ class ProfessionsService(
      * Initialize player with default profession stats (all level 1, 0 XP).
      * Creates in-memory state immediately for non-blocking access.
      *
-     * CRITICAL: Checks if player already exists in cache to prevent overwriting
-     * existing data on world switch or quick reconnect.
+     * CRITICAL: Uses putIfAbsent for thread-safe check-and-insert to prevent race
+     * conditions when player joins multiple worlds simultaneously or reconnects quickly.
      *
      * @param playerId Player's UUID
      */
     fun initializePlayerWithDefaults(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
-
-        // Check if player already exists in cache (rejoin or world switch)
-        if (playerStates.containsKey(playerIdStr)) {
-            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
-            return
-        }
 
         // Create default state for all 5 professions
         val professionsMap = mutableMapOf<Profession, PlayerProfessionState>()
@@ -151,7 +145,13 @@ class ProfessionsService(
             )
         }
 
-        playerStates[playerIdStr] = professionsMap
+        // ATOMIC check-and-insert: prevents race condition where two threads
+        // both pass containsKey() check and one overwrites the other's data
+        val existing = playerStates.putIfAbsent(playerIdStr, professionsMap)
+        if (existing != null) {
+            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
+            return
+        }
 
         logger.atFine().log("Initialized professions with defaults for player $playerId")
     }
@@ -549,6 +549,40 @@ class ProfessionsService(
         playerStates.remove(playerIdStr)
         
         logger.atFine().log("Removed player $playerId from professions cache")
+    }
+    
+    /**
+     * Save ALL players in cache to database.
+     * Called during shutdown to ensure no data is lost.
+     * 
+     * @param repository The professions repository
+     */
+    suspend fun saveAllPlayers(repository: ProfessionsRepository) {
+        val playerIds = playerStates.keys.toList()  // Snapshot to avoid CME
+        
+        if (playerIds.isEmpty()) {
+            logger.atFine().log("No players in cache to save during shutdown")
+            return
+        }
+        
+        logger.atInfo().log("Saving ${playerIds.size} players' profession stats during shutdown...")
+        
+        var saved = 0
+        var failed = 0
+        
+        for (playerIdStr in playerIds) {
+            try {
+                val stateMap = playerStates[playerIdStr] ?: continue
+                val statsList = stateMap.values.map { it.toImmutableStats() }
+                repository.saveAll(statsList)
+                saved++
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to save professions for player $playerIdStr during shutdown")
+                failed++
+            }
+        }
+        
+        logger.atInfo().log("Shutdown save complete: $saved saved, $failed failed")
     }
     
     /**

@@ -87,7 +87,12 @@ class CombatXpSystem(
         val xpAmount = (baseXp * mobMultiplier).toLong()
         
         // Check if player has Warrior ability (Tier 1 +15% XP boost)
-        val xpMultiplier = abilityRegistry.getXpMultiplier(playerUuid.toString(), Profession.COMBAT, currentLevel)
+        val xpMultiplier = abilityRegistry.getXpMultiplier(
+            playerUuid.toString(),
+            Profession.COMBAT,
+            currentLevel,
+            config.abilities.tier1XpBoost
+        )
         
         // Award XP (with multiplier if ability unlocked)
         val result = professionsService.awardXpWithMultiplier(
@@ -96,6 +101,11 @@ class CombatXpSystem(
             baseAmount = xpAmount,
             multiplier = xpMultiplier
         )
+
+        // Log multiplier application (INFO level for visibility)
+        if (xpMultiplier > 1.0) {
+            logger.atInfo().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+        }
         
         // Notify HUD elements (panel + notification)
         com.livinglands.core.CoreModule.getModule<com.livinglands.modules.professions.ProfessionsModule>("professions")?.notifyXpGain(

@@ -67,24 +67,9 @@ class PersistenceService(
             stmt.execute("PRAGMA foreign_keys=ON")
         }
         
-        // Create core players table
+        // Create module schema tracking table
+        // Note: Player identity is stored in the global database, not per-world
         connection?.createStatement()?.use { stmt ->
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS players (
-                    player_id TEXT PRIMARY KEY,
-                    player_name TEXT NOT NULL,
-                    first_seen INTEGER NOT NULL,
-                    last_seen INTEGER NOT NULL
-                )
-            """.trimIndent())
-            
-            // Create index for name lookups
-            stmt.execute("""
-                CREATE INDEX IF NOT EXISTS idx_players_name 
-                ON players(player_name)
-            """.trimIndent())
-            
-            // Create module schema tracking table
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS module_schemas (
                     module_id TEXT PRIMARY KEY,

@@ -15,7 +15,10 @@ import com.livinglands.core.toCachedString
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
 import com.livinglands.modules.professions.ProfessionsModule
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,13 +30,14 @@ import java.util.concurrent.ConcurrentHashMap
  * - When DeathComponent is removed: player respawned, trigger metabolism reset
  * 
  * On respawn, this system:
- * 1. Resets metabolism stats to defaults (100/100/100)
+ * 1. Resets metabolism stats to defaults (100/100/100) - immediately in memory
  * 2. Removes all active debuffs (health drain, stamina reduction, speed penalty)
  * 3. Removes all active buffs (to avoid unfair advantage)
  * 4. Updates the HUD to show reset values
- * 5. Persists the reset to the global database
+ * 5. Persists the reset to the global database asynchronously (non-blocking)
  * 
- * **ARCHITECTURE CHANGE:** Now uses global repository instead of per-world.
+ * **PERFORMANCE:** Uses optimistic reset pattern - memory update is immediate,
+ * database persistence is async to avoid blocking the WorldThread during ECS tick.
  */
 class RespawnResetSystem(
     private val metabolismService: MetabolismService,
@@ -48,6 +52,12 @@ class RespawnResetSystem(
      * When a player transitions from dead -> alive, we trigger reset.
      */
     private val wasDeadLastTick = ConcurrentHashMap<UUID, Boolean>()
+    
+    /**
+     * Coroutine scope for async persistence operations.
+     * Uses IO dispatcher for database operations.
+     */
+    private val persistenceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
      * Query for Player entities.
@@ -95,27 +105,54 @@ class RespawnResetSystem(
     
     /**
      * Handle player respawn - reset metabolism and cleanup effects.
+     * 
+     * Uses optimistic reset pattern:
+     * 1. Immediate in-memory reset (synchronous, fast)
+     * 2. Async database persistence (non-blocking)
+     * 3. Immediate cleanup of buffs/debuffs
+     * 4. Immediate HUD update
+     * 
+     * This ensures no WorldThread blocking during ECS tick.
      */
     private fun handleRespawn(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
         logger.atInfo().log("Player respawned: $playerId - resetting metabolism")
         
         try {
-            // Reset metabolism stats in global database (blocking - must complete before player continues)
-            runBlocking {
-                metabolismService.resetStats(playerId, metabolismRepository)
+            // 1. Immediate in-memory reset (synchronous, no blocking)
+            // This updates the cache immediately so player sees reset stats
+            val resetSuccess = metabolismService.resetStatsInMemory(playerId)
+            
+            if (!resetSuccess) {
+                logger.atWarning().log("Player $playerId not in cache during respawn reset - skipping")
+                return
             }
             
-            // Trigger death penalty for professions
+            // 2. Async database persistence (fire-and-forget, non-blocking)
+            // We don't wait for this to complete - it happens in background
+            persistenceScope.launch {
+                try {
+                    val state = metabolismService.getState(playerId.toCachedString())
+                    if (state != null) {
+                        val stats = state.toImmutableStats()
+                        metabolismRepository.updateStats(stats)
+                        logger.atFine().log("Persisted respawn reset for player $playerId")
+                    }
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Failed to persist respawn reset for $playerId")
+                }
+            }
+            
+            // 3. Trigger death penalty for professions (async)
             CoreModule.getModule<ProfessionsModule>("professions")?.handlePlayerRespawn(playerId)
             
-            // Cleanup buffs and debuffs (remove all active effects)
+            // 4. Cleanup buffs and debuffs immediately (synchronous)
             debuffsSystem?.cleanup(playerId, entityRef, store)
             buffsSystem?.cleanup(playerId, entityRef, store)
             
-            // Force HUD update to show reset values
+            // 5. Force HUD update immediately (synchronous)
             metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
             
-            logger.atInfo().log("Metabolism reset complete for player $playerId")
+            logger.atInfo().log("Metabolism reset complete for player $playerId (persisting async)")
             
         } catch (e: Exception) {
             logger.atSevere().withCause(e)
