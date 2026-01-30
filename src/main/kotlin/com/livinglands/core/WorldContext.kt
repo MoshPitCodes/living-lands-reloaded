@@ -64,7 +64,23 @@ class WorldContext(
      * Called on world creation and config reload.
      */
     internal fun resolveMetabolismConfig(globalConfig: MetabolismConfig) {
-        val resolved = globalConfig.findOverride(worldName, worldId)?.let { override ->
+        // Check for both name-based and UUID-based overrides
+        val byName = globalConfig.worldOverrides.entries.firstOrNull { 
+            it.key.equals(worldName, ignoreCase = true) 
+        }?.value
+        
+        val byId = globalConfig.worldOverrides[worldId.toString()]
+        
+        // Warn if both exist and are different (ambiguous configuration)
+        if (byName != null && byId != null && byName != byId) {
+            logger.atWarning().log(
+                "World '$worldName' ($worldId) has conflicting overrides by name and UUID. " +
+                "Using name-based override. Consider removing one to avoid confusion."
+            )
+        }
+        
+        // Prefer name-based override, fall back to UUID-based, then global config
+        val resolved = (byName ?: byId)?.let { override ->
             globalConfig.mergeOverride(override)
         } ?: globalConfig
         
@@ -162,20 +178,33 @@ class WorldContext(
      * Cleanup world context when world is removed.
      * Closes database connection and clears all module data.
      * 
-     * IMPORTANT: This method does NOT block waiting for coroutines to complete.
-     * Coroutines are cancelled and the database is closed immediately.
-     * SQLite will flush any pending writes on close().
+     * IMPORTANT: This method gives coroutines a brief grace period (100ms) to complete
+     * before forcing cancellation. This prevents data loss from in-flight writes.
      */
     fun cleanup() {
         try {
-            // Cancel scopes first to prevent new operations from starting
-            // Cancelled coroutines will throw CancellationException and stop
+            // Give coroutines a brief grace period (100ms) to complete their work
+            // This prevents data loss from in-flight database writes
+            try {
+                kotlinx.coroutines.runBlocking {
+                    kotlinx.coroutines.withTimeoutOrNull(100) {
+                        // Wait for persistence operations to complete
+                        persistenceScope.coroutineContext[kotlinx.coroutines.Job]?.children?.forEach { 
+                            it.join() 
+                        }
+                        // Wait for general operations to complete
+                        scope.coroutineContext[kotlinx.coroutines.Job]?.children?.forEach { 
+                            it.join() 
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.atFine().log("Cleanup timeout for world $worldId, forcing close")
+            }
+            
+            // Cancel scopes to prevent new operations from starting
             scope.cancel("WorldContext cleanup")
             persistenceScope.cancel("WorldContext cleanup")
-            
-            // DON'T wait for coroutines - they're cancelled and will stop
-            // Waiting would block the server thread for up to 5 seconds per world
-            // SQLite close() will flush pending writes synchronously (fast, <100ms)
             
             // Close persistence if initialized - this flushes any pending writes
             if (persistenceInitialized && _persistence.isInitialized()) {

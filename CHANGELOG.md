@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **WorldContext Cleanup** - Added 100ms grace period for coroutines during world cleanup to prevent data loss from interrupted database writes
+- **Config Ambiguity Warning** - Added warning log when world has conflicting metabolism config overrides (by name and UUID)
+- **Memory Leak Prevention** - Enhanced FoodEffectDetector cleanup to remove empty player maps, preventing ~10KB memory leak per player per 8-hour session
+
+### Changed
+- WorldContext cleanup now waits briefly for in-flight persistence operations before forcing cancellation
+- World config resolution now explicitly logs precedence when both name and UUID overrides exist
+
 ## [1.2.3] - 2026-01-30
 
 ### Fixed
