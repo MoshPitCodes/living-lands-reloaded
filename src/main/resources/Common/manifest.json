@@ -1,4 +1,20 @@
 {
   "Group": "MPC",
-  "Name": "LivingLandsReloaded"
+  "Name": "LivingLandsReloaded",
+  "Version": "${version}",  
+  "Description": "Living Lands Reloaded Asset Pack",
+  "Authors": [
+    {
+      "Name": "Living Lands Team"
+    }
+  ],
+  "Website": "https://github.com/MoshPitCodes/living-lands-reloaded",
+  "ServerVersion": "*",
+  "Dependencies": {
+	  "Hytale:AssetModule": "*",
+	  "Hytale:EntityModule": "*"
+  },
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": false
 }

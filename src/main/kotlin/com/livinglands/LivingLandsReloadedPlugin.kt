@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
 import com.hypixel.hytale.server.core.universe.world.events.RemoveWorldEvent
 import com.livinglands.api.ModuleContext
+
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.core.commands.LLCommand
@@ -26,7 +27,7 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
     companion object {
         const val PLUGIN_ID = "livinglandsreloaded"
         const val PLUGIN_NAME = "Living Lands Reloaded"
-        const val VERSION = "1.0.0-beta"
+        const val VERSION = "1.0.1"
         
         @Volatile
         private var instance: LivingLandsReloadedPlugin? = null

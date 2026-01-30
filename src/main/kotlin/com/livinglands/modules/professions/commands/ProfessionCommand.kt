@@ -9,7 +9,7 @@ import com.livinglands.core.MessageFormatter
 /**
  * Command to toggle the professions panel.
  * 
- * Usage: /ll profession
+ * Usage: /ll professions
  * 
  * Shows/hides the professions panel in the unified Living Lands HUD displaying:
  * - All 5 professions with current levels and XP
@@ -17,7 +17,7 @@ import com.livinglands.core.MessageFormatter
  * - Total XP earned summary
  */
 class ProfessionCommand : CommandBase(
-    "profession",
+    "professions",
     "Toggle professions panel",
     false
 ) {

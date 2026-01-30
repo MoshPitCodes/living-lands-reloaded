@@ -569,257 +569,211 @@ Group #ProfessionsPanel {
   }
 }
 
-// === PROFESSIONS PROGRESS PANEL (Top-Left, toggled by /ll progress) ===
+// === PROFESSIONS PROGRESS PANEL (Top-Right, toggled by /ll progress) ===
 // Shows compact XP progress for all 5 professions
 Group #ProgressPanel {
-  Anchor: (Top: 80, Left: 16, Width: 280, Height: 340);
+  Anchor: (Top: 16, Right: 16, Width: 270, Height: 170);
   Visible: false;
   Background: #0a1628(0.95);
 
   // Header bar
   Group #ProgressHeader {
-    Anchor: (Top: 0, Width: 280, Height: 40);
+    Anchor: (Top: 0, Width: 270, Height: 35);
     Background: #152238;
 
     Label #ProgressTitle {
-      Text: "PROFESSIONS PROGRESS";
-      Anchor: (Left: 0, Top: 0, Width: 280, Height: 40);
-      Style: (FontSize: 14, RenderBold: true, RenderUppercase: true, TextColor: #ccd8e8, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 2);
+      Text: "PROFESSIONS";
+      Anchor: (Left: 0, Top: 0, Width: 270, Height: 35);
+      Style: (FontSize: 13, RenderBold: true, RenderUppercase: true, TextColor: #ccd8e8, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 2);
     }
   }
 
   Group #ProgressContent {
     LayoutMode: Top;
-    Anchor: (Top: 40, Width: 280, Height: 300);
-    Padding: (Full: 12);
+    Anchor: (Top: 35, Width: 270, Height: 135);
+    Padding: (Left: 10, Right: 10, Top: 10, Bottom: 8);
 
     // === COMBAT ===
     Group #CombatProgress {
-      LayoutMode: Top;
-      Anchor: (Height: 52);
-      Padding: (Bottom: 8);
+      LayoutMode: Left;
+      Anchor: (Height: 18);
+      Padding: (Bottom: 4);
 
       Label #CombatName {
         Text: "COMBAT";
-        Anchor: (Height: 14);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #e74c3c, RenderUppercase: true, LetterSpacing: 1);
+        Anchor: (Width: 70, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #e74c3c, RenderUppercase: true, LetterSpacing: 1);
       }
-
-      Group #CombatLevelRow {
-        LayoutMode: Left;
-        Anchor: (Height: 16, Top: 2);
 
       Label #CombatProgressLevel {
         Text: "Lv 1";
-        Anchor: (Width: 40, Height: 16);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
+        Anchor: (Width: 30, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
       }
 
-        Label #CombatPercent {
-          Text: "0%";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, HorizontalAlignment: End, VerticalAlignment: Center, TextColor: #6e7681);
-        }
+      Label #CombatBar {
+        Text: "[..........] 0%";
+        Anchor: (Width: 130, Height: 18);
+        Style: (FontSize: 9, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #e74c3c);
       }
 
-      // Progress bar
-      Group #CombatBarBg {
-        Anchor: (Height: 6, Top: 2);
-        Background: #21262d;
-
-        Group #CombatBar {
-          Anchor: (Width: 1, Height: 6);
-          Background: #e74c3c;
-        }
+      Label #CombatPercent {
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
 
       Label #CombatXp {
-        Text: "0 / 100 XP";
-        Anchor: (Height: 12, Top: 2);
-        Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681);
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
     }
 
     // === MINING ===
     Group #MiningProgress {
-      LayoutMode: Top;
-      Anchor: (Height: 52);
-      Padding: (Bottom: 8);
+      LayoutMode: Left;
+      Anchor: (Height: 18);
+      Padding: (Bottom: 4);
 
       Label #MiningName {
         Text: "MINING";
-        Anchor: (Height: 14);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #3498db, RenderUppercase: true, LetterSpacing: 1);
+        Anchor: (Width: 70, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #3498db, RenderUppercase: true, LetterSpacing: 1);
       }
 
-      Group #MiningLevelRow {
-        LayoutMode: Left;
-        Anchor: (Height: 16, Top: 2);
-
-        Label #MiningProgressLevel {
-          Text: "Lv 1";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
-        }
-
-        Label #MiningPercent {
-          Text: "0%";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, HorizontalAlignment: End, VerticalAlignment: Center, TextColor: #6e7681);
-        }
+      Label #MiningProgressLevel {
+        Text: "Lv 1";
+        Anchor: (Width: 30, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
       }
 
-      Group #MiningBarBg {
-        Anchor: (Height: 6, Top: 2);
-        Background: #21262d;
+      Label #MiningBar {
+        Text: "[..........] 0%";
+        Anchor: (Width: 130, Height: 18);
+        Style: (FontSize: 9, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #3498db);
+      }
 
-        Group #MiningBar {
-          Anchor: (Width: 1, Height: 6);
-          Background: #3498db;
-        }
+      Label #MiningPercent {
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
 
       Label #MiningXp {
-        Text: "0 / 100 XP";
-        Anchor: (Height: 12, Top: 2);
-        Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681);
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
     }
 
     // === LOGGING ===
     Group #LoggingProgress {
-      LayoutMode: Top;
-      Anchor: (Height: 52);
-      Padding: (Bottom: 8);
+      LayoutMode: Left;
+      Anchor: (Height: 18);
+      Padding: (Bottom: 4);
 
       Label #LoggingName {
         Text: "LOGGING";
-        Anchor: (Height: 14);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #27ae60, RenderUppercase: true, LetterSpacing: 1);
+        Anchor: (Width: 70, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #27ae60, RenderUppercase: true, LetterSpacing: 1);
       }
 
-      Group #LoggingLevelRow {
-        LayoutMode: Left;
-        Anchor: (Height: 16, Top: 2);
-
-        Label #LoggingProgressLevel {
-          Text: "Lv 1";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
-        }
-
-        Label #LoggingPercent {
-          Text: "0%";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, HorizontalAlignment: End, VerticalAlignment: Center, TextColor: #6e7681);
-        }
+      Label #LoggingProgressLevel {
+        Text: "Lv 1";
+        Anchor: (Width: 30, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
       }
 
-      Group #LoggingBarBg {
-        Anchor: (Height: 6, Top: 2);
-        Background: #21262d;
+      Label #LoggingBar {
+        Text: "[..........] 0%";
+        Anchor: (Width: 130, Height: 18);
+        Style: (FontSize: 9, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #27ae60);
+      }
 
-        Group #LoggingBar {
-          Anchor: (Width: 1, Height: 6);
-          Background: #27ae60;
-        }
+      Label #LoggingPercent {
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
 
       Label #LoggingXp {
-        Text: "0 / 100 XP";
-        Anchor: (Height: 12, Top: 2);
-        Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681);
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
     }
 
     // === BUILDING ===
     Group #BuildingProgress {
-      LayoutMode: Top;
-      Anchor: (Height: 52);
-      Padding: (Bottom: 8);
+      LayoutMode: Left;
+      Anchor: (Height: 18);
+      Padding: (Bottom: 4);
 
       Label #BuildingName {
         Text: "BUILDING";
-        Anchor: (Height: 14);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #f39c12, RenderUppercase: true, LetterSpacing: 1);
+        Anchor: (Width: 70, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #f39c12, RenderUppercase: true, LetterSpacing: 1);
       }
 
-      Group #BuildingLevelRow {
-        LayoutMode: Left;
-        Anchor: (Height: 16, Top: 2);
-
-        Label #BuildingProgressLevel {
-          Text: "Lv 1";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
-        }
-
-        Label #BuildingPercent {
-          Text: "0%";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, HorizontalAlignment: End, VerticalAlignment: Center, TextColor: #6e7681);
-        }
+      Label #BuildingProgressLevel {
+        Text: "Lv 1";
+        Anchor: (Width: 30, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
       }
 
-      Group #BuildingBarBg {
-        Anchor: (Height: 6, Top: 2);
-        Background: #21262d;
+      Label #BuildingBar {
+        Text: "[..........] 0%";
+        Anchor: (Width: 130, Height: 18);
+        Style: (FontSize: 9, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #f39c12);
+      }
 
-        Group #BuildingBar {
-          Anchor: (Width: 1, Height: 6);
-          Background: #f39c12;
-        }
+      Label #BuildingPercent {
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
 
       Label #BuildingXp {
-        Text: "0 / 100 XP";
-        Anchor: (Height: 12, Top: 2);
-        Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681);
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
     }
 
     // === GATHERING ===
     Group #GatheringProgress {
-      LayoutMode: Top;
-      Anchor: (Height: 52);
+      LayoutMode: Left;
+      Anchor: (Height: 18);
 
       Label #GatheringName {
         Text: "GATHERING";
-        Anchor: (Height: 14);
-        Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #9b59b6, RenderUppercase: true, LetterSpacing: 1);
+        Anchor: (Width: 70, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #9b59b6, RenderUppercase: true, LetterSpacing: 1);
       }
 
-      Group #GatheringLevelRow {
-        LayoutMode: Left;
-        Anchor: (Height: 16, Top: 2);
-
-        Label #GatheringProgressLevel {
-          Text: "Lv 1";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
-        }
-
-        Label #GatheringPercent {
-          Text: "0%";
-          Anchor: (Width: 40, Height: 16);
-          Style: (FontSize: 11, HorizontalAlignment: End, VerticalAlignment: Center, TextColor: #6e7681);
-        }
+      Label #GatheringProgressLevel {
+        Text: "Lv 1";
+        Anchor: (Width: 30, Height: 18);
+        Style: (FontSize: 10, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #8b949e);
       }
 
-      Group #GatheringBarBg {
-        Anchor: (Height: 6, Top: 2);
-        Background: #21262d;
+      Label #GatheringBar {
+        Text: "[..........] 0%";
+        Anchor: (Width: 130, Height: 18);
+        Style: (FontSize: 9, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #9b59b6);
+      }
 
-        Group #GatheringBar {
-          Anchor: (Width: 1, Height: 6);
-          Background: #9b59b6;
-        }
+      Label #GatheringPercent {
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
 
       Label #GatheringXp {
-        Text: "0 / 100 XP";
-        Anchor: (Height: 12, Top: 2);
-        Style: (FontSize: 10, HorizontalAlignment: Start, VerticalAlignment: Center, TextColor: #6e7681);
+        Text: "";
+        Anchor: (Width: 0, Height: 0);
+        Style: (FontSize: 1, TextColor: #00000000);
       }
     }
   }

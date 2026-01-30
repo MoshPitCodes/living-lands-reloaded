@@ -7,9 +7,9 @@ import com.livinglands.modules.professions.data.Profession
  * 
  * All abilities are passive (always active once unlocked).
  * Abilities unlock at specific levels:
- * - Tier 1: Level 3 (+15% XP boost)
- * - Tier 2: Level 7 (Resource restoration)
- * - Tier 3: Level 10 (Permanent passives)
+ * - Tier 1: Level 15 (+15% XP boost)
+ * - Tier 2: Level 45 (Resource restoration)
+ * - Tier 3: Level 100 (Permanent passives)
  */
 sealed interface Ability {
     /** Unique identifier for this ability */
@@ -33,11 +33,11 @@ sealed interface Ability {
 
 /**
  * Tier 1 abilities - XP boost (+15%).
- * Unlocked at level 3.
+ * Unlocked at level 15.
  */
 sealed class Tier1Ability : Ability {
     override val tier: Int = 1
-    override val requiredLevel: Int = 3
+    override val requiredLevel: Int = 15
     
     /** XP multiplier (1.15 = +15% XP) */
     abstract val xpMultiplier: Double
@@ -45,23 +45,23 @@ sealed class Tier1Ability : Ability {
 
 /**
  * Tier 2 abilities - Permanent max stat increases.
- * Unlocked at level 7.
+ * Unlocked at level 45.
  * 
  * These abilities PERMANENTLY increase the maximum capacity of metabolism stats,
  * allowing players to survive longer between food/water consumption.
  */
 sealed class Tier2Ability : Ability {
     override val tier: Int = 2
-    override val requiredLevel: Int = 7
+    override val requiredLevel: Int = 45
 }
 
 /**
  * Tier 3 abilities - Permanent passive bonuses.
- * Unlocked at level 10.
+ * Unlocked at level 100.
  */
 sealed class Tier3Ability : Ability {
     override val tier: Int = 3
-    override val requiredLevel: Int = 10
+    override val requiredLevel: Int = 100
 }
 
 // ============ Combat Abilities ============

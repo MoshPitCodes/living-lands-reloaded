@@ -33,7 +33,7 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring realistic survival mechanics. Built from the ground up with a modern, scalable architecture, Living Lands Reloaded provides global player progression with metabolism tracking, profession leveling, land claims, and more.
 
-**Current Status:** **Beta (v1.0.0-beta + Food Consumption)** - Core infrastructure, metabolism system, and food consumption complete with major performance improvements. Working on buffs and debuffs.
+**Current Status:** **v1.0.1 Stable** - Complete RPG survival mod with metabolism system, professions progression (5 professions × 100 levels), automatic v2.6.0 migration, and optimized performance for 100+ players.
 
 ---
 
@@ -142,9 +142,25 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 - **Performance Optimized** - Only sends updates when values change
 - **Per-Player State** - Each player gets their own HUD instance
 
+### Professions System (Phase 10) - ✅ COMPLETE
+- **5 Professions** - Combat, Mining, Logging, Building, Gathering
+- **Level & XP Tracking** - Per-profession progression with configurable XP curves
+- **15 Abilities** - 3 abilities per profession with level-based unlocking
+- **Ability Registry** - Define abilities with requirements and descriptions
+- **Global Progression** - Stats follow players across worlds
+- **Dual HUD Views** - Detailed panel (`/ll professions`) and compact progress view (`/ll progress`)
+- **Text-Based Progress Bars** - Clean ASCII progress indicators (`[||||......] 40%`)
+- **Mutual Exclusivity** - Only one professions panel visible at a time
+- **Thread-Safe** - Async database operations with proper synchronization
+- **Configurable** - XP requirements and ability definitions in config
+
 ### Commands
 - `/ll reload [module]` - Hot-reload configuration (operator only)
-- `/ll stats` - Display current metabolism stats (all players)
+- `/ll stats` - Toggle metabolism HUD panel (all players)
+- `/ll buffs` - Toggle buffs display (all players)
+- `/ll debuffs` - Toggle debuffs display (all players)
+- `/ll professions` - Toggle detailed professions panel with abilities (all players)
+- `/ll progress` - Toggle compact professions progress view (all players)
 
 <br/>
 
@@ -165,7 +181,7 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 - **Hysteresis** - Anti-flicker system prevents rapid on/off toggling
 - **ECS Integration** - Apply buffs/debuffs as entity components
 
-### Phase 9: Polish & Optimization
+### Phase 11: Polish & Optimization
 - **Performance Tuning** - Optimize tick systems and database queries
 - **Edge Cases** - Handle player death, world transfers, etc.
 - **Error Recovery** - Improve graceful degradation
@@ -196,7 +212,7 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for complete details.
 
 ## Server Installation
 
-1. Download the latest `livinglands-1.0.0-beta.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+1. Download the latest `livinglands-reloaded-1.0.1.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
 2. Place the JAR in your Hytale server's `plugins/` directory
 3. Start the server
 4. Configuration files will be created in `LivingLandsReloaded/config/`
@@ -211,7 +227,7 @@ cd living-lands-reloaded
 # Build with Gradle
 ./gradlew build
 
-# JAR located at build/libs/livinglands-1.0.0-beta.jar
+# JAR located at build/libs/livinglands-reloaded-1.0.1.jar
 ```
 
 ### Nix Development Environment (Optional)
@@ -440,7 +456,11 @@ The plugin ensures no data loss during shutdown:
 | Command | Description | Permission |
 |---------|-------------|------------|
 | `/ll` | Show available commands | All players |
-| `/ll stats` | Display current metabolism stats | All players |
+| `/ll stats` | Toggle metabolism HUD panel | All players |
+| `/ll buffs` | Toggle buffs display | All players |
+| `/ll debuffs` | Toggle debuffs display | All players |
+| `/ll professions` | Toggle detailed professions panel | All players |
+| `/ll progress` | Toggle compact progress panel | All players |
 
 ## Admin Commands
 
@@ -451,9 +471,18 @@ The plugin ensures no data loss during shutdown:
 ### Examples
 
 ```bash
-# Check your metabolism stats
+# Toggle metabolism HUD panel
 /ll stats
-# Output: Hunger: 85.3 | Thirst: 72.1 | Energy: 91.7
+
+# Toggle buffs/debuffs display
+/ll buffs
+/ll debuffs
+
+# Toggle detailed professions panel (abilities, descriptions, XP)
+/ll professions
+
+# Toggle compact progress panel (single-line per profession)
+/ll progress
 
 # Reload all configs
 /ll reload
@@ -463,7 +492,7 @@ The plugin ensures no data loss during shutdown:
 
 # Show available configs if wrong name
 /ll reload invalid
-# Output: Config 'invalid' is not loaded. Available: core, metabolism
+# Output: Config 'invalid' is not loaded. Available: core, metabolism, professions
 ```
 
 <br/>
@@ -509,7 +538,19 @@ src/main/kotlin/com/livinglands/
     │   │   └── StatsCommand.kt       # /ll stats
     │   └── hud/
     │       └── MetabolismHudElement.kt  # HUD display
-    ├── leveling/                     # 📋 Planned
+    ├── professions/                  # ✅ IMPLEMENTED
+    │   ├── ProfessionsModule.kt      # Module entry point
+    │   ├── ProfessionsService.kt     # Core XP/level service
+    │   ├── ProfessionsConfig.kt      # Config data class
+    │   ├── ProfessionsRepository.kt  # Database access
+    │   ├── Profession.kt             # Profession enum
+    │   ├── ProfessionStats.kt        # Per-profession stats model
+    │   ├── AbilityRegistry.kt        # Ability definitions
+    │   ├── commands/
+    │   │   ├── ProfessionCommand.kt  # /ll professions
+    │   │   └── ProgressCommand.kt    # /ll progress
+    │   └── hud/
+    │       └── ProfessionsPanelElement.kt  # HUD panels
     └── claims/                       # 📋 Planned
 ```
 
@@ -589,7 +630,7 @@ See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing p
 
 # Roadmap
 
-## Version 1.0.0-beta (Current - ~90% MVP Complete)
+## Version 1.0.1 (Current - Stable Release)
 
 | Phase | Feature | Status |
 |-------|---------|--------|
@@ -603,20 +644,22 @@ See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing p
 | Phase 6 | MultiHUD System | ✅ Complete |
 | Phase 7 | Buffs & Debuffs | 🚧 Next (1-2 days) |
 | Phase 8 | Food Consumption | ✅ Complete |
-| Phase 9 | Polish & Optimization | 📋 Planned (1-2 days) |
+| Phase 9 | HUD Enhancements | ✅ Complete |
+| Phase 10 | Professions System | ✅ Complete |
+| Phase 11 | Polish & Optimization | 📋 Planned (1-2 days) |
 
 ## Post-MVP (Future Versions)
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Leveling** | XP and profession system | 📋 Planned |
 | **Claims** | Land protection and trust | 📋 Planned |
 | **Economy** | Currency and trading | 📋 Planned |
 | **Groups** | Clans and parties | 📋 Planned |
 | **Poison** | Consumable poison effects | 📋 Planned |
 | **Native Effects** | Hytale debuff integration | 📋 Planned |
+| **Advanced Professions** | Crafting bonuses, special actions | 📋 Planned |
 
-**Progress:** Phases 0-6 + 8 complete (~95% MVP). Estimated 2-3 days to complete MVP (buffs, debuffs, polish).
+**Progress:** All core phases complete. v1.0.1 includes metabolism system, professions progression, automatic migration, and performance optimizations.
 
 <br/>
 
@@ -669,7 +712,7 @@ limitations under the License.
 # Credits
 
 - **Author**: [MoshPitCodes](https://github.com/MoshPitCodes)
-- **Version**: 1.0.0-beta
+- **Version**: 1.0.1
 - **License**: Apache-2.0
 
 ### Resources

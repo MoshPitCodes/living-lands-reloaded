@@ -27,9 +27,52 @@ object MetabolismConfigValidator {
         
         logger.atFine().log("Validating ${config.worldOverrides.size} world override(s)...")
         
+        // Check for conflicting overrides (same world identified multiple ways)
+        validateNoConflictingOverrides(config, logger)
+        
         config.worldOverrides.forEach { (key, override) ->
             validateOverrideKey(key, knownWorldNames, logger)
             validateOverrideValues(key, override, logger)
+        }
+    }
+    
+    /**
+     * Check for duplicate world identifiers (same world referenced by name AND UUID).
+     */
+    private fun validateNoConflictingOverrides(
+        config: MetabolismConfig,
+        logger: HytaleLogger
+    ) {
+        val uuidKeys = mutableSetOf<UUID>()
+        val nameKeys = mutableMapOf<String, String>() // lowercase name -> original key
+        
+        config.worldOverrides.keys.forEach { key ->
+            // Check if it's a UUID
+            val uuid = try {
+                UUID.fromString(key)
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+            
+            if (uuid != null) {
+                if (!uuidKeys.add(uuid)) {
+                    logger.atWarning().log(
+                        "worldOverrides: Duplicate UUID override detected: '$key'. " +
+                        "Only the last override will be used."
+                    )
+                }
+            } else {
+                // It's a name
+                val lowerKey = key.lowercase()
+                val existing = nameKeys[lowerKey]
+                if (existing != null && existing != key) {
+                    logger.atWarning().log(
+                        "worldOverrides: Duplicate world name detected (case-insensitive): '$existing' and '$key'. " +
+                        "These will be treated as the same world. Only the last override will be used."
+                    )
+                }
+                nameKeys[lowerKey] = key
+            }
         }
     }
     
@@ -68,6 +111,9 @@ object MetabolismConfigValidator {
         override: MetabolismWorldOverride,
         logger: HytaleLogger
     ) {
+        // Check for enabled=false with other settings (likely config error)
+        validateDisabledSettings(worldKey, override, logger)
+        
         // Validate hunger stat
         override.hunger?.let { hunger ->
             validateStatConfig(worldKey, "hunger", hunger, logger)
@@ -252,6 +298,60 @@ object MetabolismConfigValidator {
                 "worldOverrides.$worldKey.$path: " +
                 "Very high damage value $damage (can kill in one tick). Is this intentional?"
             )
+        }
+    }
+    
+    /**
+     * Validate that disabled stats don't have conflicting settings.
+     * Warns if a stat is disabled but has other config values set.
+     */
+    private fun validateDisabledSettings(
+        worldKey: String,
+        override: MetabolismWorldOverride,
+        logger: HytaleLogger
+    ) {
+        // Check hunger
+        override.hunger?.let { hunger ->
+            if (hunger.enabled == false) {
+                if (hunger.baseDepletionRateSeconds != null) {
+                    logger.atWarning().log(
+                        "worldOverrides.$worldKey.hunger: " +
+                        "Stat is disabled but baseDepletionRateSeconds is set. " +
+                        "This setting will be ignored."
+                    )
+                }
+                if (hunger.activityMultipliers?.isNotEmpty() == true) {
+                    logger.atWarning().log(
+                        "worldOverrides.$worldKey.hunger: " +
+                        "Stat is disabled but activityMultipliers are set. " +
+                        "These settings will be ignored."
+                    )
+                }
+            }
+        }
+        
+        // Check thirst
+        override.thirst?.let { thirst ->
+            if (thirst.enabled == false) {
+                if (thirst.baseDepletionRateSeconds != null || thirst.activityMultipliers?.isNotEmpty() == true) {
+                    logger.atWarning().log(
+                        "worldOverrides.$worldKey.thirst: " +
+                        "Stat is disabled but has config values. These will be ignored."
+                    )
+                }
+            }
+        }
+        
+        // Check energy
+        override.energy?.let { energy ->
+            if (energy.enabled == false) {
+                if (energy.baseDepletionRateSeconds != null || energy.activityMultipliers?.isNotEmpty() == true) {
+                    logger.atWarning().log(
+                        "worldOverrides.$worldKey.energy: " +
+                        "Stat is disabled but has config values. These will be ignored."
+                    )
+                }
+            }
         }
     }
     

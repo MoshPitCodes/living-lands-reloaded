@@ -2,12 +2,13 @@ package com.livinglands.core.config
 
 /**
  * Core module configuration.
- * Controls debug mode and which modules are enabled.
+ * Controls logging, debug mode, and which modules are enabled.
  * 
  * Stored in: LivingLandsReloaded/config/core.yml
  * 
  * Version History:
  * - v1: Initial version with debug and enabledModules
+ * - v2: Added logging configuration with log levels
  */
 data class CoreConfig(
     /**
@@ -17,10 +18,17 @@ data class CoreConfig(
     override val configVersion: Int = CURRENT_VERSION,
     
     /**
-     * Enable debug logging.
-     * When true, additional diagnostic messages are logged.
+     * Enable debug logging (DEPRECATED - use logging.globalLevel instead).
+     * When true, sets global log level to DEBUG.
+     * Kept for backward compatibility.
      */
+    @Deprecated("Use logging.globalLevel = \"DEBUG\" instead")
     val debug: Boolean = false,
+    
+    /**
+     * Logging configuration.
+     */
+    val logging: LoggingConfig = LoggingConfig(),
     
     /**
      * List of module IDs to enable.
@@ -28,11 +36,10 @@ data class CoreConfig(
      * 
      * Available modules:
      * - metabolism: Hunger, thirst, and energy systems
-     * - leveling: XP and profession progression (future)
+     * - professions: XP and profession progression
      * - claims: Land protection system (future)
-     * - hud: Player HUD display (future)
      */
-    val enabledModules: List<String> = listOf("metabolism")
+    val enabledModules: List<String> = listOf("metabolism", "professions")
 ) : VersionedConfig {
     
     /**
@@ -42,7 +49,8 @@ data class CoreConfig(
     constructor() : this(
         configVersion = CURRENT_VERSION,
         debug = false,
-        enabledModules = listOf("metabolism")
+        logging = LoggingConfig(),
+        enabledModules = listOf("metabolism", "professions")
     )
     
     /**
@@ -54,9 +62,74 @@ data class CoreConfig(
     
     companion object {
         /** Current config version */
-        const val CURRENT_VERSION = 1
+        const val CURRENT_VERSION = 2
         
         /** Config module ID for migration registry */
         const val MODULE_ID = "core"
     }
+}
+
+/**
+ * Logging configuration for Living Lands.
+ * 
+ * **Log Levels (from most to least verbose):**
+ * - TRACE: Extremely detailed (every tick, every calculation)
+ * - DEBUG: Detailed diagnostic info (state changes, important calculations)
+ * - INFO: General informational messages (default)
+ * - WARN: Warning messages (degraded functionality, recoverable errors)
+ * - ERROR: Error messages (unrecoverable errors, exceptions)
+ * - OFF: No logging (not recommended)
+ * 
+ * **Examples:**
+ * ```yaml
+ * # Global DEBUG level for all modules
+ * logging:
+ *   globalLevel: DEBUG
+ * 
+ * # INFO globally, but DEBUG for specific modules
+ * logging:
+ *   globalLevel: INFO
+ *   moduleOverrides:
+ *     metabolism: DEBUG
+ *     professions: TRACE
+ * 
+ * # Production configuration (minimal logging)
+ * logging:
+ *   globalLevel: WARN
+ * ```
+ */
+data class LoggingConfig(
+    /**
+     * Global log level applied to all modules (unless overridden).
+     * Valid values: TRACE, DEBUG, INFO, WARN, ERROR, OFF
+     * Default: INFO
+     */
+    val globalLevel: String = "INFO",
+    
+    /**
+     * Per-module log level overrides.
+     * Map of module ID to log level string.
+     * 
+     * Available module IDs:
+     * - core: Core system logs
+     * - metabolism: Metabolism system logs
+     * - professions: Professions system logs
+     * - claims: Claims system logs (future)
+     * 
+     * Example:
+     * ```yaml
+     * moduleOverrides:
+     *   metabolism: DEBUG
+     *   professions: TRACE
+     * ```
+     */
+    val moduleOverrides: Map<String, String> = emptyMap()
+) {
+    /**
+     * No-arg constructor for YAML deserialization.
+     */
+    constructor() : this(
+        globalLevel = "INFO",
+        moduleOverrides = emptyMap()
+    )
 }

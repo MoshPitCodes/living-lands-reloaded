@@ -6,6 +6,7 @@ import com.livinglands.core.MessageFormatter
 import com.livinglands.modules.professions.abilities.AbilityRegistry
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
+import com.livinglands.modules.professions.migration.V260DataMigration
 import com.livinglands.modules.professions.systems.BuildingXpSystem
 import com.livinglands.modules.professions.systems.CombatXpSystem
 import com.livinglands.modules.professions.systems.GatheringXpSystem
@@ -72,6 +73,12 @@ class ProfessionsModule : AbstractModule(
      */
     private val moduleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
+    /**
+     * Track which players were migrated from v2.6.0.
+     * Used to send welcome message on first login after migration.
+     */
+    private val migratedPlayers = mutableSetOf<UUID>()
+    
     override suspend fun onSetup() {
         logger.atInfo().log("Professions module setting up...")
         
@@ -130,6 +137,9 @@ class ProfessionsModule : AbstractModule(
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.ProgressCommand())
         logger.atInfo().log("Registered /ll progress command")
         
+        CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.MigrateCommand())
+        logger.atInfo().log("Registered /ll migrate command")
+        
         logger.atInfo().log("Professions module setup complete")
     }
     
@@ -166,6 +176,9 @@ class ProfessionsModule : AbstractModule(
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to update HUD manager with profession services")
         }
+        
+        // Migrate v2.6.0 data if exists
+        migrateV260Data()
         
         // TODO: Register admin commands (Phase 11.6)
         // - /ll prof set <player> <profession> <level> (admin)
@@ -258,6 +271,12 @@ class ProfessionsModule : AbstractModule(
         // Load from database asynchronously
         professionsService.updatePlayerStateAsync(playerId, professionsRepository)
         
+        // Send migration welcome message if this player was migrated from v2.6.0
+        if (migratedPlayers.contains(playerId)) {
+            sendMigrationWelcomeMessage(playerId, session)
+            migratedPlayers.remove(playerId)  // Only show once
+        }
+        
         // NOTE: HUD registration is now handled by MetabolismModule via unified LivingLandsHudElement
         // No need to register separate HUD elements here
         
@@ -288,6 +307,108 @@ class ProfessionsModule : AbstractModule(
                 logger.atSevere().withCause(e).log("Failed to save professions for player $playerId")
             }
         }
+    }
+    
+    /**
+     * Send migration welcome message to player.
+     * Called on first login after v2.6.0 data migration.
+     */
+    private fun sendMigrationWelcomeMessage(playerId: UUID, session: com.livinglands.core.PlayerSession) {
+        val world = session.world
+        world.execute {
+            try {
+                val store = session.store
+                val player = store.getComponent(session.entityRef, 
+                    com.hypixel.hytale.server.core.entity.entities.Player.getComponentType())
+                if (player != null) {
+                    @Suppress("DEPRECATION")
+                    val playerRef = player.playerRef
+                    if (playerRef != null) {
+                        // Send welcome message
+                        com.livinglands.core.MessageFormatter.success(
+                            playerRef,
+                            "Welcome back to Living Lands!",
+                            "Your v2.6.0 profession data has been migrated to v1.0.1"
+                        )
+                        
+                        // Get migrated professions with levels > 1 to show in message
+                        val stats = professionsService.getAllStats(playerId)
+                        val migratedProfessions = stats.values.filter { it.level > 1 }
+                        
+                        if (migratedProfessions.isNotEmpty()) {
+                            val profList = migratedProfessions.joinToString(", ") { 
+                                "${it.profession.name}: Level ${it.level}"
+                            }
+                            com.livinglands.core.MessageFormatter.info(
+                                playerRef,
+                                "Migrated professions:",
+                                profList
+                            )
+                        }
+                        
+                        logger.atInfo().log("Sent migration welcome message to player $playerId")
+                    }
+                }
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to send migration message to $playerId")
+            }
+        }
+    }
+    
+    /**
+     * Migrate v2.6.0 JSON data if it exists.
+     * 
+     * Runs asynchronously on module startup. Checks for legacy data directory
+     * and migrates all player JSON files to new SQLite database.
+     */
+    /**
+     * Migrate v2.6.0 player data if it exists.
+     * 
+     * CRITICAL: This runs SYNCHRONOUSLY as a suspend function before any player joins.
+     * If it runs async, players will join and create default data, causing migration to skip.
+     * 
+     * Race condition fix: Changed from moduleScope.launch{} to direct suspend call.
+     * onStart() is already a suspend function, so we can call other suspend functions directly.
+     */
+    private suspend fun migrateV260Data() {
+        logger.atInfo().log("Checking for v2.6.0 data migration...")
+        logger.atInfo().log("Plugin data directory: ${context.dataDir}")
+        
+        try {
+            val migration = V260DataMigration(professionsRepository, xpCalculator, logger)
+            
+            // Get plugin data directory (Saves/{world}/mods/MPC_LivingLandsReloaded/)
+            // Legacy data is at UserData/Mods/LivingLands/
+            val pluginDataDir = context.dataDir
+            
+            if (migration.hasLegacyData(pluginDataDir)) {
+                logger.atInfo().log("Detected v2.6.0 legacy data, starting migration...")
+                
+                // This suspend call will complete before onStart() returns
+                // Ensures migration finishes before player joins are processed
+                val result = migration.migrate(pluginDataDir)
+                
+                if (result.migratedPlayers > 0) {
+                    logger.atInfo().log(
+                        "Successfully migrated ${result.migratedPlayers} players from v2.6.0"
+                    )
+                    // Track migrated players so we can send welcome message on login
+                    migratedPlayers.addAll(result.migratedPlayerIds)
+                }
+                
+                if (result.failedPlayers > 0) {
+                    logger.atWarning().log(
+                        "Failed to migrate ${result.failedPlayers} players (check logs)"
+                    )
+                }
+            } else {
+                logger.atInfo().log("No v2.6.0 legacy data found, skipping migration")
+            }
+        } catch (e: Exception) {
+            logger.atSevere().withCause(e).log("v2.6.0 migration failed")
+        }
+        
+        logger.atInfo().log("v2.6.0 migration check complete")
     }
     
     /**

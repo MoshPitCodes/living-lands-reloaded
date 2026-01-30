@@ -2,12 +2,13 @@
 
 ## Project Overview
 
-**Living Lands** is a Hytale server mod implementing survival mechanics (hunger, thirst, energy) with per-world player progression.
+**Living Lands Reloaded** is a Hytale server mod implementing survival mechanics (hunger, thirst, energy) with global player progression and a professions system.
 
 - **Language:** Kotlin (Java 25 compatible)
 - **Build:** Gradle with Kotlin DSL
 - **Server:** HytaleServer.jar in `libs/Server/`
 - **Current Version:** 1.0.0-beta (v3 rewrite from v2.6.0)
+- **Current Status:** MVP Complete - Metabolism system, buffs/debuffs, professions, and dual HUD system implemented
 
 ## Previous Version (v2.6.0-beta)
 
@@ -50,7 +51,7 @@ WorldContext (per world UUID)
     └── PersistenceService (SQLite DB)
         └── Repositories (PlayerData, Metabolism, etc.)
 
-Modules: Metabolism, Leveling, Claims, Hud
+Modules: Metabolism, Professions, Claims (planned), Hud
 ```
 
 ## Key Patterns
@@ -107,6 +108,30 @@ Use different enter/exit thresholds to prevent flickering:
 - Debuff enters at 20%, exits at 40%
 - Buff enters at 90%, exits at 80%
 
+### Logging
+Use `LoggingManager` for all logging with appropriate levels:
+```kotlin
+import com.livinglands.core.logging.LoggingManager
+
+// TRACE - Hot path details (very verbose)
+LoggingManager.trace(logger, "metabolism") { "Tick for player $id" }
+
+// DEBUG - Detailed diagnostics
+LoggingManager.debug(logger, "metabolism") { "Stats: hunger=$hunger" }
+
+// INFO - General events (default level)
+LoggingManager.info(logger, "metabolism") { "Player joined" }
+
+// WARN - Potential issues
+LoggingManager.warn(logger, "metabolism") { "Invalid value detected" }
+
+// ERROR - Critical problems
+LoggingManager.error(logger, "metabolism") { "Failed to save data" }
+LoggingManager.error(logger, "metabolism", exception) { "Operation failed" }
+```
+
+**Configuration:** See `docs/LOGGING.md` for full details on configurable log levels.
+
 ## Directory Structure
 
 ```
@@ -116,22 +141,23 @@ src/main/kotlin/com/livinglands/
 ├── api/                        # Module interface, AbstractModule
 ├── modules/
 │   ├── metabolism/             # Hunger/thirst/energy
-│   ├── leveling/               # XP and professions
-│   └── claims/                 # Land protection
+│   ├── professions/            # XP and professions system
+│   └── claims/                 # Land protection (planned)
 └── util/                       # SpeedManager, helpers
 
 LivingLandsReloaded/            # Runtime data folder
 ├── config/*.yml                # Hot-reloadable configs
-└── data/{world-uuid}/*.db      # Per-world SQLite
+├── data/global/                # Global player data (metabolism, professions)
+└── data/{world-uuid}/*.db      # Per-world SQLite (claims)
 ```
 
 ## Implementation Rules
 
-1. **Per-world isolation** - All player data keyed by (worldId, playerId)
+1. **Global + Per-world data** - Player progression (metabolism, professions) stored globally; world-specific data (claims) stored per-world
 2. **API verification first** - Always check `docs/HYTALE_API_REFERENCE.md` before using online docs
 3. **Config in YAML** - Never store config in database
 4. **Fail gracefully** - Catch exceptions, log, continue
-5. **Minimal logging** - Debug only when `config.debug = true`
+5. **Proper logging** - Use `LoggingManager` with appropriate log levels (TRACE/DEBUG/INFO/WARN/ERROR)
 6. **Thread-safe collections** - Use `ConcurrentHashMap` for shared state
 7. **Event error handling** - Wrap all event handlers in try/catch blocks
 8. **UUID access** - Use `PlayerRef.uuid` property, not deprecated `getUuid()` if possible
