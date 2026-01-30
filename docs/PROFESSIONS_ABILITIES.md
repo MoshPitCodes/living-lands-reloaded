@@ -12,9 +12,9 @@ The professions system in Living Lands provides 5 distinct progression paths wit
 - Gathering
 
 **Ability Tiers:**
-- **Tier 1 (Level 3):** XP boost (+15% XP gain)
-- **Tier 2 (Level 7):** Max stat increases (permanently expand survival capacity)
-- **Tier 3 (Level 10):** Unique permanent passives
+- **Tier 1 (Level 15):** XP boost (+15% XP gain)
+- **Tier 2 (Level 45):** Max stat increases (permanently expand survival capacity) - **NOW IMPLEMENTED**
+- **Tier 3 (Level 100):** Unique permanent passives
 
 ---
 
@@ -40,18 +40,18 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Combat Abilities
 
-### Tier 1: Warrior (Level 3)
+### Tier 1: Warrior (Level 15)
 **Effect:** +15% Combat XP gain  
 **Description:** Gain experience 15% faster when fighting mobs  
 **Implementation:** XP multiplier applied on kill
 
-### Tier 2: Iron Stomach (Level 7)
+### Tier 2: Iron Stomach (Level 45)
 **Effect:** Permanently +15 max hunger capacity  
 **Description:** Your maximum hunger increases from 100 to 115  
 **Why Iron Stomach?** Warriors need extra food capacity for extended battles  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Adrenaline Rush (Level 10)
+### Tier 3: Adrenaline Rush (Level 100)
 **Effect:** +10% movement speed for 5 seconds on kill  
 **Description:** Killing a mob triggers a temporary speed boost  
 **Implementation:** Temporary buff using `SpeedManager`, triggered on `KillFeedEvent`
@@ -60,18 +60,18 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Mining Abilities
 
-### Tier 1: Prospector (Level 3)
+### Tier 1: Prospector (Level 15)
 **Effect:** +15% Mining XP gain  
 **Description:** Gain experience 15% faster when mining ores  
 **Implementation:** XP multiplier applied on ore break
 
-### Tier 2: Desert Nomad (Level 7)
+### Tier 2: Desert Nomad (Level 45)
 **Effect:** Permanently +10 max thirst capacity  
 **Description:** Your maximum thirst increases from 100 to 110  
 **Why Desert Nomad?** Miners work in hot, dry mines and need extra hydration  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Ore Sense (Level 10)
+### Tier 3: Ore Sense (Level 100)
 **Effect:** +10% ore drop chance  
 **Description:** 10% chance to get an additional ore when mining  
 **Implementation:** Extra drop chance on `BreakBlockEvent` for ore blocks
@@ -80,18 +80,18 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Logging Abilities
 
-### Tier 1: Lumberjack (Level 3)
+### Tier 1: Lumberjack (Level 15)
 **Effect:** +15% Logging XP gain  
 **Description:** Gain experience 15% faster when chopping logs  
 **Implementation:** XP multiplier applied on log break
 
-### Tier 2: Tireless Woodsman (Level 7)
+### Tier 2: Tireless Woodsman (Level 45)
 **Effect:** Permanently +10 max energy capacity  
 **Description:** Your maximum energy increases from 100 to 110  
 **Why Tireless?** Chopping trees is physically demanding work requiring more stamina  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Timber! (Level 10)
+### Tier 3: Timber! (Level 100)
 **Effect:** 25% chance for extra log drop  
 **Description:** When chopping logs, 25% chance to get an additional log  
 **Why "Timber!"?** Classic lumberjack shout when a tree falls  
@@ -101,19 +101,19 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Building Abilities
 
-### Tier 1: Architect (Level 3)
+### Tier 1: Architect (Level 15)
 **Effect:** +15% Building XP gain  
 **Description:** Gain experience 15% faster when placing blocks  
 **Implementation:** XP multiplier applied on block placement
 
-### Tier 2: Enduring Builder (Level 7)
+### Tier 2: Enduring Builder (Level 45)
 **Effect:** Permanently +15 max stamina capacity  
 **Description:** Your maximum stamina (Hytale built-in stat) increases by 15  
 **Why Enduring?** Construction work requires sustained physical effort  
 **Note:** Stamina is NOT part of the metabolism system - it's a vanilla Hytale stat  
 **Implementation:** Permanent max stat modifier on `EntityStatMap`
 
-### Tier 3: Efficient Architect (Level 10)
+### Tier 3: Efficient Architect (Level 100)
 **Effect:** 12% chance to not consume block on placement  
 **Description:** When placing blocks, 12% chance the block isn't removed from inventory  
 **Why 12%?** Balanced to save ~1 in 8 blocks without being overpowered  
@@ -123,19 +123,19 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Gathering Abilities
 
-### Tier 1: Forager (Level 3)
+### Tier 1: Forager (Level 15)
 **Effect:** +15% Gathering XP gain  
 **Description:** Gain experience 15% faster when picking up items  
 **Implementation:** XP multiplier applied on item pickup
 
-### Tier 2: Hearty Gatherer (Level 7)
+### Tier 2: Hearty Gatherer (Level 45)
 **Effect:** +4 hunger and +4 thirst per food item pickup  
 **Description:** Picking up food items immediately restores hunger and thirst  
 **Exception:** This is the ONLY Tier 2 ability that's NOT a permanent max stat increase  
 **Why the exception?** Gathering is about finding food, so it makes thematic sense to restore stats  
 **Implementation:** Triggered effect on `InteractivelyPickupItemEvent` for food items only
 
-### Tier 3: Survivalist (Level 10)
+### Tier 3: Survivalist (Level 100)
 **Effect:** -15% metabolism depletion rate  
 **Description:** ALL metabolism stats (hunger, thirst, energy) deplete 15% slower  
 **Why powerful?** Because it's the capstone ability for the survival profession  
@@ -145,16 +145,16 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 ## Ability Unlock Levels
 
-| Tier | Unlock Level | Theme |
-|------|--------------|-------|
-| **Tier 1** | Level 3 | XP boost (+15%) |
-| **Tier 2** | Level 7 | Max stat increase (expand survival capacity) |
-| **Tier 3** | Level 10 | Unique permanent passive |
+| Tier | Unlock Level | Theme | Status |
+|------|--------------|-------|--------|
+| **Tier 1** | Level 15 | XP boost (+15%) | Implemented |
+| **Tier 2** | Level 45 | Max stat increase (expand survival capacity) | **Implemented in v1.2.0** |
+| **Tier 3** | Level 100 | Unique permanent passive | Planned |
 
 **Design Rationale:**
-- Level 3 is achievable quickly (encourages early engagement)
-- Level 7 is mid-game (survival expansion becomes relevant)
-- Level 10 is aspirational (powerful endgame passives)
+- Level 15 provides early progression milestone
+- Level 45 is mid-game (survival expansion becomes relevant for longer expeditions)
+- Level 100 is aspirational endgame (powerful unique passives as ultimate reward)
 
 ---
 
@@ -219,20 +219,20 @@ fun onKill(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore
 
 **Player starts:** Level 1 in all professions
 
-### Early Game (Levels 1-3)
-- **Goal:** Reach level 3 in your main activity
+### Early Game (Levels 1-15)
+- **Goal:** Reach level 15 in your main activity
 - **Reward:** +15% XP boost accelerates further leveling
 
-### Mid Game (Levels 3-7)
-- **Goal:** Reach level 7 in multiple professions
+### Mid Game (Levels 15-45)
+- **Goal:** Reach level 45 in multiple professions
 - **Reward:** Expanded survival capacity for longer expeditions
 
-### Late Game (Levels 7-10)
-- **Goal:** Reach level 10 in your favorite professions
+### Late Game (Levels 45-100)
+- **Goal:** Reach level 100 in your favorite professions
 - **Reward:** Powerful unique passives that enhance your playstyle
 
-### Endgame (Level 10+)
-- **Goal:** Max out all 5 professions to level 10
+### Endgame (Level 100)
+- **Goal:** Max out all 5 professions to level 100
 - **Result:** 
   - +15% XP in all activities
   - Massively expanded survival capacity
@@ -285,18 +285,18 @@ fun onKill(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore
 Displays all abilities with unlock status:
 
 ```
-COMBAT                  Level 5
-XP: 2,500 / 10,000 (25%)
+COMBAT                  Level 50
+XP: 125,000 / 500,000 (25%)
 
-* Warrior (Level 3)
+* Warrior (Level 15)
   +15% Combat XP gain
 
-* Iron Stomach (Level 7)
+* Iron Stomach (Level 45)
   Permanently +15 max hunger capacity
 
-? Adrenaline Rush (Level 10)
+? Adrenaline Rush (Level 100)
   +10% speed for 5 seconds on kill
-  [Unlock at Level 10]
+  [Unlock at Level 100]
 ```
 
 **Legend:**
@@ -308,11 +308,11 @@ Compact single-line view:
 
 ```
 PROFESSIONS
-Combat    Lv 5  [|||||.....] 25%
-Mining    Lv 3  [||........] 15%
-Logging   Lv 7  [||||||....] 60%
-Building  Lv 1  [..........] 0%
-Gathering Lv 10 [||||||||||] 100%
+Combat    Lv 50  [|||||.....] 50%
+Mining    Lv 20  [||........] 20%
+Logging   Lv 75  [||||||....] 75%
+Building  Lv 5   [..........] 5%
+Gathering Lv 100 [||||||||||] 100%
 ```
 
 ---

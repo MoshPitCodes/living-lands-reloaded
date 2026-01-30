@@ -3,6 +3,7 @@ package com.livinglands.modules.professions
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
+import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
@@ -56,6 +57,9 @@ class ProfessionsModule : AbstractModule(
     
     /** Registry of all 15 abilities */
     private lateinit var abilityRegistry: AbilityRegistry
+    
+    /** Service for applying ability effects */
+    private lateinit var abilityEffectService: AbilityEffectService
     
     /** XP event systems (ECS) */
     private lateinit var combatXpSystem: CombatXpSystem
@@ -130,6 +134,10 @@ class ProfessionsModule : AbstractModule(
         abilityRegistry = AbilityRegistry()
         logger.atInfo().log("Initialized ability registry with ${abilityRegistry.getAllAbilities().size} abilities")
         
+        // Create ability effect service (handles applying ability bonuses)
+        abilityEffectService = AbilityEffectService(logger)
+        logger.atInfo().log("Initialized ability effect service")
+        
         // Create service
         professionsService = ProfessionsService(professionsConfig, xpCalculator, logger)
         
@@ -138,6 +146,7 @@ class ProfessionsModule : AbstractModule(
         CoreModule.services.register<ProfessionsService>(professionsService)
         CoreModule.services.register<XpCalculator>(xpCalculator)
         CoreModule.services.register<AbilityRegistry>(abilityRegistry)
+        CoreModule.services.register<AbilityEffectService>(abilityEffectService)
         
         // Register config reload callback
         CoreModule.config.onReload(ProfessionsConfig.MODULE_ID) {
@@ -172,19 +181,19 @@ class ProfessionsModule : AbstractModule(
         }
         
         // Register XP event systems (ECS)
-        combatXpSystem = CombatXpSystem(professionsService, abilityRegistry, professionsConfig, logger)
+        combatXpSystem = CombatXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(combatXpSystem)
         
-        miningXpSystem = MiningXpSystem(professionsService, abilityRegistry, professionsConfig, logger)
+        miningXpSystem = MiningXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(miningXpSystem)
         
-        loggingXpSystem = LoggingXpSystem(professionsService, abilityRegistry, professionsConfig, logger)
+        loggingXpSystem = LoggingXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(loggingXpSystem)
         
-        buildingXpSystem = BuildingXpSystem(professionsService, abilityRegistry, professionsConfig, logger)
+        buildingXpSystem = BuildingXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(buildingXpSystem)
         
-        gatheringXpSystem = GatheringXpSystem(professionsService, abilityRegistry, professionsConfig, logger)
+        gatheringXpSystem = GatheringXpSystem(professionsService, abilityRegistry, abilityEffectService, professionsConfig, logger)
         registerSystem(gatheringXpSystem)
         
         logger.atInfo().log("Registered 5 XP event systems (Combat, Mining, Logging, Building, Gathering)")
@@ -247,6 +256,7 @@ class ProfessionsModule : AbstractModule(
             
             professionsService.clearCache()
             abilityRegistry.clearCache()
+            abilityEffectService.clearCache()
         }
         
         // Now cancel saveScope (all critical saves should be done)
@@ -315,7 +325,31 @@ class ProfessionsModule : AbstractModule(
         // Initialize with defaults immediately (non-blocking)
         professionsService.initializePlayerWithDefaults(playerId)
         
-        // Load from database asynchronously
+        // Load from database asynchronously, then apply abilities
+        moduleScope.launch {
+            try {
+                // Wait for DB load to complete
+                val statsMap = professionsRepository.ensureStats(playerId.toString())
+                
+                // Check if we have any loaded data and abilities are enabled
+                if (statsMap.isNotEmpty() && 
+                    (professionsConfig.abilities.tier2ResourceRestore || professionsConfig.abilities.tier3Passives)) {
+                    
+                    // Get profession levels ONCE (not inside a loop!)
+                    val professionLevels = professionsService.getAllStats(playerId)
+                        .mapValues { (_, stats) -> stats.level }
+                    
+                    // Apply all unlocked abilities (Tier 2 at 45, Tier 3 at 100)
+                    abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
+                }
+                
+                logger.atFine().log("Loaded and applied abilities for player $playerId")
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to load abilities for player $playerId")
+            }
+        }
+        
+        // Also trigger the standard async load
         professionsService.updatePlayerStateAsync(playerId, professionsRepository)
         
         // Send migration welcome message if this player was migrated from v2.6.0
@@ -354,6 +388,7 @@ class ProfessionsModule : AbstractModule(
                 professionsService.savePlayer(playerId, professionsRepository)
                 professionsService.removeFromCache(playerId)
                 abilityRegistry.removePlayer(playerId.toString())
+                abilityEffectService.removePlayer(playerId)
                 
                 logger.atFine().log("Saved and cleaned up professions for player $playerId")
             } catch (e: Exception) {
@@ -542,6 +577,7 @@ class ProfessionsModule : AbstractModule(
     
     /**
      * Send level-up feedback to player with ability unlock check.
+     * Also applies ability effects when unlocking Tier 2 (level 45) or Tier 3 (level 100).
      * 
      * @param playerId Player who leveled up
      * @param profession Profession that leveled up
@@ -560,6 +596,26 @@ class ProfessionsModule : AbstractModule(
         // Check if an ability was unlocked at this level
         val abilities = abilityRegistry.getAbilitiesForProfession(profession)
         val unlockedAbility = abilities.find { it.requiredLevel == newLevel }
+        
+        // Apply ability effects if this level unlocks one
+        val tier2Enabled = professionsConfig.abilities.tier2ResourceRestore
+        val tier3Enabled = professionsConfig.abilities.tier3Passives
+        if (unlockedAbility != null && (tier2Enabled || tier3Enabled)) {
+            when (unlockedAbility.tier) {
+                2 -> {
+                    // Apply Tier 2 ability (level 45)
+                    if (tier2Enabled) {
+                        abilityEffectService.applyTier2Ability(playerId, profession)
+                    }
+                }
+                3 -> {
+                    // Apply Tier 3 ability (level 100)
+                    if (tier3Enabled) {
+                        abilityEffectService.applyTier3Ability(playerId, profession)
+                    }
+                }
+            }
+        }
         
         // Send messages on world thread to access PlayerRef
         val world = session.world

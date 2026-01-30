@@ -5,7 +5,6 @@ import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
-import com.livinglands.modules.metabolism.commands.StatsCommand
 import com.livinglands.modules.metabolism.commands.TestMetabolismCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
@@ -223,11 +222,6 @@ class MetabolismModule : AbstractModule(
         
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
         // called by the plugin through CoreModule.notifyPlayerJoin/notifyPlayerDisconnect
-        
-        // Register commands as subcommands of /ll
-        // Disabled: Full-screen stats page - using HUD instead
-        // CoreModule.mainCommand.registerSubCommand(StatsCommand(metabolismService))
-        // logger.atFine().log("Registered /ll show command")
         
         // Register test command for Metabolism API validation (Phase 0 - Professions Prerequisites)
         CoreModule.mainCommand.registerSubCommand(TestMetabolismCommand())

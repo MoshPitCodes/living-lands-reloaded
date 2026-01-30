@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.modules.professions.ProfessionsService
+import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
@@ -36,6 +37,7 @@ import com.livinglands.modules.professions.data.Profession
 class LoggingXpSystem(
     private val professionsService: ProfessionsService,
     private val abilityRegistry: AbilityRegistry,
+    private val abilityEffectService: AbilityEffectService,
     private val config: ProfessionsConfig,
     private val logger: HytaleLogger
 ) : EntityEventSystem<EntityStore, BreakBlockEvent>(BreakBlockEvent::class.java) {

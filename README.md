@@ -33,7 +33,7 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.0.1-beta** - Metabolism system complete and stable. Professions ~40% complete (XP systems working, most abilities are stubs).
+**Current Status:** **v1.1.0** - Metabolism system complete. Professions ~60% complete (XP systems, Tier 1 abilities, death penalty, and admin commands working. Tier 2/3 abilities are stubs).
 
 ---
 
@@ -42,10 +42,10 @@
 **Professions Module - Partial Implementation:**
 - ✅ XP systems work (all 5 professions award XP)
 - ✅ Tier 1 abilities work (+15% XP boosts)
-- ✅ Death penalty system works
+- ✅ Death penalty system works (progressive 10-35% XP loss)
+- ✅ Admin commands implemented (`/ll prof set/add/reset/show`)
 - ❌ **Tier 2 abilities defined but NOT integrated** (no stat bonuses applied)
 - ❌ **Tier 3 abilities defined but NOT triggered** (no passive effects)
-- ❌ **Admin commands not implemented** (methods exist, no CLI exposure)
 
 See [Implementation Status](#implementation-status) for detailed breakdown.
 
@@ -71,12 +71,20 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 - **Global Persistence** - Stats survive server restarts and world switches
 
 ### Commands
+
+**Player Commands:**
 - `/ll stats` - Toggle metabolism HUD
 - `/ll buffs` - Toggle buffs display
 - `/ll debuffs` - Toggle debuffs display
 - `/ll professions` - Toggle detailed professions panel
 - `/ll progress` - Toggle compact progress view
-- `/ll reload [module]` - Hot-reload configuration (operator only)
+
+**Admin Commands (Operator Only):**
+- `/ll reload [module]` - Hot-reload configuration
+- `/ll prof set <player> <profession> <level>` - Set profession level
+- `/ll prof add <player> <profession> <xp>` - Add XP to profession
+- `/ll prof reset <player> [profession]` - Reset profession(s)
+- `/ll prof show <player>` - Show player profession stats
 
 ---
 
@@ -94,9 +102,10 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 | | Buffs/Debuffs | ✅ Complete | Hysteresis-based states |
 | **Professions** | XP Systems | ✅ Complete | All 5 professions award XP |
 | | Tier 1 Abilities | ✅ Complete | +15% XP boosts work |
+| | Death Penalty | ✅ Complete | Progressive 10-35% XP loss |
+| | Admin Commands | ✅ Complete | `/ll prof set/add/reset/show` |
 | | Tier 2 Abilities | ❌ **Stubs** | Classes defined, no MetabolismService integration |
 | | Tier 3 Abilities | ❌ **Stubs** | Classes defined, no trigger code |
-| | Admin Commands | ❌ **Missing** | No `/ll prof set/add/reset` commands |
 
 ---
 
@@ -111,7 +120,7 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 
 ### Quick Start
 
-1. Download `livinglands-reloaded-1.0.1.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+1. Download `livinglands-reloaded-1.1.0.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
 2. Place in Hytale server's `plugins/` directory
 3. Start server - configs auto-generated in `LivingLandsReloaded/config/`
 
@@ -121,7 +130,7 @@ See [Implementation Status](#implementation-status) for detailed breakdown.
 git clone https://github.com/MoshPitCodes/living-lands-reloaded.git
 cd living-lands-reloaded
 ./gradlew build
-# JAR: build/libs/livinglands-reloaded-1.0.1.jar
+# JAR: build/libs/livinglands-reloaded-1.1.0.jar
 ```
 
 ---
@@ -226,30 +235,35 @@ src/main/kotlin/com/livinglands/
 
 ## Roadmap
 
-### v1.0.1 (Current)
+### v1.1.0 (Current)
 - ✅ Metabolism system complete
 - ✅ Core infrastructure stable
-- 🚧 Professions - XP systems done, abilities need integration
+- ✅ Professions XP systems complete
+- ✅ Tier 1 abilities (+15% XP boosts)
+- ✅ Death penalty system
+- ✅ Admin commands (`/ll prof set/add/reset/show`)
+- ✅ Thread safety improvements
+- ✅ Async command execution
 
-### Next Sprint (v1.0.2)
-- [ ] Tier 2 ability integration (stat bonuses)
-- [ ] Tier 3 ability triggers (passive effects)
-- [ ] Admin commands (`/ll prof set/add/reset`)
+### Next Sprint (v1.2.0)
+- [ ] Tier 2 ability integration (stat bonuses at level 45)
+- [ ] Tier 3 ability triggers (passive effects at level 100)
+- [ ] World switch handling for ability persistence
 
 ### Future
 - [ ] Claims module (land protection)
 - [ ] Economy module (currency/trading)
 - [ ] Groups module (clans/parties)
 
-See [`docs/IMPLEMENTATION_PLAN_CORRECTED.md`](docs/IMPLEMENTATION_PLAN_CORRECTED.md) for detailed timeline.
+See [`docs/IMPLEMENTATION_PLAN_DETAILED.md`](docs/IMPLEMENTATION_PLAN_DETAILED.md) for detailed timeline.
 
 ---
 
 ## Documentation
 
 - [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) - Architecture deep dive
-- [`docs/IMPLEMENTATION_PLAN_CORRECTED.md`](docs/IMPLEMENTATION_PLAN_CORRECTED.md) - Honest status & timeline
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) - Version history
+- [`docs/IMPLEMENTATION_PLAN_DETAILED.md`](docs/IMPLEMENTATION_PLAN_DETAILED.md) - Development roadmap & timeline
+- [`CHANGELOG.md`](CHANGELOG.md) - Version history
 
 ---
 
