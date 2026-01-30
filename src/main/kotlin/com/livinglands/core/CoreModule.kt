@@ -11,6 +11,7 @@ import com.livinglands.core.hud.MultiHudManager
 import com.livinglands.core.logging.LogLevel
 import com.livinglands.core.logging.LoggingManager
 import com.livinglands.core.persistence.GlobalPersistenceService
+import com.livinglands.core.persistence.GlobalPlayerDataRepository
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -22,53 +23,66 @@ import java.util.concurrent.ConcurrentHashMap
 object CoreModule {
     
     // Service registry for cross-module communication
+    @Volatile
     lateinit var services: ServiceRegistry
         private set
     
     // Configuration manager
+    @Volatile
     lateinit var config: ConfigManager
         private set
     
     // Core configuration (cached)
+    @Volatile
     lateinit var coreConfig: CoreConfig
         private set
     
     // World management - tracks worlds by UUID
+    @Volatile
     lateinit var worlds: WorldRegistry
         private set
     
     // Player tracking across all worlds
+    @Volatile
     lateinit var players: PlayerRegistry
         private set
     
     // Multi-HUD support (MHUD pattern)
+    @Volatile
     lateinit var hudManager: MultiHudManager
         private set
     
     // Global persistence service for server-wide data (e.g., metabolism stats)
+    @Volatile
     lateinit var globalPersistence: GlobalPersistenceService
         private set
     
     // Main command for subcommand registration
+    @Volatile
     lateinit var mainCommand: com.livinglands.core.commands.LLCommand
     
     // Logger reference
+    @Volatile
     lateinit var logger: HytaleLogger
         private set
     
     // Plugin reference
+    @Volatile
     lateinit var plugin: LivingLandsReloadedPlugin
         private set
     
     // Data directory for persistence
+    @Volatile
     lateinit var dataDir: File
         private set
     
     // Config directory for YAML files
+    @Volatile
     lateinit var configDir: File
         private set
     
     // Initialization state
+    @Volatile
     private var initialized = false
     
     // ============ Module Lifecycle Management ============
@@ -131,7 +145,7 @@ object CoreModule {
             // Apply logging configuration
             applyLoggingConfig(coreConfig)
             
-            logger.atFine().log("Core config reloaded: debug=${coreConfig.debug}, version=${coreConfig.configVersion}")
+            logger.atFine().log("Core config reloaded: logLevel=${coreConfig.logging.globalLevel}, version=${coreConfig.configVersion}")
             
             // Notify all modules of config reload
             notifyModulesConfigReload()
@@ -152,11 +166,15 @@ object CoreModule {
         services.register<MultiHudManager>(hudManager)
         services.register<HytaleLogger>(logger)
         
+        // Register global player data repository
+        val globalPlayerRepository = GlobalPlayerDataRepository(globalPersistence, logger)
+        services.register<GlobalPlayerDataRepository>(globalPlayerRepository)
+        
         // Apply initial logging configuration
         applyLoggingConfig(coreConfig)
         
         initialized = true
-        logger.atInfo().log("CoreModule initialized (debug=${coreConfig.debug})")
+        logger.atInfo().log("CoreModule initialized (logLevel=${coreConfig.logging.globalLevel})")
         logger.atInfo().log(com.livinglands.core.logging.LoggingManager.getConfigurationSummary())
     }
     
@@ -174,7 +192,10 @@ object CoreModule {
         moduleOrder.clear()
         
         // Cleanup world contexts - closes all per-world DB connections
-        worlds.getAllContexts().forEach { context ->
+        // IMPORTANT: Take a snapshot to avoid ConcurrentModificationException
+        // if context.cleanup() triggers any collection modifications
+        val contextSnapshot = worlds.getAllContexts().toList()
+        contextSnapshot.forEach { context ->
             try {
                 context.cleanup()
             } catch (e: Exception) {
@@ -211,6 +232,7 @@ object CoreModule {
      * @deprecated Use LoggingManager with appropriate log level instead
      */
     @Deprecated("Use LoggingManager with DEBUG level instead")
+    @Suppress("DEPRECATION")
     fun isDebug(): Boolean = if (::coreConfig.isInitialized) coreConfig.debug else false
     
     /**
@@ -255,10 +277,11 @@ object CoreModule {
      * Apply logging configuration to LoggingManager.
      * Handles both new logging config and legacy debug flag.
      */
+    @Suppress("DEPRECATION")
     private fun applyLoggingConfig(config: CoreConfig) {
-        // Parse global log level
+        // Parse global log level - legacy debug flag takes precedence if set
         val globalLevel = if (config.debug) {
-            // Legacy debug flag - set to DEBUG level
+            // Legacy debug flag - set to DEBUG level for backward compatibility
             LogLevel.DEBUG
         } else {
             // Use new logging config

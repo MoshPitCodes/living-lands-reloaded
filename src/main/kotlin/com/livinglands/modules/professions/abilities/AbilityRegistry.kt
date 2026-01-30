@@ -257,18 +257,29 @@ class AbilityRegistry {
     }
     
     // ============ Tier 1 XP Boost Helpers ============
-    
+
     /**
      * Get the XP multiplier for a profession if Tier 1 ability is unlocked.
-     * 
+     *
      * @param playerId Player's UUID as string
      * @param profession The profession
      * @param currentLevel Current level in the profession
-     * @return XP multiplier (1.15 if Tier 1 unlocked, 1.0 otherwise)
+     * @param tier1Enabled Whether Tier 1 XP boosts are enabled in config (default: true)
+     * @return XP multiplier (1.15 if Tier 1 unlocked and enabled, 1.0 otherwise)
      */
-    fun getXpMultiplier(playerId: String, profession: Profession, currentLevel: Int): Double {
+    fun getXpMultiplier(
+        playerId: String,
+        profession: Profession,
+        currentLevel: Int,
+        tier1Enabled: Boolean = true
+    ): Double {
+        // Check if Tier 1 abilities are enabled in config
+        if (!tier1Enabled) {
+            return 1.0
+        }
+
         val tier1Ability = getAbility(profession, 1) as? Tier1Ability ?: return 1.0
-        
+
         return if (currentLevel >= tier1Ability.requiredLevel) {
             tier1Ability.xpMultiplier
         } else {

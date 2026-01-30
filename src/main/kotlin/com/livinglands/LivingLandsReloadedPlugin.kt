@@ -15,6 +15,10 @@ import com.livinglands.core.PlayerSession
 import com.livinglands.core.commands.LLCommand
 import com.livinglands.modules.metabolism.MetabolismModule
 import com.livinglands.modules.professions.ProfessionsModule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -34,6 +38,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         
         fun getInstance(): LivingLandsReloadedPlugin? = instance
     }
+    
+    // Coroutine scope for player lifecycle events (fire-and-forget pattern)
+    private val playerLifecycleScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     override fun setup() {
         instance = this
@@ -297,17 +304,22 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         // Get or create world context (lazy creation since AddWorldEvent doesn't fire)
         val worldContext = CoreModule.worlds.getOrCreateContext(world)
         
-        // Persist player join to database
+        // Persist player join to database (fire-and-forget, non-blocking)
         val playerRef = player.getPlayerRef()
         val playerName = playerRef?.username ?: "Unknown"
         worldContext.onPlayerJoin(playerId.toString(), playerName)
         logger.atInfo().log("Player joined: $playerName ($playerId) in world ${world.name}")
         
-        // Notify all modules of player join (after session is registered)
-        runBlocking {
-            CoreModule.notifyPlayerJoin(playerId, session)
+        // Notify all modules of player join asynchronously (non-blocking)
+        // Each module handles their own async initialization internally
+        playerLifecycleScope.launch {
+            try {
+                CoreModule.notifyPlayerJoin(playerId, session)
+                logger.atFine().log("All modules notified of player join: $playerId")
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Error notifying modules of player join: $playerId")
+            }
         }
-        logger.atInfo().log("All modules notified of player join: $playerId")
         
         // Send world config info to player (if metabolism module is loaded)
         try {
@@ -349,12 +361,15 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
      * 
      * Session lifecycle:
      * 1. Get session (must exist)
-     * 2. Notify all modules via CoreModule.notifyPlayerDisconnect() - modules save data
-     * 3. Persist player leave to database
-     * 4. Unregister session AFTER all modules have completed
+     * 2. Persist player leave to database (fire-and-forget)
+     * 3. Notify all modules FIRST via CoreModule.notifyPlayerDisconnect() - modules save data
+     * 4. Unregister session AFTER modules have completed saving
      * 
      * Note: PlayerDisconnectEvent may fire multiple times (e.g., during server shutdown).
      * This handler is idempotent - if session doesn't exist, it silently returns.
+     * 
+     * CRITICAL: Session must remain registered until modules complete saving, as some modules
+     * may need to access session data (world context, entity ref) for proper cleanup.
      */
     private fun onPlayerDisconnect(event: PlayerDisconnectEvent) {
         val playerRef = event.getPlayerRef()
@@ -367,23 +382,27 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         
         logger.atInfo().log("Player disconnecting: $playerId from world ${session.worldId}")
         
-        // Notify all modules FIRST (they save their data)
-        // This is blocking - all modules must complete before we continue
-        runBlocking {
-            CoreModule.notifyPlayerDisconnect(playerId, session)
-        }
-        logger.atInfo().log("All modules notified of player disconnect: $playerId")
-        
-        // Persist player leave to database
+        // Persist player leave to database (fire-and-forget, non-blocking)
         val worldContext = CoreModule.worlds.getContext(session.worldId)
         if (worldContext != null) {
             worldContext.onPlayerLeave(playerId.toString())
-            logger.atInfo().log("Persisted player leave to database: $playerId")
         }
         
-        // Unregister session AFTER all modules have saved
-        CoreModule.players.unregister(playerId)
-        logger.atInfo().log("Unregistered player session: $playerId")
+        // Notify all modules FIRST, then unregister session AFTER modules complete
+        // This ensures modules can access session data during save if needed
+        playerLifecycleScope.launch {
+            try {
+                // Notify modules - they save their data here
+                CoreModule.notifyPlayerDisconnect(playerId, session)
+                logger.atFine().log("All modules notified of player disconnect: $playerId")
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Error notifying modules of player disconnect: $playerId")
+            } finally {
+                // ALWAYS unregister session after modules complete (or fail) to prevent memory leak
+                CoreModule.players.unregister(playerId)
+                logger.atInfo().log("Unregistered player session: $playerId")
+            }
+        }
     }
     
     /**

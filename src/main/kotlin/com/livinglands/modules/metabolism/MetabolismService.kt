@@ -123,27 +123,13 @@ class MetabolismService(
      * @param repository The global metabolism repository
      */
     suspend fun resetStats(playerId: UUID, repository: MetabolismRepository) {
+        // Perform in-memory reset immediately (synchronous)
+        resetStatsInMemory(playerId)
+        
+        // Persist to database asynchronously
         val playerIdStr = playerId.toCachedString()
+        val state = playerStates[playerIdStr] ?: return
         
-        logger.atInfo().log("Resetting metabolism stats for player $playerId (respawn)")
-        
-        // Get current state (if exists)
-        val state = playerStates[playerIdStr]
-        if (state == null) {
-            // Player not in cache - initialize instead
-            logger.atWarning().log("Player $playerId not in cache during reset - initializing instead")
-            initializePlayer(playerId, repository)
-            return
-        }
-        
-        // Reset to default values (100/100/100)
-        val currentTime = System.currentTimeMillis()
-        state.updateStats(100f, 100f, 100f, currentTime)
-        state.lastDepletionTime = currentTime
-        
-        logger.atInfo().log("Reset metabolism for player $playerId to defaults (H=100, T=100, E=100)")
-        
-        // Save immediately to global database to persist reset
         try {
             val stats = state.toImmutableStats()
             repository.updateStats(stats)
@@ -151,6 +137,33 @@ class MetabolismService(
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to persist reset stats for $playerId")
         }
+    }
+    
+    /**
+     * Reset metabolism stats to defaults in memory (non-blocking).
+     * This updates the cache immediately without waiting for database persistence.
+     * Use this for immediate player experience (e.g., respawn), then persist async.
+     * 
+     * @param playerId Player's UUID
+     * @return true if reset succeeded, false if player not in cache
+     */
+    fun resetStatsInMemory(playerId: UUID): Boolean {
+        val playerIdStr = playerId.toCachedString()
+        
+        // Get current state (if exists)
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            logger.atWarning().log("Player $playerId not in cache during in-memory reset")
+            return false
+        }
+        
+        // Reset to default values (100/100/100)
+        val currentTime = System.currentTimeMillis()
+        state.updateStats(100f, 100f, 100f, currentTime)
+        state.lastDepletionTime = currentTime
+        
+        logger.atInfo().log("Reset metabolism in-memory for player $playerId to defaults (H=100, T=100, E=100)")
+        return true
     }
     
     /**
@@ -189,6 +202,9 @@ class MetabolismService(
      * 
      * This allows the HUD to display immediately without blocking the WorldThread.
      * 
+     * CRITICAL: Uses putIfAbsent for thread-safe check-and-insert to prevent race
+     * conditions when player joins multiple worlds simultaneously or reconnects quickly.
+     * 
      * @param playerId Player's UUID
      */
     fun initializePlayerWithDefaults(playerId: UUID) {
@@ -198,8 +214,13 @@ class MetabolismService(
         val defaultStats = MetabolismStats.createDefault(playerIdStr)
         val state = PlayerMetabolismState.fromStats(defaultStats)
         
-        // Cache immediately
-        playerStates[playerIdStr] = state
+        // ATOMIC check-and-insert: prevents race condition where two threads
+        // both pass containsKey() check and one overwrites the other's data
+        val existing = playerStates.putIfAbsent(playerIdStr, state)
+        if (existing != null) {
+            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
+            return
+        }
         
         logger.atFine().log("Initialized metabolism with defaults for $playerId (H=100, T=100, E=100)")
     }
@@ -666,6 +687,10 @@ class MetabolismService(
      * Gets HUD from MultiHudManager (single source of truth).
      * Performance: Two map lookups (state + HUD), no MetabolismStats allocation.
      * 
+     * THREAD SAFETY: Synchronizes on state object to prevent race conditions
+     * between shouldUpdateHud check and markDisplayed update. Without this,
+     * two threads could both pass the threshold check and update HUD twice.
+     * 
      * @param playerId Player's UUID as string
      * @param playerUuid Player's UUID (for MultiHudManager lookup)
      * @return true if HUD was updated, false if below threshold
@@ -674,23 +699,28 @@ class MetabolismService(
         // Single lookup for all state
         val state = playerStates[playerId] ?: return false
         
-        if (!shouldUpdateHud(state)) {
-            return false
+        // Synchronize the entire check-and-update to prevent race conditions
+        // where two threads both pass shouldUpdateHud and send duplicate HUD updates
+        synchronized(state) {
+            if (!shouldUpdateHud(state)) {
+                return false
+            }
+            
+            // Get unified HUD from MultiHudManager
+            val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return false
+            
+            // Update the HUD element with current values
+            hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
+            
+            // Push the update to the client
+            hudElement.updateMetabolismHud()
+            
+            // Record that we displayed these stats (no allocation)
+            // This is now atomic with the threshold check above
+            state.markDisplayed()
+            
+            return true
         }
-        
-        // Get unified HUD from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return false
-        
-        // Update the HUD element with current values
-        hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
-        
-        // Push the update to the client
-        hudElement.updateMetabolismHud()
-        
-        // Record that we displayed these stats (no allocation)
-        state.markDisplayed()
-        
-        return true
     }
     
     /**

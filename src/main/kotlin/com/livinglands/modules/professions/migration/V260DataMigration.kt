@@ -107,33 +107,34 @@ class V260DataMigration(
             var failedPlayers = 0
             val migratedPlayerIds = mutableSetOf<UUID>()
             
-            // Find all JSON files
-            Files.list(legacyDir).use { stream ->
+            // Find all JSON files (convert to list to support suspend functions)
+            val jsonFiles = Files.list(legacyDir).use { stream ->
                 stream.filter { it.toString().endsWith(".json") && it.isRegularFile() }
-                    .forEach { file ->
-                        totalPlayers++
+                    .toList()
+            }
+            
+            // Process each file with suspend function support
+            for (file in jsonFiles) {
+                totalPlayers++
+                
+                try {
+                    // Direct suspend call - we're already in IO dispatcher context
+                    val playerUuid = migratePlayerFile(file)
+                    
+                    if (playerUuid != null) {
+                        migratedPlayers++
+                        migratedPlayerIds.add(playerUuid)
                         
-                        try {
-                            // Run migration in blocking context since repository calls are suspend
-                            val playerUuid = kotlinx.coroutines.runBlocking {
-                                migratePlayerFile(file)
-                            }
-                            
-                            if (playerUuid != null) {
-                                migratedPlayers++
-                                migratedPlayerIds.add(playerUuid)
-                                
-                                // Rename to .migrated to prevent re-migration
-                                val migratedPath = file.resolveSibling("${file.fileName}.migrated")
-                                Files.move(file, migratedPath)
-                            } else {
-                                failedPlayers++
-                            }
-                        } catch (e: Exception) {
-                            logger.atWarning().withCause(e).log("Failed to migrate player file: ${file.fileName}")
-                            failedPlayers++
-                        }
+                        // Rename to .migrated to prevent re-migration
+                        val migratedPath = file.resolveSibling("${file.fileName}.migrated")
+                        Files.move(file, migratedPath)
+                    } else {
+                        failedPlayers++
                     }
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Failed to migrate player file: ${file.fileName}")
+                    failedPlayers++
+                }
             }
             
             logger.atInfo().log(

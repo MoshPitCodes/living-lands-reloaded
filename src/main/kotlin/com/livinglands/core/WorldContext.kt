@@ -1,15 +1,14 @@
 package com.livinglands.core
 
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.persistence.GlobalPlayerDataRepository
 import com.livinglands.core.persistence.PersistenceService
-import com.livinglands.core.persistence.PlayerDataRepository
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -17,7 +16,8 @@ import kotlin.reflect.KClass
 
 /**
  * Per-world context containing world-specific data.
- * Each world has completely isolated player data and persistence.
+ * Each world has its own persistence for world-specific data (claims, etc.)
+ * while player identity and global stats are stored in the global database.
  */
 class WorldContext(
     val worldId: UUID,
@@ -32,7 +32,8 @@ class WorldContext(
     // Track whether persistence was initialized
     private var persistenceInitialized = false
     
-    // Persistence layer (lazy initialized)
+    // Persistence layer for world-specific data (lazy initialized)
+    // Note: Player identity is stored globally, not here
     private val _persistence: Lazy<PersistenceService> = lazy {
         persistenceInitialized = true
         PersistenceService(worldId, dataDir, logger)
@@ -41,13 +42,11 @@ class WorldContext(
     val persistence: PersistenceService
         get() = _persistence.value
     
-    // Player data repository (lazy initialized)
-    val playerRepository: PlayerDataRepository by lazy {
-        PlayerDataRepository(persistence, logger)
-    }
-    
     // Coroutine scope for async operations
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    // Coroutine scope for persistence operations (fire-and-forget)
+    private val persistenceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
      * Cached world-specific metabolism config.
@@ -113,51 +112,72 @@ class WorldContext(
     
     /**
      * Handle player joining the world.
-     * Ensures player record exists and updates last seen.
+     * Ensures player record exists in the GLOBAL database asynchronously.
+     * Player identity is stored globally, not per-world.
+     * 
+     * This method returns immediately (fire-and-forget pattern) to avoid
+     * blocking the WorldThread during database operations.
      */
     fun onPlayerJoin(playerId: String, playerName: String) {
-        // TODO: Make this async again once coroutines issue is fixed
-        try {
-            runBlocking {
-                playerRepository.ensurePlayer(playerId, playerName)
-                playerRepository.updateLastSeen(playerId, System.currentTimeMillis())
+        // Fire-and-forget: Launch async operation without blocking
+        persistenceScope.launch {
+            try {
+                val globalPlayerRepo = CoreModule.services.get<GlobalPlayerDataRepository>()
+                    ?: throw IllegalStateException("GlobalPlayerDataRepository not registered")
+                
+                val uuid = UUID.fromString(playerId)
+                globalPlayerRepo.ensurePlayer(uuid, playerName)
+                globalPlayerRepo.updateLastSeen(uuid, System.currentTimeMillis())
+                
+                logger.atFine().log("Player $playerName ($playerId) persisted to global database")
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Error persisting player join for $playerId")
             }
-            logger.atInfo().log("Player $playerName ($playerId) persisted to database")
-        } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Error handling player join for $playerId")
         }
     }
     
     /**
      * Handle player leaving the world.
-     * Updates last seen timestamp.
+     * Updates last seen timestamp in the GLOBAL database asynchronously.
+     * 
+     * This method returns immediately (fire-and-forget pattern) to avoid
+     * blocking during player disconnect.
      */
     fun onPlayerLeave(playerId: String) {
-        // TODO: Make this async again once coroutines issue is fixed
-        try {
-            runBlocking {
-                playerRepository.updateLastSeen(playerId, System.currentTimeMillis())
+        // Fire-and-forget: Launch async operation without blocking
+        persistenceScope.launch {
+            try {
+                val globalPlayerRepo = CoreModule.services.get<GlobalPlayerDataRepository>()
+                    ?: throw IllegalStateException("GlobalPlayerDataRepository not registered")
+                
+                globalPlayerRepo.updateLastSeen(UUID.fromString(playerId), System.currentTimeMillis())
+                logger.atFine().log("Updated last seen for player $playerId")
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Error updating last seen for $playerId")
             }
-        } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Error handling player leave for $playerId")
         }
     }
     
     /**
      * Cleanup world context when world is removed.
      * Closes database connection and clears all module data.
+     * 
+     * IMPORTANT: This method does NOT block waiting for coroutines to complete.
+     * Coroutines are cancelled and the database is closed immediately.
+     * SQLite will flush any pending writes on close().
      */
     fun cleanup() {
         try {
-            // Cancel the scope first to prevent new operations from starting
+            // Cancel scopes first to prevent new operations from starting
+            // Cancelled coroutines will throw CancellationException and stop
             scope.cancel("WorldContext cleanup")
+            persistenceScope.cancel("WorldContext cleanup")
             
-            // Wait for all pending coroutines to complete with timeout
-            runBlocking {
-                scope.coroutineContext[Job]?.children?.forEach { it.join() }
-            }
+            // DON'T wait for coroutines - they're cancelled and will stop
+            // Waiting would block the server thread for up to 5 seconds per world
+            // SQLite close() will flush pending writes synchronously (fast, <100ms)
             
-            // Close persistence if initialized
+            // Close persistence if initialized - this flushes any pending writes
             if (persistenceInitialized && _persistence.isInitialized()) {
                 persistence.close()
             }

@@ -16,9 +16,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Professions module - XP-based profession system with passive abilities.
@@ -72,6 +74,18 @@ class ProfessionsModule : AbstractModule(
      * Module-level coroutine scope for async operations.
      */
     private val moduleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    /**
+     * Shutdown-safe coroutine scope for critical save operations.
+     * This scope survives moduleScope.cancel() to ensure player data is saved.
+     */
+    private val saveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    /**
+     * Counter for pending save operations.
+     * Used to wait for saves to complete during shutdown.
+     */
+    private val pendingSaves = AtomicInteger(0)
     
     /**
      * Track which players were migrated from v2.6.0.
@@ -139,7 +153,13 @@ class ProfessionsModule : AbstractModule(
         
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.MigrateCommand())
         logger.atInfo().log("Registered /ll migrate command")
-        
+
+        // Register admin commands
+        CoreModule.mainCommand.registerSubCommand(
+            com.livinglands.modules.professions.commands.ProfAdminCommand(professionsService, abilityRegistry)
+        )
+        logger.atInfo().log("Registered /ll prof admin command")
+
         logger.atInfo().log("Professions module setup complete")
     }
     
@@ -191,19 +211,46 @@ class ProfessionsModule : AbstractModule(
     override suspend fun onShutdown() {
         logger.atInfo().log("Professions module shutting down...")
         
-        // Save all cached players
+        // Cancel moduleScope first to stop new operations
+        moduleScope.cancel()
+        
+        // Wait for any pending save operations to complete (with timeout)
+        val maxWaitMs = 5000L
+        val startTime = System.currentTimeMillis()
+        val pendingCount = pendingSaves.get()
+        
+        if (pendingCount > 0) {
+            logger.atInfo().log("Waiting for $pendingCount pending save operation(s) to complete...")
+            
+            while (pendingSaves.get() > 0 && System.currentTimeMillis() - startTime < maxWaitMs) {
+                delay(100)
+            }
+            
+            val remaining = pendingSaves.get()
+            if (remaining > 0) {
+                logger.atWarning().log("Shutdown timeout with $remaining pending saves - some player data may be lost")
+            } else {
+                logger.atInfo().log("All pending saves completed successfully")
+            }
+        }
+        
+        // Save all remaining cached players (bulk save)
         val cachedPlayerCount = professionsService.getCacheSize()
         if (cachedPlayerCount > 0) {
-            logger.atInfo().log("Saving $cachedPlayerCount players' profession stats...")
+            logger.atInfo().log("Saving $cachedPlayerCount remaining players' profession stats...")
             
-            // TODO: Implement bulk save for all cached players
-            // For now, just clear the cache
+            try {
+                professionsService.saveAllPlayers(professionsRepository)
+            } catch (e: Exception) {
+                logger.atSevere().withCause(e).log("Failed to save all players during shutdown")
+            }
+            
             professionsService.clearCache()
             abilityRegistry.clearCache()
         }
         
-        // Cancel async operations
-        moduleScope.cancel()
+        // Now cancel saveScope (all critical saves should be done)
+        saveScope.cancel()
         
         logger.atInfo().log("Professions module shutdown complete")
     }
@@ -289,14 +336,20 @@ class ProfessionsModule : AbstractModule(
      * 
      * NOTE: HUD cleanup is handled by MetabolismModule via the unified LivingLandsHudElement.
      * 
+     * THREAD SAFETY: Uses saveScope instead of moduleScope to ensure saves complete
+     * even during module shutdown. Tracks pending saves with AtomicInteger.
+     * 
      * @param playerId Player's UUID
      * @param session Player session
      */
     private fun handlePlayerDisconnect(playerId: UUID, session: com.livinglands.core.PlayerSession) {
         if (!professionsConfig.enabled) return
         
-        // Save stats asynchronously
-        moduleScope.launch {
+        // Increment pending saves counter
+        pendingSaves.incrementAndGet()
+        
+        // Use saveScope (survives moduleScope.cancel) to ensure saves complete
+        saveScope.launch {
             try {
                 professionsService.savePlayer(playerId, professionsRepository)
                 professionsService.removeFromCache(playerId)
@@ -305,6 +358,9 @@ class ProfessionsModule : AbstractModule(
                 logger.atFine().log("Saved and cleaned up professions for player $playerId")
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Failed to save professions for player $playerId")
+            } finally {
+                // Always decrement counter, even on failure
+                pendingSaves.decrementAndGet()
             }
         }
     }
