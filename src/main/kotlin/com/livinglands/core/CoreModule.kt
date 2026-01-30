@@ -8,6 +8,8 @@ import com.livinglands.api.ModuleState
 import com.livinglands.core.config.ConfigManager
 import com.livinglands.core.config.CoreConfig
 import com.livinglands.core.hud.MultiHudManager
+import com.livinglands.core.logging.LogLevel
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.core.persistence.GlobalPersistenceService
 import java.io.File
 import java.util.UUID
@@ -107,8 +109,10 @@ object CoreModule {
         // Initialize configuration manager first
         config = ConfigManager(configDir.toPath(), logger)
         
+        // Register CoreConfig migrations
+        registerCoreConfigMigrations()
+        
         // Load core configuration with migration support
-        // CoreConfig is at v1, no migrations yet, but using loadWithMigration for consistency
         coreConfig = config.loadWithMigration(
             CoreConfig.MODULE_ID,
             CoreConfig(),
@@ -123,6 +127,10 @@ object CoreModule {
                 CoreConfig(),
                 CoreConfig.CURRENT_VERSION
             )
+            
+            // Apply logging configuration
+            applyLoggingConfig(coreConfig)
+            
             logger.atFine().log("Core config reloaded: debug=${coreConfig.debug}, version=${coreConfig.configVersion}")
             
             // Notify all modules of config reload
@@ -144,8 +152,12 @@ object CoreModule {
         services.register<MultiHudManager>(hudManager)
         services.register<HytaleLogger>(logger)
         
+        // Apply initial logging configuration
+        applyLoggingConfig(coreConfig)
+        
         initialized = true
         logger.atInfo().log("CoreModule initialized (debug=${coreConfig.debug})")
+        logger.atInfo().log(com.livinglands.core.logging.LoggingManager.getConfigurationSummary())
     }
     
     /**
@@ -195,13 +207,81 @@ object CoreModule {
     /**
      * Check if debug mode is enabled.
      * Convenience method for conditional debug logging.
+     * 
+     * @deprecated Use LoggingManager with appropriate log level instead
      */
+    @Deprecated("Use LoggingManager with DEBUG level instead")
     fun isDebug(): Boolean = if (::coreConfig.isInitialized) coreConfig.debug else false
     
     /**
      * Check if the core module is initialized.
      */
     fun isInitialized(): Boolean = initialized
+    
+    /**
+     * Register migrations for CoreConfig.
+     */
+    private fun registerCoreConfigMigrations() {
+        val migrations = listOf(
+            com.livinglands.core.config.ConfigMigration(
+                fromVersion = 1,
+                toVersion = 2,
+                description = "Add logging configuration with log levels",
+                migrate = { old ->
+                    old.toMutableMap().apply {
+                        // Add logging config section
+                        this["logging"] = mapOf(
+                            "globalLevel" to if (old["debug"] == true) "DEBUG" else "INFO",
+                            "moduleOverrides" to emptyMap<String, String>()
+                        )
+                        
+                        // Update enabledModules to include professions
+                        val currentModules = (old["enabledModules"] as? List<*>)?.filterIsInstance<String>() ?: listOf("metabolism")
+                        if (!currentModules.contains("professions")) {
+                            this["enabledModules"] = currentModules + "professions"
+                        }
+                        
+                        // Update version
+                        this["configVersion"] = 2
+                    }
+                }
+            )
+        )
+        
+        config.migrations.registerAll(CoreConfig.MODULE_ID, migrations)
+    }
+    
+    /**
+     * Apply logging configuration to LoggingManager.
+     * Handles both new logging config and legacy debug flag.
+     */
+    private fun applyLoggingConfig(config: CoreConfig) {
+        // Parse global log level
+        val globalLevel = if (config.debug) {
+            // Legacy debug flag - set to DEBUG level
+            LogLevel.DEBUG
+        } else {
+            // Use new logging config
+            LogLevel.fromStringOrDefault(config.logging.globalLevel, LogLevel.INFO)
+        }
+        
+        LoggingManager.setGlobalLevel(globalLevel)
+        
+        // Clear existing module overrides
+        LoggingManager.clearModuleOverrides()
+        
+        // Apply per-module overrides
+        config.logging.moduleOverrides.forEach { (moduleId, levelString) ->
+            val level = LogLevel.fromString(levelString)
+            if (level != null) {
+                LoggingManager.setModuleLevel(moduleId, level)
+            } else {
+                logger.atWarning().log("Invalid log level '$levelString' for module '$moduleId', ignoring")
+            }
+        }
+        
+        logger.atInfo().log("Logging configuration applied: global=$globalLevel, overrides=${config.logging.moduleOverrides.size}")
+    }
     
     // ============ Module Registration & Lifecycle ============
     

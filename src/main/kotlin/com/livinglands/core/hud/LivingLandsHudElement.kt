@@ -108,9 +108,8 @@ class LivingLandsHudElement(
         // Build professions panel section
         buildProfessionsPanelSection(builder)
         
-        // Build progress panel section
-        // TODO: Fix progress panel graphical bars - currently disabled
-        // buildProgressPanelSection(builder)
+        // Build progress panel section (compact professions display)
+        buildProgressPanelSection(builder)
     }
     
     // ============ Metabolism Section ============
@@ -166,7 +165,7 @@ class LivingLandsHudElement(
     
     /**
      * Build a text-based progress bar using simple ASCII characters.
-     * Example: "[========--] 80%" or "[=====-----] 50%"
+     * Example: "[||||||||||] 100%" or "[|||||.....] 50%"
      * 
      * @param value Current stat value (0-100)
      * @return Text representation of progress bar
@@ -176,8 +175,8 @@ class LivingLandsHudElement(
         val filledBlocks = ((value / 100.0f) * barLength).toInt().coerceIn(0, barLength)
         val emptyBlocks = barLength - filledBlocks
         
-        val filled = "=".repeat(filledBlocks)
-        val empty = "-".repeat(emptyBlocks)
+        val filled = "|".repeat(filledBlocks)
+        val empty = ".".repeat(emptyBlocks)
         val percentage = value.toInt()
         
         return "[$filled$empty] $percentage%"
@@ -444,6 +443,12 @@ class LivingLandsHudElement(
         val builder = UICommandBuilder()
         builder.set("#ProfessionsPanel.Visible", newState)
         
+        // If opening professions panel, close progress panel (mutual exclusivity)
+        if (newState && progressPanelVisible.get()) {
+            progressPanelVisible.set(false)
+            builder.set("#ProgressPanel.Visible", false)
+        }
+        
         // Don't populate here - let the subsequent refreshHud() call handle it
         // via buildProfessionsPanelSection() to avoid double population
         
@@ -471,7 +476,8 @@ class LivingLandsHudElement(
     private fun buildProgressPanelSection(builder: UICommandBuilder) {
         builder.set("#ProgressPanel.Visible", progressPanelVisible.get())
         
-        if (progressPanelVisible.get() && professionsService != null) {
+        // Always populate data if needed (even when hidden, so it's ready when shown)
+        if (progressPanelNeedsRefresh && professionsService != null) {
             populateProgressData(builder)
             progressPanelNeedsRefresh = false
         }
@@ -481,36 +487,50 @@ class LivingLandsHudElement(
      * Populate progress panel with profession data.
      */
     private fun populateProgressData(builder: UICommandBuilder) {
-        val service = professionsService ?: return
+        val service = professionsService ?: run {
+            logger.atInfo().log("populateProgressData: professionsService is null")
+            return
+        }
+        
+        logger.atInfo().log("populateProgressData: Starting population for player $playerId")
+        
+        var populatedCount = 0
         
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
-            if (stats == null) return@forEach
+            if (stats == null) {
+                logger.atInfo().log("populateProgressData: Stats null for ${profession.name}")
+                return@forEach
+            }
+            
+            populatedCount++
             
             val level = stats.level
-            
             val xpInLevel = service.getXpInCurrentLevel(playerId, profession)
             val xpNeeded = service.getXpNeededForNextLevel(playerId, profession)
             val progress = service.getProgressToNextLevel(playerId, profession)
             
             val professionName = profession.name.lowercase().replaceFirstChar { it.uppercase() }
             
-            // Set level text
-            builder.set("#${professionName}Level.Text", "Lv $level")
+            // Set level text (fix: use ProgressLevel to match UI element IDs)
+            val levelText = "Lv $level"
+            logger.atInfo().log("Setting #${professionName}ProgressLevel.Text = $levelText")
+            builder.set("#${professionName}ProgressLevel.Text", levelText)
             
             // Set progress percentage
             val progressPercent = (progress * 100).toInt()
             builder.set("#${professionName}Percent.Text", "$progressPercent%")
             
-            // Set progress bar width (dynamic width based on progress)
-            val maxBarWidth = 256 // Max width in pixels for the progress bar
-            val barWidth = (progress * maxBarWidth).toInt().coerceIn(1, maxBarWidth)
-            builder.set("#${professionName}Bar.Anchor.Width", barWidth)
+            // Set progress bar as text (can't dynamically resize Group anchors)
+            val progressBar = buildTextProgressBar((progress * 100).toFloat())
+            builder.set("#${professionName}Bar.Text", progressBar)
             
             // Set XP text
             val xpText = "${formatXp(xpInLevel)} / ${formatXp(xpNeeded)} XP"
             builder.set("#${professionName}Xp.Text", xpText)
         }
+        
+        logger.atInfo().log("populateProgressData: Populated $populatedCount professions")
     }
     
     /**
@@ -525,10 +545,14 @@ class LivingLandsHudElement(
         val builder = UICommandBuilder()
         builder.set("#ProgressPanel.Visible", newState)
         
-        if (newState && professionsService != null) {
-            populateProgressData(builder)
-            progressPanelNeedsRefresh = false
+        // If opening progress panel, close professions panel (mutual exclusivity)
+        if (newState && professionsPanelVisible.get()) {
+            professionsPanelVisible.set(false)
+            builder.set("#ProfessionsPanel.Visible", false)
         }
+        
+        // Don't populate here - let the subsequent refreshHud() call handle it
+        // via buildProgressPanelSection() to avoid double population
         
         update(false, builder)
         return newState

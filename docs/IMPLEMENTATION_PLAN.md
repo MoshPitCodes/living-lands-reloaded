@@ -821,37 +821,45 @@ Implement 5 ECS listeners for XP sources (one per profession).
 Implement all 15 passive abilities (3 professions × 3 tiers + 2 professions × 3 tiers).
 
 #### Combat Abilities
-- [ ] **T1: Warrior (Level 3)** - +15% XP gain
-- [ ] **T2: Regeneration (Level 7)** - Restore 25% health on kill
-- [ ] **T3: Adrenaline Rush (Level 10)** - +10% speed for 5s on kill
+- [x] **T1: Warrior (Level 3)** - +15% Combat XP gain
+- [x] **T2: Iron Stomach (Level 7)** - Permanently +15 max hunger capacity
+- [x] **T3: Adrenaline Rush (Level 10)** - +10% speed for 5 seconds on kill
 
 #### Mining Abilities
-- [ ] **T1: Prospector (Level 3)** - +15% XP gain
-- [ ] **T2: Efficient Miner (Level 7)** - -20% energy on ore break
-- [ ] **T3: Ore Sense (Level 10)** - +10% ore drop chance
+- [x] **T1: Prospector (Level 3)** - +15% Mining XP gain
+- [x] **T2: Desert Nomad (Level 7)** - Permanently +10 max thirst capacity
+- [x] **T3: Ore Sense (Level 10)** - +10% ore drop chance
 
 #### Logging Abilities
-- [ ] **T1: Lumberjack (Level 3)** - +15% XP gain
-- [ ] **T2: Swift Chopper (Level 7)** - -20% energy on log break
-- [ ] **T3: Timber! (Level 10)** - Tree felling bonus (extra logs)
+- [x] **T1: Lumberjack (Level 3)** - +15% Logging XP gain
+- [x] **T2: Tireless Woodsman (Level 7)** - Permanently +10 max energy capacity
+- [x] **T3: Timber! (Level 10)** - 25% chance for extra log drop
 
 #### Building Abilities
-- [ ] **T1: Architect (Level 3)** - +15% XP gain
-- [ ] **T2: Efficient Builder (Level 7)** - -20% stamina on block place
-- [ ] **T3: Master Builder (Level 10)** - Faster block placement
+- [x] **T1: Architect (Level 3)** - +15% Building XP gain
+- [x] **T2: Enduring Builder (Level 7)** - Permanently +15 max stamina capacity
+- [x] **T3: Efficient Architect (Level 10)** - 12% chance to not consume block on placement
 
 #### Gathering Abilities
-- [ ] **T1: Forager (Level 3)** - +15% XP gain
-- [ ] **T2: Hearty Gatherer (Level 7)** - +5 hunger per pickup
-- [ ] **T3: Survivalist (Level 10)** - -15% metabolism depletion (uses new modifier system!)
+- [x] **T1: Forager (Level 3)** - +15% Gathering XP gain
+- [x] **T2: Hearty Gatherer (Level 7)** - +4 hunger and +4 thirst per food item pickup
+- [x] **T3: Survivalist (Level 10)** - -15% metabolism depletion rate
 
 ### Implementation Notes:
 - **Tier 1 (XP Boost):** Multiply XP by 1.15 in XP award logic
-- **Tier 2 (Resource Restore):** Use `MetabolismService.restoreEnergy/Hunger()` APIs (Phase 0)
+- **Tier 2 (Max Stat Increases):** Permanently increase metabolism/stamina capacity
+  - **Design Philosophy:** All Tier 2 abilities increase your "tank size" for survival stats, allowing longer periods between resource consumption
+  - Iron Stomach: Increases hunger storage (combat = eating)
+  - Desert Nomad: Increases thirst storage (mining = desert work)
+  - Tireless Woodsman: Increases energy storage (logging = physical labor)
+  - Enduring Builder: Increases stamina capacity (building = construction work)
+  - Hearty Gatherer: EXCEPTION - Restores hunger/thirst on food pickup (gathering = finding food)
 - **Tier 3 (Permanent Passives):**  
-  - Adrenaline Rush: Use `SpeedManager` for temporary buff
-  - Survivalist: Use `MetabolismService.applyDepletionModifier(playerId, "professions:survivalist", 0.85)`
-  - Ore/log bonuses: Apply on relevant events
+  - Adrenaline Rush: Temporary speed buff on kill (uses `SpeedManager`)
+  - Ore Sense: Extra ore drops
+  - Timber!: Extra log drops
+  - Efficient Architect: Chance to save blocks
+  - Survivalist: Reduces ALL metabolism depletion by 15%
 
 ### Deliverable
 ✅ All 15 abilities functional and tested

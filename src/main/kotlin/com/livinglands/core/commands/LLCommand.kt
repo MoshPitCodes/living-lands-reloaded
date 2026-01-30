@@ -39,15 +39,16 @@ class LLCommand : CommandBase(
         val aqua = Color(85, 255, 255)
         val gray = Color(170, 170, 170)
         
-        MessageFormatter.commandRaw(ctx, "=== Living Lands v1.0.0-beta ===", gold)
+        MessageFormatter.commandRaw(ctx, "=== Living Lands v1.0.1 ===", gold)
         MessageFormatter.commandRaw(ctx, "", gray)
         MessageFormatter.commandRaw(ctx, "Commands:", gold)
         MessageFormatter.commandRaw(ctx, "/ll reload - Reload configuration files", aqua)
-        MessageFormatter.commandRaw(ctx, "/ll show - Display your metabolism stats", aqua)
         MessageFormatter.commandRaw(ctx, "", gray)
         MessageFormatter.commandRaw(ctx, "HUD Toggles:", gold)
         MessageFormatter.commandRaw(ctx, "/ll stats - Toggle metabolism stats display", aqua)
         MessageFormatter.commandRaw(ctx, "/ll buffs - Toggle buffs display", aqua)
         MessageFormatter.commandRaw(ctx, "/ll debuffs - Toggle debuffs display", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll professions - Toggle professions panel", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll progress - Toggle professions progress", aqua)
     }
 }

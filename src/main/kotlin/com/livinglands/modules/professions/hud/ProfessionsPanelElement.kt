@@ -171,7 +171,7 @@ class ProfessionsPanelElement(
         }
         
         // Set total XP summary
-        builder.set("#TotalXpSummary.Text", "Total XP Earned: ${formatXp(totalXp)}")
+        builder.set("#ProfessionsTotalXp.Text", "Total XP Earned: ${formatXp(totalXp)}")
     }
     
     /**
