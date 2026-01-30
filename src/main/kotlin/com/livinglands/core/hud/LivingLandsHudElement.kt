@@ -99,7 +99,7 @@ class LivingLandsHudElement(
      */
     override fun build(builder: UICommandBuilder) {
         // SINGLE append - all UI in one file
-        // Path is relative to: Common/UI/Custom/ (per hytale-basic-uis pattern)
+        // Path is relative to Common/UI/Custom/ (per hytale-basic-uis pattern)
         builder.append("Hud/LivingLandsHud.ui")
         
         // Build metabolism section

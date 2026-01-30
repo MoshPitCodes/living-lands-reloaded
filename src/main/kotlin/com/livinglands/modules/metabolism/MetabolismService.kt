@@ -473,6 +473,141 @@ class MetabolismService(
         playerStates[playerId]?.setEnergy(value)
     }
     
+    // ============ Max Stat Management (for Professions Tier 2 abilities) ============
+    
+    /**
+     * Set maximum hunger capacity for a player.
+     * Used by Tier 2 Combat ability (Iron Stomach: +15 max hunger).
+     * 
+     * @param playerId Player's UUID
+     * @param maxValue New maximum (default 100, typically 115 with bonus)
+     */
+    fun setMaxHunger(playerId: UUID, maxValue: Double) {
+        setMaxHunger(playerId.toCachedString(), maxValue.toFloat())
+    }
+    
+    /**
+     * Set maximum hunger capacity for a player.
+     * 
+     * @param playerIdStr Player's UUID as cached string
+     * @param maxValue New maximum (sanity-bounded to 50-200)
+     */
+    fun setMaxHunger(playerIdStr: String, maxValue: Float) {
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            logger.atWarning().log("Cannot set max hunger for $playerIdStr - player not in cache")
+            return
+        }
+        
+        state.maxHunger = maxValue.coerceIn(50f, 200f)
+        logger.atFine().log("Set max hunger to $maxValue for player $playerIdStr")
+    }
+    
+    /**
+     * Set maximum thirst capacity for a player.
+     * Used by Tier 2 Mining ability (Desert Nomad: +10 max thirst).
+     * 
+     * @param playerId Player's UUID
+     * @param maxValue New maximum (default 100, typically 110 with bonus)
+     */
+    fun setMaxThirst(playerId: UUID, maxValue: Double) {
+        setMaxThirst(playerId.toCachedString(), maxValue.toFloat())
+    }
+    
+    /**
+     * Set maximum thirst capacity for a player.
+     * 
+     * @param playerIdStr Player's UUID as cached string
+     * @param maxValue New maximum (sanity-bounded to 50-200)
+     */
+    fun setMaxThirst(playerIdStr: String, maxValue: Float) {
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            logger.atWarning().log("Cannot set max thirst for $playerIdStr - player not in cache")
+            return
+        }
+        
+        state.maxThirst = maxValue.coerceIn(50f, 200f)
+        logger.atFine().log("Set max thirst to $maxValue for player $playerIdStr")
+    }
+    
+    /**
+     * Set maximum energy capacity for a player.
+     * Used by Tier 2 Logging ability (Tireless Woodsman: +10 max energy).
+     * 
+     * @param playerId Player's UUID
+     * @param maxValue New maximum (default 100, typically 110 with bonus)
+     */
+    fun setMaxEnergy(playerId: UUID, maxValue: Double) {
+        setMaxEnergy(playerId.toCachedString(), maxValue.toFloat())
+    }
+    
+    /**
+     * Set maximum energy capacity for a player.
+     * 
+     * @param playerIdStr Player's UUID as cached string
+     * @param maxValue New maximum (sanity-bounded to 50-200)
+     */
+    fun setMaxEnergy(playerIdStr: String, maxValue: Float) {
+        val state = playerStates[playerIdStr]
+        if (state == null) {
+            logger.atWarning().log("Cannot set max energy for $playerIdStr - player not in cache")
+            return
+        }
+        
+        state.maxEnergy = maxValue.coerceIn(50f, 200f)
+        logger.atFine().log("Set max energy to $maxValue for player $playerIdStr")
+    }
+    
+    /**
+     * Get current max hunger capacity for a player.
+     * 
+     * @param playerId Player's UUID
+     * @return Max hunger value or 100f if player not cached
+     */
+    fun getMaxHunger(playerId: UUID): Float {
+        return playerStates[playerId.toCachedString()]?.maxHunger ?: 100f
+    }
+    
+    /**
+     * Get current max thirst capacity for a player.
+     * 
+     * @param playerId Player's UUID
+     * @return Max thirst value or 100f if player not cached
+     */
+    fun getMaxThirst(playerId: UUID): Float {
+        return playerStates[playerId.toCachedString()]?.maxThirst ?: 100f
+    }
+    
+    /**
+     * Get current max energy capacity for a player.
+     * 
+     * @param playerId Player's UUID
+     * @return Max energy value or 100f if player not cached
+     */
+    fun getMaxEnergy(playerId: UUID): Float {
+        return playerStates[playerId.toCachedString()]?.maxEnergy ?: 100f
+    }
+    
+    /**
+     * Reset all max stat capacities to defaults.
+     * Called when abilities are disabled via config reload.
+     * 
+     * @param playerId Player's UUID
+     */
+    fun resetMaxStats(playerId: UUID) {
+        val state = playerStates[playerId.toCachedString()]
+        if (state == null) {
+            logger.atWarning().log("Cannot reset max stats for $playerId - player not in cache")
+            return
+        }
+        
+        state.maxHunger = 100f
+        state.maxThirst = 100f
+        state.maxEnergy = 100f
+        logger.atFine().log("Reset max stats to defaults for player $playerId")
+    }
+    
     // ============ Depletion Modifier Management (for Professions Tier 3 abilities) ============
     
     /**

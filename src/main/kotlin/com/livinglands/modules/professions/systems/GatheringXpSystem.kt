@@ -9,8 +9,12 @@ import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.event.events.ecs.InteractivelyPickupItemEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
+import com.livinglands.core.CoreModule
+import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.ProfessionsService
+import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
+import com.livinglands.modules.professions.abilities.HeartyGathererAbility
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
 
@@ -32,12 +36,11 @@ import com.livinglands.modules.professions.data.Profession
  * Rate Limiting:
  * - Tracks XP awarded this tick to prevent lag from mass pickups
  * - Caps at maxXpPerTick (default 100 XP)
- * 
- * TODO: Implement Tier 2 ability (Hearty Gatherer) - restore hunger/thirst on food pickup
  */
 class GatheringXpSystem(
     private val professionsService: ProfessionsService,
     private val abilityRegistry: AbilityRegistry,
+    private val abilityEffectService: AbilityEffectService,
     private val config: ProfessionsConfig,
     private val logger: HytaleLogger
 ) : EntityEventSystem<EntityStore, InteractivelyPickupItemEvent>(InteractivelyPickupItemEvent::class.java) {
@@ -149,8 +152,79 @@ class GatheringXpSystem(
             logger.atFine().log("Awarded $xpAmount Gathering XP to player ${playerUuid} (item pickup)")
         }
         
-        // TODO: Check if player has Hearty Gatherer ability (Tier 2)
-        // If yes and item is FOOD, restore +4 hunger & +4 thirst
-        // Will require integration with MetabolismService
+        // Hearty Gatherer (Tier 2) - +4 hunger/thirst on FOOD item pickup
+        if (currentLevel >= 45 && abilityEffectService.hasHeartyGatherer(playerUuid)) {
+            // Check if the picked up item is food
+            if (isFoodItem(event)) {
+                val metabolismService = CoreModule.services.get<MetabolismService>()
+                if (metabolismService != null) {
+                    metabolismService.restoreStats(
+                        playerUuid, 
+                        hunger = HeartyGathererAbility.hungerRestore, 
+                        thirst = HeartyGathererAbility.thirstRestore
+                    )
+                    
+                    logger.atFine().log("Hearty Gatherer restored +${HeartyGathererAbility.hungerRestore.toInt()} hunger/thirst for player $playerUuid")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Check if the picked up item is a food item.
+     * 
+     * Uses item type identifier patterns to detect food items.
+     * This is a heuristic-based approach since we can't access the full item registry.
+     * 
+     * @param event The item pickup event
+     * @return true if the item appears to be food
+     */
+    private fun isFoodItem(event: InteractivelyPickupItemEvent): Boolean {
+        try {
+            // Get the item stack from the event
+            val itemStack = event.itemStack
+            val itemId = itemStack.itemId.lowercase()
+            
+            // Check against common food patterns
+            return foodPatterns.any { pattern -> itemId.contains(pattern) }
+        } catch (e: Exception) {
+            logger.atFine().log("Could not determine if item is food: ${e.message}")
+            return false
+        }
+    }
+    
+    companion object {
+        /**
+         * Patterns to identify food items by their identifier.
+         * 
+         * These patterns match common food item naming conventions:
+         * - Generic: "food", "edible", "consumable"
+         * - Produce: "apple", "berry", "fruit", "vegetable"
+         * - Protein: "meat", "fish", "egg", "steak"
+         * - Grains: "bread", "grain", "wheat"
+         * - Prepared: "cooked", "roasted", "baked"
+         */
+        private val foodPatterns = setOf(
+            // Generic food indicators
+            "food", "edible", "consumable",
+            // Fruits and berries
+            "apple", "berry", "fruit", "melon", "grape", "cherry", "pear", "orange",
+            // Vegetables
+            "vegetable", "carrot", "potato", "tomato", "corn", "beet",
+            // Meat
+            "meat", "steak", "pork", "beef", "chicken", "mutton", "venison", "bacon",
+            // Fish
+            "fish", "salmon", "cod", "trout",
+            // Other protein
+            "egg",
+            // Grains and bread
+            "bread", "grain", "wheat", "loaf",
+            // Prepared foods
+            "cooked", "roasted", "baked", "stew", "soup", "pie",
+            // Mushrooms (edible)
+            "mushroom",
+            // Honey and sweets
+            "honey", "sugar", "cake", "cookie"
+        )
     }
 }
