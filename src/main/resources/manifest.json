@@ -10,7 +10,10 @@
   ],
   "Website": "https://github.com/MoshPitCodes/living-lands-reloaded",
   "ServerVersion": "*",
-  "Dependencies": {},
+  "Dependencies": {
+	  "Hytale:AssetModule": "*",
+	  "Hytale:EntityModule": "*"
+  },
   "OptionalDependencies": {},
   "DisabledByDefault": false,
   "Main": "com.livinglands.LivingLandsReloadedPlugin",

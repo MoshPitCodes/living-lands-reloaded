@@ -1,6 +1,20 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.2.2 (Latest)
+## 1.2.3 (Latest - HOTFIX)
+
+### Fixed
+- 🔥 **CRITICAL: Food Consumption Bug** - Fixed bug where consuming food only restored metabolism stats on the first consumption. Subsequent food consumptions now properly restore hunger/thirst/energy every time.
+  - Root cause: Effect detection logic was filtering out re-applied food effects (Hytale reuses effect indexes)
+  - Changed detection algorithm to properly handle repeated consumptions
+- **Memory Efficiency**: Reduced effect tracking TTL from 5s to 2s for better memory usage
+- **Code Cleanup**: Removed duplicate player cleanup call on disconnect
+
+### Improved
+- **Debugging**: Added logging for re-detected food effects to aid troubleshooting
+
+---
+
+## 1.2.2
 
 ### Improved
 - **Logging System**: Aligned with Java logging standards (ERROR→SEVERE, TRACE→FINEST, added CONFIG level)

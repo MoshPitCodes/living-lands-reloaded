@@ -33,18 +33,16 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.2.2** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Code cleanup and logging improvements.
+**Current Status:** **v1.2.3** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Critical bug fixes.
 
 ---
 
 ## Recent Updates
 
-**v1.2.2 Changes:**
-- ✅ Logging system improvements (aligned with Java log levels)
-- ✅ Codebase cleanup (removed 770 lines of stub code)
-- ✅ Fixed player disconnect race condition
-- ✅ All INFO logs changed to FINE for cleaner output
-- ✅ Added safety guards to prevent incomplete module enablement
+**v1.2.3 Changes (HOTFIX):**
+- 🔥 **CRITICAL FIX:** Food consumption now properly restores stats on every use (was only working on first consumption)
+- ✅ Improved food effect detection system reliability
+- ✅ Memory optimizations in effect tracking
 
 ---
 

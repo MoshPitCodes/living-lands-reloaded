@@ -62,10 +62,11 @@ class FoodEffectDetector(
     private val cleanupIntervalMs = 5000L
     
     /**
-     * How long to remember a processed effect (5 seconds).
+     * How long to remember a processed effect (2 seconds).
      * After this time, the same effect can be detected again.
+     * Reduced from 5s since previousEffects handles long-term deduplication.
      */
-    private val processedEffectTTL = 5000L
+    private val processedEffectTTL = 2000L
     
     /**
      * Check for new food/consumable effects on a player.
@@ -116,8 +117,10 @@ class FoodEffectDetector(
             }
         }
         
-        // Find new effect indexes (current - previous - processed)
-        val newIndexes = currentIndexes - prevIndexes - processed.keys
+        // Find new effect indexes (current - previous)
+        // We only subtract processed.keys from the list of effects we actually check,
+        // not from the "new" detection. This prevents missing re-applied effects.
+        val newIndexes = currentIndexes - prevIndexes
         
         // Update tracking for next tick
         previousEffects[playerId] = currentIndexes
@@ -155,6 +158,11 @@ class FoodEffectDetector(
             val detection = FoodDetectionUtils.parseEffect(effectId)
             if (detection != null) {
                 detections.add(detection)
+                
+                // Log if this is a re-detection (useful for debugging)
+                if (index in processed) {
+                    logger.atFine().log("Re-detected effect index $index: $effectId (same food consumed again)")
+                }
                 
                 // Mark as processed with current timestamp to prevent duplicate detection
                 processed[index] = System.currentTimeMillis()
