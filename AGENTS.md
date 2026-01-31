@@ -741,9 +741,37 @@ Group {
 
 **See:** `docs/UI_PATTERNS.md` for complete guide with examples.
 
+## Release Process
+
+**CRITICAL:** When publishing releases and announcing on Discord, **ALWAYS use the Curseforge download link**, never GitHub releases.
+
+### Release Workflow
+
+1. Build release JAR: `./gradlew clean build`
+2. Upload to **Curseforge** (primary distribution platform)
+3. Copy the Curseforge download URL
+4. Announce on Discord using the **Curseforge link**
+
+**Download Link Priority:**
+1. **Curseforge** (PRIMARY) - Use for Discord announcements
+2. **Modrinth** (if available) - Alternative platform
+3. **GitHub Releases** (LAST RESORT) - Only for source code references
+
+**Why Curseforge?**
+- Primary mod distribution platform for Hytale
+- Better analytics and player tracking
+- Player-friendly interface with integrated mod management
+- Greater discoverability for new players
+
+**Ko-fi Auto-Append:**
+All Discord announcements automatically include a "☕ Support Development" section linking to Ko-fi.com/moshpitplays. This is handled by the Discord MCP server—you don't need to manually add it!
+
+**See:** `docs/RELEASE_PROCESS.md` for complete release checklist, Discord announcement templates, and platform publishing guidelines.
+
 ## Key References
 
 ### Documentation
+- `docs/RELEASE_PROCESS.md` - **Complete release workflow** (build, publish, announce) - **ALWAYS use Curseforge links for Discord**
 - `docs/TECHNICAL_DESIGN.md` - Full architecture details
 - `docs/IMPLEMENTATION_PLAN.md` - Phased task list
 - `docs/UI_PATTERNS.md` - **CustomUIPage patterns guide** (BasicCustomUIPage, InteractiveCustomUIPage)
