@@ -68,3 +68,12 @@ docs/FIXES_*.md
 
 # Agent instructions (kept locally only)
 AGENTS.md
+
+# Linear project management docs (kept locally only)
+LINEAR_QUICK_REFERENCE.md
+docs/LINEAR_ISSUES.md
+docs/LINEAR_AUDIT_REPORT.md
+docs/LINEAR_ACTION_CHECKLIST.md
+
+# Archive directory (historical docs, kept locally only)
+docs/_archive/
