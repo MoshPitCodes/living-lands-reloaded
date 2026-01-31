@@ -763,6 +763,29 @@ Group {
 - Player-friendly interface with integrated mod management
 - Greater discoverability for new players
 
+**Discord Webhook Usage:**
+
+When posting to Discord, **ALWAYS use the correct webhook** for the content type:
+
+1. **Release Announcements** - Use `discord_send_announcement` with **releases** webhook
+   - New version releases with download links
+   - Version updates with feature lists
+   - Style: `release` (green), `hotfix` (red), or `beta` (yellow)
+
+2. **Teasers/Previews** - Use `discord_send_teaser` with **teasers** webhook
+   - "Coming soon" announcements
+   - Sneak peeks of upcoming features
+   - Style: `beta` or `custom`
+
+3. **Changelogs** - Use `discord_send_changelog` with **changelog** webhook
+   - Detailed change lists (Added/Changed/Fixed/etc.)
+   - Version-specific change documentation
+   - Style: `release`, `hotfix`, `beta`, or `custom`
+
+4. **General Messages** - Use `discord_send_message` with **messages** webhook
+   - General announcements or updates
+   - Plain text messages without structured formatting
+
 **Ko-fi Auto-Append:**
 All Discord announcements automatically include a "☕ Support Development" section linking to Ko-fi.com/moshpitplays. This is handled by the Discord MCP server—you don't need to manually add it!
 
