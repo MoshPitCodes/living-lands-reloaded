@@ -2,9 +2,9 @@ package com.livinglands.modules.professions.commands
 
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
-import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
+import com.livinglands.core.commands.ModuleCommand
 
 /**
  * Command to toggle the professions progress panel.
@@ -17,16 +17,19 @@ import com.livinglands.core.MessageFormatter
  * - Visual progress bar
  * - Progress percentage (e.g., "24%")
  * - XP numbers (e.g., "1.2K / 5.0K XP")
+ * 
+ * Extends [ModuleCommand] to automatically check if the professions module is enabled
+ * before executing. If disabled, shows a user-friendly error message.
  */
-class ProgressCommand : CommandBase(
-    "progress",
-    "Toggle professions progress panel",
-    false
+class ProgressCommand : ModuleCommand(
+    name = "progress",
+    description = "Toggle professions progress panel",
+    moduleId = "professions"
 ) {
     
     private val logger: HytaleLogger = CoreModule.logger
     
-    override fun executeSync(ctx: CommandContext) {
+    override fun executeIfModuleEnabled(ctx: CommandContext) {
         // Check if sender is a player
         if (!ctx.isPlayer) {
             MessageFormatter.commandError(ctx, "This command can only be used by players")
@@ -57,25 +60,8 @@ class ProgressCommand : CommandBase(
         }
         
         // Toggle the progress panel
+        // The toggle method handles visibility and data population
         val newState = hudElement.toggleProgressPanel()
-        
-        // Force HUD refresh by accessing the player entity
-        val world = session.world
-        world.execute {
-            try {
-                val store = session.store
-                val player = store.getComponent(session.entityRef, com.hypixel.hytale.server.core.entity.entities.Player.getComponentType())
-                if (player != null) {
-                    @Suppress("DEPRECATION")
-                    val playerRef = player.playerRef
-                    if (playerRef != null) {
-                        CoreModule.hudManager.refreshHud(player, playerRef)
-                    }
-                }
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
-            }
-        }
         
         // Send feedback to player
         val message = if (newState) {

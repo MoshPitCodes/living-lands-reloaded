@@ -95,21 +95,25 @@ class LivingLandsHudElement(
      * Build the unified HUD.
      * 
      * This appends a SINGLE UI file containing ALL Living Lands UI elements.
-     * Each section's visibility and content is controlled via set() calls.
+     * The UI structure is loaded here, but content updates happen via update() methods.
+     * 
+     * IMPORTANT: Do NOT call set() in build()! The UI elements don't exist until
+     * after the client processes the append() command. All data population must
+     * happen in update methods (updateMetabolismHud(), etc.) which are called
+     * after the HUD is shown.
      */
     override fun build(builder: UICommandBuilder) {
         // SINGLE append - all UI in one file
         // Path is relative to Common/UI/Custom/ (per hytale-basic-uis pattern)
         builder.append("Hud/LivingLandsHud.ui")
         
-        // Build metabolism section
-        buildMetabolismSection(builder)
-        
-        // Build professions panel section
-        buildProfessionsPanelSection(builder)
-        
-        // Build progress panel section (compact professions display)
-        buildProgressPanelSection(builder)
+        // DO NOT call set() here! UI elements aren't loaded yet.
+        // Data population happens in:
+        // - updateMetabolismHud() for metabolism stats/buffs/debuffs
+        // - updateProfessionsPanel() for professions panel
+        // - updateProgressPanel() for progress panel
+        //
+        // These are called after show() when the HUD is first displayed.
     }
     
     // ============ Metabolism Section ============
@@ -438,7 +442,6 @@ class LivingLandsHudElement(
     fun toggleProfessionsPanel(): Boolean {
         val newState = !professionsPanelVisible.get()
         professionsPanelVisible.set(newState)
-        professionsPanelNeedsRefresh = true
         
         val builder = UICommandBuilder()
         builder.set("#ProfessionsPanel.Visible", newState)
@@ -449,8 +452,11 @@ class LivingLandsHudElement(
             builder.set("#ProgressPanel.Visible", false)
         }
         
-        // Don't populate here - let the subsequent refreshHud() call handle it
-        // via buildProfessionsPanelSection() to avoid double population
+        // If opening, populate data now
+        if (newState && professionsService != null) {
+            populateProfessionsData(builder)
+            professionsPanelNeedsRefresh = false
+        }
         
         update(false, builder)
         return newState
@@ -540,7 +546,6 @@ class LivingLandsHudElement(
     fun toggleProgressPanel(): Boolean {
         val newState = !progressPanelVisible.get()
         progressPanelVisible.set(newState)
-        progressPanelNeedsRefresh = true
         
         val builder = UICommandBuilder()
         builder.set("#ProgressPanel.Visible", newState)
@@ -551,8 +556,11 @@ class LivingLandsHudElement(
             builder.set("#ProfessionsPanel.Visible", false)
         }
         
-        // Don't populate here - let the subsequent refreshHud() call handle it
-        // via buildProgressPanelSection() to avoid double population
+        // If opening, populate data now
+        if (newState && professionsService != null) {
+            populateProgressData(builder)
+            progressPanelNeedsRefresh = false
+        }
         
         update(false, builder)
         return newState
@@ -568,6 +576,32 @@ class LivingLandsHudElement(
      */
     fun refreshProgressPanel() {
         progressPanelNeedsRefresh = true
+    }
+    
+    /**
+     * Update the professions panel with current data.
+     * Call this to refresh the panel content.
+     */
+    fun updateProfessionsPanel() {
+        if (!professionsPanelVisible.get() || professionsService == null) return
+        
+        val builder = UICommandBuilder()
+        populateProfessionsData(builder)
+        professionsPanelNeedsRefresh = false
+        update(false, builder)
+    }
+    
+    /**
+     * Update the progress panel with current data.
+     * Call this to refresh the panel content.
+     */
+    fun updateProgressPanel() {
+        if (!progressPanelVisible.get() || professionsService == null) return
+        
+        val builder = UICommandBuilder()
+        populateProgressData(builder)
+        progressPanelNeedsRefresh = false
+        update(false, builder)
     }
     
     // ============ Service Management ============
@@ -587,6 +621,53 @@ class LivingLandsHudElement(
         
         // Data will be populated when the panel is toggled visible via /ll profession
         logger.atFine().log("setProfessionServices: Profession services ready, panel will populate on toggle")
+    }
+    
+    /**
+     * Clear profession services when the professions module is disabled.
+     * This disables the profession panels but keeps the rest of the HUD active.
+     * Called when professions module is disabled via config hot-reload.
+     */
+    fun clearProfessionServices() {
+        logger.atFine().log("clearProfessionServices called for player $playerId")
+        this.professionsService = null
+        this.abilityRegistry = null
+        
+        // Hide profession panels if they're visible
+        if (professionsPanelVisible.get()) {
+            professionsPanelVisible.set(false)
+            logger.atFine().log("Hidden professions panel due to module disable")
+        }
+        if (progressPanelVisible.get()) {
+            progressPanelVisible.set(false)
+            logger.atFine().log("Hidden progress panel due to module disable")
+        }
+        
+        // Mark panels as needing refresh to clear their content
+        professionsPanelNeedsRefresh = true
+        progressPanelNeedsRefresh = true
+    }
+    
+    /**
+     * Clear metabolism services when the metabolism module is disabled.
+     * This hides the metabolism stats, buffs, and debuffs but keeps the rest of the HUD active.
+     * Called when metabolism module is disabled via config hot-reload.
+     */
+    fun clearMetabolismServices() {
+        logger.atFine().log("clearMetabolismServices called for player $playerId")
+        this.buffsSystem = null
+        this.debuffsSystem = null
+        
+        // Hide all metabolism UI elements
+        metabolismPreferences.statsVisible = false
+        metabolismPreferences.buffsVisible = false
+        metabolismPreferences.debuffsVisible = false
+        
+        // Clear current buff/debuff lists
+        currentBuffs.set(emptyList())
+        currentDebuffs.set(emptyList())
+        
+        logger.atFine().log("Hidden metabolism UI due to module disable")
     }
     
     // ============ Utility Methods ============

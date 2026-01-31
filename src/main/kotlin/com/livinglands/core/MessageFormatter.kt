@@ -375,4 +375,121 @@ object MessageFormatter {
         
         playerRef.sendMessage(message)
     }
+    
+    // ============ Announcer Messages ============
+    
+    /**
+     * Send an announcement message without the [Living Lands] prefix.
+     * 
+     * Announcements are server-wide broadcasts that should feel like official server messages,
+     * not plugin-specific chatter. This method parses Minecraft-style color codes (&a, &6, etc.)
+     * and converts them to Hytale's Message API.
+     * 
+     * Supported color codes:
+     * - &0-&9, &a-&f - Standard Minecraft colors
+     * - &l - Bold (not supported in Hytale, ignored)
+     * - &r - Reset to white
+     * 
+     * Examples:
+     * - "&6Welcome to Living Lands!" → Gold text
+     * - "&a[Tip] &fStay hydrated!" → Green [Tip] + White text
+     * - "&bJoin Discord: &fdiscord.gg/example" → Aqua + White
+     * 
+     * @param playerRef Target player
+     * @param text Message text with & color codes
+     */
+    fun announcement(playerRef: PlayerRef, text: String) {
+        val message = parseColorCodes(text)
+        playerRef.sendMessage(message)
+    }
+    
+    /**
+     * Parse Minecraft-style color codes (&a, &6, etc.) into Hytale Message API.
+     * 
+     * @param text Text with & color codes
+     * @return Hytale Message with colors applied
+     */
+    private fun parseColorCodes(text: String): Message {
+        val colorMap = mapOf(
+            '0' to Color(0, 0, 0),          // Black
+            '1' to Color(0, 0, 170),        // Dark Blue
+            '2' to Color(0, 170, 0),        // Dark Green
+            '3' to Color(0, 170, 170),      // Dark Aqua
+            '4' to Color(170, 0, 0),        // Dark Red
+            '5' to Color(170, 0, 170),      // Dark Purple
+            '6' to Color(255, 170, 0),      // Gold
+            '7' to Color(170, 170, 170),    // Gray
+            '8' to Color(85, 85, 85),       // Dark Gray
+            '9' to Color(85, 85, 255),      // Blue
+            'a' to Color(85, 255, 85),      // Green
+            'b' to Color(85, 255, 255),     // Aqua
+            'c' to Color(255, 85, 85),      // Red
+            'd' to Color(255, 85, 255),     // Light Purple
+            'e' to Color(255, 255, 85),     // Yellow
+            'f' to Color(255, 255, 255)     // White
+        )
+        
+        // Split by color codes
+        val parts = mutableListOf<Pair<Color?, String>>()
+        var currentColor: Color? = null
+        var currentText = StringBuilder()
+        
+        var i = 0
+        while (i < text.length) {
+            if (i < text.length - 1 && text[i] == '&') {
+                val code = text[i + 1].lowercaseChar()
+                
+                // Save current segment
+                if (currentText.isNotEmpty()) {
+                    parts.add(currentColor to currentText.toString())
+                    currentText = StringBuilder()
+                }
+                
+                // Update color
+                when {
+                    code in colorMap -> currentColor = colorMap[code]
+                    code == 'r' -> currentColor = null  // Reset
+                    code == 'l' -> { } // Bold not supported, ignore
+                    else -> {
+                        // Unknown code, treat as literal
+                        currentText.append('&').append(text[i + 1])
+                    }
+                }
+                
+                i += 2  // Skip & and code
+            } else {
+                currentText.append(text[i])
+                i++
+            }
+        }
+        
+        // Add final segment
+        if (currentText.isNotEmpty()) {
+            parts.add(currentColor to currentText.toString())
+        }
+        
+        // Build Message
+        if (parts.isEmpty()) {
+            return Message.raw("")
+        }
+        
+        val (firstColor, firstText) = parts[0]
+        val message = if (firstColor != null) {
+            Message.raw(firstText).color(firstColor)
+        } else {
+            Message.raw(firstText)
+        }
+        
+        // Insert remaining parts
+        for (i in 1 until parts.size) {
+            val (color, text) = parts[i]
+            if (color != null) {
+                message.insert(Message.raw(text).color(color))
+            } else {
+                message.insert(Message.raw(text))
+            }
+        }
+        
+        return message
+    }
 }

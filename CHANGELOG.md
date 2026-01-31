@@ -7,14 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-01-31
+
+### Added
+- **Announcer Module** - Complete server messaging system with:
+  - MOTD (Message of the Day) displayed on player join
+  - Welcome messages (differentiate first-time vs returning players)
+  - Recurring announcements with configurable intervals
+  - Broadcast commands (`/ll broadcast <message>`) for admins
+  - Placeholder support (`{player_name}`, `{server_name}`, `{join_count}`)
+  - Per-world message overrides
+  - Hot-reload support via `/ll reload announcer`
+  - Color code support (`&a`, `&6`, etc.)
+- **MessageFormatter Enhancement** - New `announcement()` method for clean server announcements
+  - Parses Minecraft color codes (`&0-&9`, `&a-&f`, `&r`)
+  - Announcements sent without `[Living Lands]` prefix (feel like official server messages)
+
 ### Fixed
+- **CRITICAL: HUD Crash on Join** - Fixed crash with "Selected element in CustomUI command was not found: #HungerBar.Text"
+  - Root cause: `build()` was calling `set()` methods before client finished parsing UI file
+  - Fix: Separated `build()` (structure only) from `update()` (data population)
+  - Data now populated after UI loads (metabolism tick ~2s after join)
+- **Panel Toggle Bug** - Fixed `/ll professions` and `/ll progress` commands showing brief flash then disappearing
+  - Root cause: Commands were calling `refreshHud()` which rebuilt entire HUD and reset state
+  - Fix: Removed unnecessary `refreshHud()` calls, toggle methods handle visibility AND data population
 - **WorldContext Cleanup** - Added 100ms grace period for coroutines during world cleanup to prevent data loss from interrupted database writes
 - **Config Ambiguity Warning** - Added warning log when world has conflicting metabolism config overrides (by name and UUID)
 - **Memory Leak Prevention** - Enhanced FoodEffectDetector cleanup to remove empty player maps, preventing ~10KB memory leak per player per 8-hour session
 
 ### Changed
+- HUD system now uses build/update pattern to prevent race conditions
 - WorldContext cleanup now waits briefly for in-flight persistence operations before forcing cancellation
 - World config resolution now explicitly logs precedence when both name and UUID overrides exist
+- Panel commands no longer trigger full HUD rebuilds
 
 ## [1.2.3] - 2026-01-30
 
@@ -83,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/MoshPitCodes/living-lands-reloaded/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/MoshPitCodes/living-lands-reloaded/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.3.0
 [1.2.3]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.2.3
 [1.1.0]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.1.0
 [1.0.1-beta]: https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.0.1-beta

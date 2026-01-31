@@ -33,16 +33,22 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.2.3** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Critical bug fixes.
+**Current Status:** **v1.3.0** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Announcer module added. Critical HUD fixes.
 
 ---
 
 ## Recent Updates
 
-**v1.2.3 Changes (HOTFIX):**
-- 🔥 **CRITICAL FIX:** Food consumption now properly restores stats on every use (was only working on first consumption)
-- ✅ Improved food effect detection system reliability
-- ✅ Memory optimizations in effect tracking
+**v1.3.0 Changes (NEW FEATURES + CRITICAL FIXES):**
+- 🎉 **NEW MODULE:** Announcer system for server messaging
+  - MOTD and welcome messages with placeholders
+  - Recurring announcements with configurable intervals
+  - Broadcast commands for admins
+  - Per-world message overrides
+  - Color code support (`&a`, `&6`, etc.)
+- 🔥 **CRITICAL FIX:** HUD crash on player join (build/update pattern separation)
+- 🔥 **CRITICAL FIX:** Panel toggle commands now work correctly
+- ✅ Performance and memory optimizations
 
 ---
 
@@ -65,6 +71,16 @@
 - **Death Penalty** - Lose XP on death (progressive 10-35% on 2 highest professions)
 - **Global Persistence** - Stats survive server restarts and world switches
 
+### Announcer System (Complete)
+- **MOTD (Message of the Day)** - Display welcome message on player join
+- **Welcome Messages** - Different messages for first-time vs returning players
+- **Recurring Announcements** - Automated tips/info with configurable intervals (5m, 10m, etc.)
+- **Broadcast Commands** - Admins can send server-wide messages
+- **Placeholder Support** - Dynamic values like `{player_name}`, `{server_name}`, `{join_count}`
+- **Per-World Overrides** - Customize messages per world
+- **Color Codes** - Minecraft-style color codes (`&a` = green, `&6` = gold, etc.)
+- **Hot-Reload** - Update configs without restarting via `/ll reload announcer`
+
 ### Commands
 
 **Player Commands:**
@@ -76,6 +92,7 @@
 
 **Admin Commands (Operator Only):**
 - `/ll reload [module]` - Hot-reload configuration
+- `/ll broadcast <message>` - Broadcast message to all players
 - `/ll prof set <player> <profession> <level>` - Set profession level
 - `/ll prof add <player> <profession> <xp>` - Add XP to profession
 - `/ll prof reset <player> [profession]` - Reset profession(s)
@@ -101,6 +118,10 @@
 | | Death Penalty | ✅ Complete | Progressive 10-35% XP loss |
 | | Admin Commands | ✅ Complete | `/ll prof set/add/reset/show` |
 | | Tier 3 Abilities | 🚧 Planned | Passive effects (future) |
+| **Announcer** | MOTD/Welcome | ✅ Complete | Join messages with placeholders |
+| | Recurring Announcements | ✅ Complete | Interval-based automation |
+| | Broadcast Commands | ✅ Complete | Admin messaging |
+| | Per-World Overrides | ✅ Complete | Custom messages per world |
 
 ---
 
@@ -115,7 +136,7 @@
 
 ### Quick Start
 
-1. Download `livinglands-reloaded-1.2.2.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+1. Download `livinglands-reloaded-1.3.0.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
 2. Place in Hytale server's `plugins/` directory
 3. Start server - configs auto-generated in `LivingLandsReloaded/config/`
 
@@ -125,7 +146,7 @@
 git clone https://github.com/MoshPitCodes/living-lands-reloaded.git
 cd living-lands-reloaded
 ./gradlew build
-# JAR: build/libs/livinglands-reloaded-1.2.2.jar
+# JAR: build/libs/livinglands-reloaded-1.3.0.jar
 ```
 
 ---
@@ -139,7 +160,8 @@ LivingLandsReloaded/
 ├── config/
 │   ├── core.yml           # Core settings
 │   ├── metabolism.yml     # Depletion rates
-│   └── professions.yml    # XP rates and abilities
+│   ├── professions.yml    # XP rates and abilities
+│   └── announcer.yml      # Server messages and announcements
 └── data/
     ├── global/livinglands.db        # Global player stats
     └── {world-uuid}/livinglands.db  # Per-world data
@@ -150,6 +172,7 @@ LivingLandsReloaded/
 ```bash
 /ll reload           # Reload all configs
 /ll reload metabolism # Reload specific module
+/ll reload announcer  # Reload announcer config
 ```
 
 ---
@@ -230,22 +253,23 @@ src/main/kotlin/com/livinglands/
 
 ## Roadmap
 
-### v1.2.2 (Current)
+### v1.3.0 (Current)
+- ✅ Announcer module complete (MOTD, welcome, recurring, broadcast)
+- ✅ Critical HUD crash fix (build/update pattern separation)
+- ✅ Panel toggle commands fixed
 - ✅ Metabolism system complete
 - ✅ Core infrastructure stable
 - ✅ Professions XP systems complete
 - ✅ Tier 1 & Tier 2 abilities fully integrated
 - ✅ Death penalty system
-- ✅ Admin commands (`/ll prof set/add/reset/show`)
+- ✅ Admin commands (`/ll prof set/add/reset/show`, `/ll broadcast`)
 - ✅ Thread safety improvements
-- ✅ Logging system aligned with Java standards
-- ✅ Codebase cleanup (removed stub modules)
-- ✅ Player disconnect race condition fixed
+- ✅ Performance and memory optimizations
 
-### Next Sprint (v1.3.0)
+### Next Sprint (v1.4.0)
 - [ ] Tier 3 ability triggers (passive effects at level 100)
 - [ ] World switch handling for ability persistence
-- [ ] Performance optimizations
+- [ ] Additional performance optimizations
 
 ### Future
 - [ ] Claims module (land protection)
