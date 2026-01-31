@@ -94,7 +94,12 @@ class MultiHudManager(
             val hudManager = player.hudManager
             hudManager.setCustomHud(playerRef, hudElement)
             hudElement.show()
-            logger.atFine().log("Registered unified HUD for player $playerId")
+            
+            // NOTE: Initial data population will happen on the next metabolism tick
+            // (every 2 seconds). We don't populate immediately because the client
+            // needs time to process the append() command and create the UI elements.
+            
+            logger.atFine().log("Registered unified HUD for player $playerId (initial data will populate on next tick)")
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("Failed to register unified HUD for player $playerId")
         }
@@ -133,6 +138,32 @@ class MultiHudManager(
         logger.atFine().log("Updating profession services for ${playerHuds.size} registered HUDs")
         playerHuds.values.forEach { hud ->
             hud.setProfessionServices(service, registry)
+        }
+    }
+    
+    /**
+     * Clear profession services from all registered HUDs.
+     * Call this when ProfessionsModule is disabled via config hot-reload.
+     * 
+     * This disables profession panels in the HUD but keeps the HUD itself active.
+     */
+    fun clearProfessionServicesForAll() {
+        logger.atFine().log("Clearing profession services for ${playerHuds.size} registered HUDs")
+        playerHuds.values.forEach { hud ->
+            hud.clearProfessionServices()
+        }
+    }
+    
+    /**
+     * Clear metabolism services from all registered HUDs.
+     * Call this when MetabolismModule is disabled via config hot-reload.
+     * 
+     * This hides metabolism stats, buffs, and debuffs in the HUD but keeps the HUD itself active.
+     */
+    fun clearMetabolismServicesForAll() {
+        logger.atFine().log("Clearing metabolism services for ${playerHuds.size} registered HUDs")
+        playerHuds.values.forEach { hud ->
+            hud.clearMetabolismServices()
         }
     }
     

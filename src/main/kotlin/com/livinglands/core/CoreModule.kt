@@ -369,9 +369,15 @@ object CoreModule {
         
         logger.atFine().log("Setting up ${moduleOrder.size} modules in order: ${moduleOrder.joinToString(" -> ")}")
         
-        // Setup each module in order
+        // Setup each module in order (respecting enabledModules config)
         for (moduleId in moduleOrder) {
             val module = modules[moduleId] ?: continue
+            
+            // Check if module is enabled in config
+            if (!coreConfig.isModuleEnabled(moduleId)) {
+                logger.atInfo().log("Module '$moduleId' is disabled in config, skipping setup")
+                continue
+            }
             
             try {
                 module.setup(context)
@@ -401,6 +407,12 @@ object CoreModule {
         
         for (moduleId in moduleOrder) {
             val module = modules[moduleId] ?: continue
+            
+            // Skip modules that are disabled in config
+            if (!coreConfig.isModuleEnabled(moduleId)) {
+                logger.atFine().log("Module '$moduleId' is disabled, skipping start")
+                continue
+            }
             
             // Skip modules that failed setup
             if (module.state == ModuleState.ERROR) {
@@ -472,13 +484,17 @@ object CoreModule {
      * Notify all modules that a player joined.
      * Called by the plugin after session registration.
      * 
+     * Only notifies modules that are operational (STARTED state).
+     * Modules in DISABLED_BY_CONFIG state are intentionally skipped.
+     * 
      * @param playerId The player's UUID
      * @param session The registered player session
      */
     suspend fun notifyPlayerJoin(playerId: UUID, session: PlayerSession) {
         for (module in modules.values) {
-            // Only notify modules that are STARTED
-            if (module.state == ModuleState.STARTED) {
+            // Only notify modules that are operational (STARTED)
+            // DISABLED_BY_CONFIG modules should not process player events
+            if (module.state.isOperational()) {
                 try {
                     module.onPlayerJoin(playerId, session)
                 } catch (e: Exception) {
@@ -494,13 +510,17 @@ object CoreModule {
      * Called by the plugin BEFORE session unregistration.
      * All modules should save their data for this player.
      * 
+     * Only notifies modules that are operational (STARTED state).
+     * Modules in DISABLED_BY_CONFIG state are intentionally skipped.
+     * 
      * @param playerId The player's UUID
      * @param session The player session (still valid during this call)
      */
     suspend fun notifyPlayerDisconnect(playerId: UUID, session: PlayerSession) {
         for (module in modules.values) {
-            // Only notify modules that are STARTED
-            if (module.state == ModuleState.STARTED) {
+            // Only notify modules that are operational (STARTED)
+            // DISABLED_BY_CONFIG modules should not process player events
+            if (module.state.isOperational()) {
                 try {
                     module.onPlayerDisconnect(playerId, session)
                 } catch (e: Exception) {

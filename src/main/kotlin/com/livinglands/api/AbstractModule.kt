@@ -63,6 +63,10 @@ abstract class AbstractModule(
     /**
      * Start phase - wraps onStart() with state management and error handling.
      * This is final - subclasses should override onStart() instead.
+     * 
+     * If onStart() returns without calling any operations (early return due to config disabled),
+     * the module will be in STARTED state. Subclasses should call [markDisabledByConfig] 
+     * to properly indicate the module is disabled by configuration.
      */
     final override suspend fun start() {
         if (state != ModuleState.SETUP) {
@@ -72,12 +76,54 @@ abstract class AbstractModule(
         
         try {
             onStart()
-            state = ModuleState.STARTED
-            logger.atFine().log("Module '$id' v$version started")
+            // Only set to STARTED if not already marked as DISABLED_BY_CONFIG
+            if (state == ModuleState.SETUP) {
+                state = ModuleState.STARTED
+                logger.atFine().log("Module '$id' v$version started")
+            }
         } catch (e: Exception) {
             state = ModuleState.ERROR
             logger.atSevere().withCause(e).log("Failed to start module $id")
             throw e
+        }
+    }
+    
+    /**
+     * Mark this module as disabled by configuration.
+     * Call this in onStart() when the module's enabled config is false.
+     * 
+     * This sets the state to DISABLED_BY_CONFIG, which:
+     * - Prevents player lifecycle hooks from being called
+     * - Causes ModuleCommand subclasses to show "disabled" message
+     * - Allows the module to be re-enabled via config hot-reload
+     * 
+     * Example usage in onStart():
+     * ```kotlin
+     * override suspend fun onStart() {
+     *     if (!config.enabled) {
+     *         markDisabledByConfig()
+     *         return
+     *     }
+     *     // ... normal start logic
+     * }
+     * ```
+     */
+    protected fun markDisabledByConfig() {
+        state = ModuleState.DISABLED_BY_CONFIG
+        logger.atFine().log("Module '$id' is disabled by configuration")
+    }
+    
+    /**
+     * Mark this module as started after being disabled by config.
+     * Call this during config hot-reload when the module is re-enabled.
+     * 
+     * This is for use during onConfigReload() when the module was DISABLED_BY_CONFIG
+     * and the config has changed to enabled=true.
+     */
+    protected fun markStarted() {
+        if (state == ModuleState.DISABLED_BY_CONFIG) {
+            state = ModuleState.STARTED
+            logger.atFine().log("Module '$id' enabled via config reload")
         }
     }
     

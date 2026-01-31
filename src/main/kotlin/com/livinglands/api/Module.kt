@@ -89,5 +89,20 @@ enum class ModuleState {
     STOPPED,
     
     /** Module encountered an error during lifecycle */
-    ERROR
+    ERROR,
+    
+    /** Module is disabled by configuration (setup complete, but not started) */
+    DISABLED_BY_CONFIG;
+    
+    /**
+     * Check if the module is in a state where it should process commands and player events.
+     * Returns true for STARTED, false for all other states including DISABLED_BY_CONFIG.
+     */
+    fun isOperational(): Boolean = this == STARTED
+    
+    /**
+     * Check if the module has been initialized (setup or beyond).
+     * Returns true for SETUP, STARTED, STOPPED, or DISABLED_BY_CONFIG.
+     */
+    fun isInitialized(): Boolean = this in listOf(SETUP, STARTED, STOPPED, DISABLED_BY_CONFIG)
 }
