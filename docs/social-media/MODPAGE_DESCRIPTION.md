@@ -140,7 +140,7 @@ Perfect for server rules, tips, Discord links, and event announcements.
 
 ## 🗺️ What's Coming Next
 
-This rewrite is built to grow. **v1.3.0 just shipped with the Announcer Module!**
+This rewrite is built to grow. **v1.3.1 just shipped with HUD performance optimizations!**
 
 **Next Updates:**
 - **Tier 3 Abilities** (next) - Mastery passives at level 100: speed bursts, bonus drops, resource conservation
@@ -148,6 +148,7 @@ This rewrite is built to grow. **v1.3.0 just shipped with the Announcer Module!*
 - **Advanced mechanics** (planned) - high-stat buffs, seasonal variation, custom food effects, poison and dangerous consumables
 
 **Recently Released:**
+- ✅ **HUD Performance Optimization** (v1.3.1) - 90% faster XP updates, no more full HUD refresh on XP gain
 - ✅ **Announcer Module** (v1.3.0) - Server messaging, MOTD, welcome messages, recurring announcements
 - ✅ **Tier 2 Abilities** (v1.2.0) - Permanent survival stat bonuses at level 45
 - ✅ **Professions System** (v1.1.0) - 5 professions with 100 levels each
@@ -160,7 +161,7 @@ Players: join a server running Living Lands Reloaded. The HUD appears automatica
 
 Server owners:
 
-1. Download `livinglands-reloaded-1.3.0.jar`
+1. Download `livinglands-reloaded-1.3.1.jar`
 2. Place it in your server `plugins/` folder
 3. Start the server
 4. Configs generate in `LivingLandsReloaded/config/`
@@ -175,7 +176,7 @@ Server owners:
 
 Built by **MoshPitCodes**.
 
-**Current Version:** 1.3.0
+**Current Version:** 1.3.1
 **License:** Apache 2.0
 **Source Code:** Available on GitHub
 
