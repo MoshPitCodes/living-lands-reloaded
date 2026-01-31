@@ -47,33 +47,9 @@ LivingLandsReloaded/
 *.backup
 *.tmp
 
-# Documentation (kept locally only, not in git)
-docs/HUD_COMPONENTS_REFERENCE.md
-docs/HUD_SYSTEM_ANALYSIS.md
-docs/HYTALE_API_REFERENCE.md
-docs/MODULE_ANALYSIS.md
-docs/MULTI_WORLD_TESTING.md
-docs/STATUS.md
-docs/TESTING_GUIDE.md
-docs/TROUBLESHOOTING.md
-docs/WINDOWS_DEPLOYMENT.md
-docs/IMPLEMENTATION_PLAN.md
-docs/TECHNICAL_DESIGN.md
-docs/api-reference/
-docs/STANDARD_MODULE_STRUCTURE.md
-docs/HYTALE_WORLDGEN_V2.md
-docs/NIX_DEVELOPMENT_ENVIRONMENT.md
-docs/FUTURE_MODULES.md
-docs/FIXES_*.md
+# Internal documentation (kept locally only, not in git)
+# All internal/private docs are now in docs/internal/
+docs/internal/
 
 # Agent instructions (kept locally only)
 AGENTS.md
-
-# Linear project management docs (kept locally only)
-LINEAR_QUICK_REFERENCE.md
-docs/LINEAR_ISSUES.md
-docs/LINEAR_AUDIT_REPORT.md
-docs/LINEAR_ACTION_CHECKLIST.md
-
-# Archive directory (historical docs, kept locally only)
-docs/_archive/

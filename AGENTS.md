@@ -32,7 +32,7 @@ When examining v2.6.0 code, assess these components for reuse rather than copyin
 
 **Assessment Guidelines:**
 1. Study the **logic/algorithms** but rewrite to use new API
-2. Verify all Hytale API calls against `docs/api-reference/README.md` (verified via `javap` from HytaleServer.jar)
+2. Verify all Hytale API calls against `docs/internal/api-reference/README.md` (verified via `javap` from HytaleServer.jar)
 3. Adapt to new modular architecture with proper lifecycle
 4. Don't copy paste - patterns changed too much between versions
 
@@ -53,7 +53,7 @@ WorldContext (per world UUID)
 
 Modules: Metabolism, Professions, Hud
 
-**Future Modules:** See `docs/FUTURE_MODULES.md` for planned modules (Economy, Groups, Claims)
+**Future Modules:** See `docs/internal/FUTURE_MODULES.md` for planned modules (Economy, Groups, Claims)
 ```
 
 ## Key Patterns
@@ -192,7 +192,7 @@ logger.atInfo().log("Simple message")
 logger.atSevere().withCause(exception).log("Error occurred")
 ```
 
-**Configuration:** See `docs/LOGGING.md` for full details on configurable log levels.
+**Configuration:** See `docs/LOGGING.md` (public) for configurable log levels.
 
 ## Directory Structure
 
@@ -216,13 +216,14 @@ LivingLandsReloaded/            # Runtime data folder
 ## Implementation Rules
 
 1. **Global + Per-world data** - Player progression (metabolism, professions) stored globally; world-specific data (claims) stored per-world
-2. **API verification first** - Always check `docs/api-reference/` before using online docs
+2. **API verification first** - Always check `docs/internal/api-reference/` before using online docs
 3. **Config in YAML** - Never store config in database
 4. **Fail gracefully** - Catch exceptions, log, continue
 5. **Proper logging** - Use `LoggingManager` with appropriate log levels (TRACE/DEBUG/CONFIG/INFO/WARN/ERROR)
 6. **Thread-safe collections** - Use `ConcurrentHashMap` for shared state
 7. **Event error handling** - Wrap all event handlers in try/catch blocks
 8. **UUID access** - Use `PlayerRef.uuid` property, not deprecated `getUuid()` if possible
+9. **Documentation** - ONLY create internal documentation in `docs/internal/`. NEVER create public-facing documentation (README.md, user guides, etc.) unless explicitly requested
 
 ## Linear Project Management
 
@@ -460,12 +461,12 @@ When creating pull requests for Living Lands Reloaded, follow these practices:
 - [ ] KDoc comments for public APIs
 - [ ] README.md updated (if user-facing changes)
 - [ ] CHANGELOG.md updated with version entry
-- [ ] TECHNICAL_DESIGN.md updated (if architecture changes)
-- [ ] IMPLEMENTATION_PLAN.md phase marked complete
+- [ ] docs/internal/TECHNICAL_DESIGN.md updated (if architecture changes)
+- [ ] docs/internal/IMPLEMENTATION_PLAN.md phase marked complete
 
 ## Current Phase
 
-See `docs/IMPLEMENTATION_PLAN.md` for detailed task breakdown.
+See `docs/internal/IMPLEMENTATION_PLAN.md` for detailed task breakdown.
 
 **MVP Scope:** Core infrastructure + Metabolism module with HUD, debuffs, and food consumption.
 
@@ -635,7 +636,7 @@ grep "LivingLandsReloaded" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/
 - `libs/Server/Licenses/` - Third-party license files (Apache-2.0, MIT, BSD, etc.)
 
 ### API Reference
-- `docs/api-reference/` - **Hytale API reference documentation** (extracted from HytaleServer.jar)
+- `docs/internal/api-reference/` - **Hytale API reference documentation** (extracted from HytaleServer.jar)
   - `01-server-api-reference.md` - Plugin system, commands, events, world management
   - `02-asset-system-reference.md` - Asset loading and management
   - `03-world-generation-reference.md` - World generation JSON + verified server worldgen APIs
@@ -648,7 +649,7 @@ grep "LivingLandsReloaded" /mnt/c/Users/moshpit/AppData/Roaming/Hytale/UserData/
 ### Online Documentation
 - **Hytale Modding Docs:** https://hytalemodding.dev/en/docs
   - May contain outdated information
-  - Always verify against `docs/api-reference/`
+  - Always verify against `docs/internal/api-reference/`
 
 ## UI Patterns (CustomUIPage)
 
@@ -789,25 +790,40 @@ When posting to Discord, **ALWAYS use the correct webhook** for the content type
 **Ko-fi Auto-Append:**
 All Discord announcements automatically include a "☕ Support Development" section linking to Ko-fi.com/moshpitplays. This is handled by the Discord MCP server—you don't need to manually add it!
 
-**See:** `docs/RELEASE_PROCESS.md` for complete release checklist, Discord announcement templates, and platform publishing guidelines.
+**See:** `docs/internal/RELEASE_PROCESS.md` for complete release checklist, Discord announcement templates, and platform publishing guidelines.
 
 ## Key References
 
 ### Documentation
-- `docs/RELEASE_PROCESS.md` - **Complete release workflow** (build, publish, announce) - **ALWAYS use Curseforge links for Discord**
-- `docs/TECHNICAL_DESIGN.md` - Full architecture details
-- `docs/IMPLEMENTATION_PLAN.md` - Phased task list
-- `docs/UI_PATTERNS.md` - **CustomUIPage patterns guide** (BasicCustomUIPage, InteractiveCustomUIPage)
-- `docs/LOGGING.md` - **Logging system guide** (LoggingManager, log levels, direct logger vs LoggingManager)
-- `docs/FUTURE_MODULES.md` - **Planned future modules** (Economy, Groups, Claims) with design documentation
-- `docs/api-reference/` - **Hytale API reference documentation** (extracted from HytaleServer.jar)
+
+**Internal Documentation (docs/internal/):**
+All internal/private documentation is stored in `docs/internal/` and excluded from git.
+
+- `docs/internal/RELEASE_PROCESS.md` - **Complete release workflow** (build, publish, announce) - **ALWAYS use Curseforge links for Discord**
+- `docs/internal/TECHNICAL_DESIGN.md` - Full architecture details
+- `docs/internal/IMPLEMENTATION_PLAN.md` - Phased task list
+- `docs/internal/FUTURE_MODULES.md` - **Planned future modules** (Economy, Groups, Claims) with design documentation
+- `docs/internal/api-reference/` - **Hytale API reference documentation** (extracted from HytaleServer.jar)
   - `01-server-api-reference.md` - Plugin system, commands, events, world management
   - `02-asset-system-reference.md` - Asset loading and management
   - `03-world-generation-reference.md` - World generation JSON + verified server worldgen APIs
   - `README.md` - API reference overview and navigation
   - **Always check this before using online docs** - contains verified API patterns
-- `docs/PHASE_0_1_AUDIT.md` - Issues found and fixed in Phases 0-1
+- `docs/internal/LINEAR_*.md` - Linear project management documentation
+
+**Public Documentation (docs/):**
+Public-facing documentation that is committed to git:
+
+- `docs/LOGGING.md` - **Logging system guide** (LoggingManager, log levels, direct logger vs LoggingManager)
+- `docs/MODULE_LIFECYCLE.md` - Module lifecycle and event handling
+- `docs/PROFESSIONS_ABILITIES.md` - Professions system and abilities reference
+- `docs/ROADMAP.md` - Public roadmap and feature plans
+- `docs/STANDARD_MODULE_STRUCTURE.md` - Standard module architecture patterns
+- `docs/TECHNICAL_DESIGN.md` - Public technical design overview
+- `docs/V260_MIGRATION.md` - v2.6.0 migration guide
 - `scripts/README.md` - **Deployment scripts documentation**
+
+**IMPORTANT:** When creating documentation, ALWAYS use `docs/internal/` unless explicitly creating public-facing docs.
 
 ### External References
 - **v2.6.0-beta Repository:** https://github.com/MoshPitCodes/hytale-livinglands
