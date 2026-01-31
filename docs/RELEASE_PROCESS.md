@@ -65,18 +65,46 @@ https://www.curseforge.com/hytale/mods/living-lands-reloaded/files/{file-id}
 
 ### 4. Discord Announcements
 
-**CRITICAL:** Always use the **Curseforge download link**, never GitHub.
+**IMPORTANT:** Always use the **Curseforge download link**, never GitHub releases.
 
-#### 4.1 Configure Discord Webhook (First Time Only)
+**Discord Webhook Types:**
+Living Lands uses multiple Discord webhooks for different announcement types:
+- **`releases`** - For release announcements (`discord_send_announcement`)
+- **`teasers`** - For upcoming feature previews (`discord_send_teaser`)
+- **`changelog`** - For detailed changelogs (`discord_send_changelog`)
+- **`messages`** - For general messages (`discord_send_message`)
+
+#### 4.1 Configure Discord Webhooks (First Time Only)
+
+Configure all webhook types for complete Discord integration:
 
 ```bash
-# Add webhook configuration
-# Get webhook URL from Discord: Server Settings > Integrations > Webhooks
+# Release announcements webhook
 discord_add_webhook \
   --name "releases" \
   --url "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN" \
   --description "Release announcements channel"
+
+# Teaser/preview webhook
+discord_add_webhook \
+  --name "teasers" \
+  --url "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN" \
+  --description "Upcoming features teasers channel"
+
+# Changelog webhook
+discord_add_webhook \
+  --name "changelog" \
+  --url "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN" \
+  --description "Detailed changelog channel"
+
+# General messages webhook
+discord_add_webhook \
+  --name "messages" \
+  --url "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN" \
+  --description "General announcements channel"
 ```
+
+
 
 #### 4.2 Send Release Announcement
 
@@ -130,13 +158,49 @@ discord_send_announcement \
 
 ```bash
 discord_send_teaser \
-  --webhookName "releases" \
+  --webhookName "teasers" \
   --version "1.4.0" \
   --headline "Tier 3 Mastery Abilities Coming Soon" \
   --style "beta" \
   --highlights '["Speed bursts for level 100 professions", "Bonus resource drops", "Resource conservation mechanics", "And more to be revealed..."]' \
   --additionalInfo "Stay tuned for the full reveal!"
 ```
+
+#### 4.4 Send Changelog (Detailed Change Documentation)
+
+```bash
+discord_send_changelog \
+  --webhookName "changelog" \
+  --title "Living Lands v1.3.0 Changelog" \
+  --version "v1.3.0" \
+  --style "release" \
+  --url "https://www.curseforge.com/hytale/mods/living-lands-reloaded/files/{file-id}" \
+  --sections '[
+    {
+      "title": "Added",
+      "items": [
+        "Complete Announcer Module with MOTD and welcome messages",
+        "Recurring announcements with configurable intervals",
+        "Broadcast commands for admins",
+        "Placeholder support for dynamic messages"
+      ]
+    },
+    {
+      "title": "Fixed",
+      "items": [
+        "Critical HUD crash on player join",
+        "Panel toggle commands showing brief flash",
+        "Memory leak in FoodEffectDetector"
+      ]
+    }
+  ]'
+```
+
+**Webhook Usage Guidelines:**
+- Use **`releases`** webhook for `discord_send_announcement` (release announcements)
+- Use **`teasers`** webhook for `discord_send_teaser` (upcoming features)
+- Use **`changelog`** webhook for `discord_send_changelog` (detailed changelogs)
+- Use **`messages`** webhook for `discord_send_message` (general announcements)
 
 ### 5. Post-Release
 
