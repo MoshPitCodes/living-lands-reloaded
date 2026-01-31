@@ -528,7 +528,8 @@ class ProfessionsModule : AbstractModule(
      * Notify HUD when XP is gained.
      * Called by XP systems after awarding XP.
      * 
-     * Updates the professions panels in the unified HUD (if visible).
+     * Updates ONLY the professions panels in the unified HUD (if visible).
+     * Does NOT trigger a full HUD rebuild - uses efficient update() instead.
      * 
      * @param playerId Player who gained XP
      * @param profession Profession that gained XP
@@ -543,7 +544,8 @@ class ProfessionsModule : AbstractModule(
             return
         }
         
-        // Mark panels for refresh (if visible, will update on next build)
+        // Update ONLY the profession panels (efficient - no full rebuild)
+        // refreshAllProfessionsPanels() already calls update() internally
         hudElement.refreshAllProfessionsPanels()
         
         // Send player feedback if leveled up
@@ -551,28 +553,7 @@ class ProfessionsModule : AbstractModule(
             sendLevelUpFeedback(playerId, profession)
         }
         
-        // Force HUD update to trigger build() immediately
-        val session = CoreModule.players.getAllSessions().find { it.playerId == playerId }
-        if (session != null) {
-            val world = session.world
-            world.execute {
-                try {
-                    val store = session.store
-                    val player = store.getComponent(session.entityRef, 
-                        com.hypixel.hytale.server.core.entity.entities.Player.getComponentType())
-                    if (player != null) {
-                        @Suppress("DEPRECATION")
-                        val playerRef = player.playerRef
-                        if (playerRef != null) {
-                            CoreModule.hudManager.refreshHud(player, playerRef)
-                            logger.atFine().log("Refreshed unified HUD for player $playerId after XP gain (${profession.name}: +$xpAmount XP)")
-                        }
-                    }
-                } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Failed to refresh unified HUD for XP gain")
-                }
-            }
-        }
+        logger.atFine().log("Updated profession panels for player $playerId after XP gain (${profession.name}: +$xpAmount XP)")
     }
     
     /**
