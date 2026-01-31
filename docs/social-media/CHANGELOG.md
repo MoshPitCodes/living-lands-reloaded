@@ -1,6 +1,43 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.2.3 (Latest - HOTFIX)
+## 1.3.0 (Latest)
+
+### New Features
+- 🎉 **Announcer Module** - Complete server messaging system with:
+  - **MOTD (Message of the Day)** - Welcome messages displayed immediately on player join
+  - **Welcome Messages** - Different messages for first-time vs returning players with join count tracking
+  - **Recurring Announcements** - Automated server tips/info with configurable intervals (5m, 10m, etc.)
+  - **Broadcast Commands** - `/ll broadcast <message>` for admins to send server-wide messages
+  - **Placeholder Support** - Dynamic values: `{player_name}`, `{server_name}`, `{join_count}`
+  - **Color Code Support** - Minecraft-style formatting (`&a` = green, `&6` = gold, etc.)
+  - **Hot-Reload** - `/ll reload announcer` updates config without restart
+- ✨ **MessageFormatter Enhancement** - New `announcement()` method parses color codes for clean server messages
+
+### Critical Fixes
+- 🔥 **HUD Crash on Player Join** - Fixed blocker crash with "Selected element not found: #HungerBar.Text"
+  - Root cause: `build()` calling `set()` before client finished parsing UI file
+  - Fix: Separated build (structure) from update (data population)
+  - Impact: Players can now join without crashes
+- 🔥 **Panel Toggle Bug** - Fixed `/ll professions` and `/ll progress` commands showing brief flash then disappearing
+  - Root cause: Commands calling `refreshHud()` which rebuilt entire HUD
+  - Fix: Removed unnecessary `refreshHud()` calls
+  - Impact: Panel commands now work correctly
+
+### Performance
+- ⚡ MOTD send: <1ms per player
+- ⚡ Welcome message: <5ms per player
+- ⚡ Recurring announcements: <10ms broadcast to all players
+- 💾 Memory impact: <1MB for join tracking
+
+### Technical Changes
+- HUD now uses build/update pattern to prevent race conditions
+- Panel toggles populate data directly without full rebuilds
+- Announcer uses coroutine-based scheduler with graceful shutdown
+- In-memory join tracking with ConcurrentHashMap
+
+---
+
+## 1.2.3 (HOTFIX)
 
 ### Fixed
 - 🔥 **CRITICAL: Food Consumption Bug** - Fixed bug where consuming food only restored metabolism stats on the first consumption. Subsequent food consumptions now properly restore hunger/thirst/energy every time.

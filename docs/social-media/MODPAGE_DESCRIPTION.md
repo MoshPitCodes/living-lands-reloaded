@@ -106,24 +106,51 @@ Same mod, multiple experiences.
 
 ---
 
+## 📢 Server Announcements ✨ NEW IN 1.3.0
+
+Living Lands Reloaded now includes a complete **Announcer Module** for server messaging:
+
+- **MOTD (Message of the Day)** - Greet players on join with personalized welcome messages
+- **Welcome Messages** - Different messages for first-time vs returning players
+- **Recurring Announcements** - Automated tips and server info at configurable intervals
+- **Broadcast Commands** - Admins can send formatted messages to all players
+- **Placeholder Support** - Dynamic values like `{player_name}`, `{server_name}`, `{join_count}`
+- **Color Code Support** - Minecraft-style formatting (`&a` = green, `&6` = gold, etc.)
+- **Hot-Reload** - Update announcements without restarting the server
+
+Perfect for server rules, tips, Discord links, and event announcements.
+
+---
+
 ## ⌨️ Commands
 
-- `/ll reload` - reload configuration files (admin/op)
+**Player Commands:**
 - `/ll stats` - toggle metabolism HUD panel
 - `/ll buffs` - toggle buffs display
 - `/ll debuffs` - toggle debuffs display
 - `/ll professions` - toggle professions panel
 - `/ll progress` - toggle compact professions progress panel
 
+**Admin Commands:**
+- `/ll reload [module]` - reload configuration files (operator only)
+- `/ll broadcast <message>` - broadcast message to all players (operator only)
+- `/ll prof set/add/reset/show` - manage player professions (operator only)
+
 ---
 
 ## 🗺️ What's Coming Next
 
-This rewrite is built to grow.
+This rewrite is built to grow. **v1.3.0 just shipped with the Announcer Module!**
 
+**Next Updates:**
 - **Tier 3 Abilities** (next) - Mastery passives at level 100: speed bursts, bonus drops, resource conservation
 - **Land Claims** (planned) - protect builds, trust friends, per-world management
 - **Advanced mechanics** (planned) - high-stat buffs, seasonal variation, custom food effects, poison and dangerous consumables
+
+**Recently Released:**
+- ✅ **Announcer Module** (v1.3.0) - Server messaging, MOTD, welcome messages, recurring announcements
+- ✅ **Tier 2 Abilities** (v1.2.0) - Permanent survival stat bonuses at level 45
+- ✅ **Professions System** (v1.1.0) - 5 professions with 100 levels each
 
 ---
 
@@ -133,7 +160,7 @@ Players: join a server running Living Lands Reloaded. The HUD appears automatica
 
 Server owners:
 
-1. Download `livinglands-reloaded-1.2.2.jar`
+1. Download `livinglands-reloaded-1.3.0.jar`
 2. Place it in your server `plugins/` folder
 3. Start the server
 4. Configs generate in `LivingLandsReloaded/config/`
@@ -148,7 +175,7 @@ Server owners:
 
 Built by **MoshPitCodes**.
 
-**Current Version:** 1.2.2
+**Current Version:** 1.3.0
 **License:** Apache 2.0
 **Source Code:** Available on GitHub
 
