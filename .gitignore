@@ -53,3 +53,6 @@ docs/internal/
 
 # Agent instructions (kept locally only)
 AGENTS.md
+
+# Test scripts
+test_*.sh
