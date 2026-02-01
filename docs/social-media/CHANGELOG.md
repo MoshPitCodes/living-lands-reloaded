@@ -16,6 +16,22 @@ All Tier 2 profession abilities now provide **MASSIVE** max stat increases for l
 - Survive **35% longer** in extended expeditions (energy)
 - Build/fight **longer** without exhaustion (stamina)
 
+### 🍲 Modded Consumables Support!
+
+Living Lands now integrates seamlessly with food/drink mods! Your favorite gourmet meals from other mods properly restore hunger, thirst, and energy.
+
+**What's Included:**
+- **92 Pre-configured Consumables** - Works out-of-the-box with popular food mods:
+  - 🍖 **Hidden's Harvest Delights** - 44 gourmet foods (T2-T7)
+  - 🍞 **NoCube's Bakehouse + Tavern + Orchard** - 48 items (breads, drinks, meals)
+- **Extended Tier System** - Support for T1-T7 items (vanilla only had T1-T3)
+  - T6 Exquisite Feast: Restores 53 hunger (69 with MEAT multiplier!)
+  - T7 Legendary Feast: Restores 65 hunger (84.5 with MEAT multiplier!)
+- **Automatic Tier Detection** - Smart detection from effect IDs (no manual config needed)
+- **Hot-Reload Support** - Edit config and `/ll reload` to apply changes instantly
+
+**How It Works:** Just install your favorite food mod alongside Living Lands! The metabolism system will automatically detect and handle modded consumables. All 92 items are enabled by default.
+
 ### 🛡️ Critical Stability Fixes (11 Algorithm Audit Fixes)
 
 This update addresses critical race conditions, data integrity issues, and UX problems discovered during comprehensive algorithm audit:
