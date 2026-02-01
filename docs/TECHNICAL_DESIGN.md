@@ -2,7 +2,7 @@
 
 This document provides a deep technical dive into how the Living Lands mod works internally. For user-facing documentation, see the [README](../README.md).
 
-**Version:** 1.4.1  
+**Version:** 1.4.2  
 **Language:** Kotlin (Java 25 compatible)  
 **Last Updated:** 2026-02-01
 
@@ -4199,6 +4199,7 @@ Existing configs auto-upgrade to v5 with empty `moddedConsumables` section. No a
 | Version | Changes |
 |---------|---------|
 | **1.5.0** | **Planned:** `/ll metabolism scan` command for runtime modded consumables detection (preview + optional save with backup), multi-player stress testing, unit test infrastructure (JUnit5), JMH benchmarks. **Linear:** LLR-124 (scan command), LLR-87 (multi-player testing), LLR-86 (unit tests), LLR-85 (benchmarks) |
+| **1.4.2** | **CRITICAL HOTFIX:** Added 4 missing implementation files (763 lines) for modded consumables feature: ModdedConsumablesConfig.kt, ItemTierDetector.kt, ModdedConsumablesRegistry.kt, ModdedItemValidator.kt. Files were accidentally omitted from v1.4.0 and v1.4.1, causing feature to be non-functional. Modded consumables now fully operational. |
 | **1.4.1** | **Algorithm Audit & Tier 2 Enhancements:** **CRITICAL STABILITY FIXES** - 11 algorithm audit fixes (race condition protection via Mutex, 5-minute auto-save system, memory leak prevention via finally blocks, instant food effects via buff/debuff re-evaluation, DB write verification). **98% faster food responsiveness** (2s → instant). **Tier 2 ability buffs** - Iron Stomach/Desert Nomad/Tireless Woodsman increased from +15/+10 to **+35** max stats (2.3x-3.5x buff), Enduring Builder **IMPLEMENTED** (+15 stamina). **Config improvements:** itemId field for consumables, code cleanup (18 lines removed) |
 | **1.4.0** | **Modded Consumables Support (Phase 12):** Extended tier system T1-T7, 92 pre-configured consumables, automatic tier detection, custom multipliers, balanced scaling for max capacities, accurate chat messages, config migration v4→v5. **Professions Module complete** with all 15 abilities functional (Tier 1/2/3), admin commands, death penalty system, global persistence integration. **HUD fixes:** Max capacity display with abilities, force-update after ability application |
 | **1.3.1** | HUD performance hotfix: 90% faster XP updates, only profession panels refresh on XP gain |
