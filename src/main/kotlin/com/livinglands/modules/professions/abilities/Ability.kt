@@ -83,11 +83,11 @@ data object WarriorAbility : Tier1Ability() {
 data object IronStomachAbility : Tier2Ability() {
     override val id = "combat_iron_stomach"
     override val name = "Iron Stomach"
-    override val description = "Permanently +15 max hunger capacity"
+    override val description = "Permanently +35 max hunger capacity"
     override val profession = Profession.COMBAT
     
     /** Max hunger bonus */
-    val maxHungerBonus = 15.0
+    val maxHungerBonus = 35.0
 }
 
 /**
@@ -125,11 +125,11 @@ data object ProspectorAbility : Tier1Ability() {
 data object DesertNomadAbility : Tier2Ability() {
     override val id = "mining_desert_nomad"
     override val name = "Desert Nomad"
-    override val description = "Permanently +10 max thirst capacity"
+    override val description = "Permanently +35 max thirst capacity"
     override val profession = Profession.MINING
     
     /** Max thirst bonus */
-    val maxThirstBonus = 10.0
+    val maxThirstBonus = 35.0
 }
 
 /**
@@ -164,11 +164,11 @@ data object LumberjackAbility : Tier1Ability() {
 data object TirelessWoodsmanAbility : Tier2Ability() {
     override val id = "logging_tireless"
     override val name = "Tireless Woodsman"
-    override val description = "Permanently +10 max energy capacity"
+    override val description = "Permanently +35 max energy capacity"
     override val profession = Profession.LOGGING
     
     /** Max energy bonus */
-    val maxEnergyBonus = 10.0
+    val maxEnergyBonus = 35.0
 }
 
 /**

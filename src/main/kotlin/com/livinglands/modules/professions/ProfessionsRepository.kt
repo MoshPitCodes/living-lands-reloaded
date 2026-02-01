@@ -226,7 +226,12 @@ class ProfessionsRepository(
             stmt.setInt(4, stats.level)
             stmt.setLong(5, stats.lastUpdated)
             
-            stmt.executeUpdate()
+            val rowsAffected = stmt.executeUpdate()
+            
+            if (rowsAffected == 0) {
+                logger.atWarning().log("DB WRITE FAILED: 0 rows affected when saving profession ${stats.profession.dbId} for player ${stats.playerId}")
+            }
+            
             stmt.close()
         }
     }
@@ -249,16 +254,25 @@ class ProfessionsRepository(
                 VALUES (?, ?, ?, ?, ?)
             """.trimIndent())
             
+            var failedWrites = 0
             stats.forEach { profStats ->
                 stmt.setString(1, profStats.playerId)
                 stmt.setString(2, profStats.profession.dbId)
                 stmt.setLong(3, profStats.xp)
                 stmt.setInt(4, profStats.level)
                 stmt.setLong(5, profStats.lastUpdated)
-                stmt.executeUpdate()
+                val rowsAffected = stmt.executeUpdate()
+                
+                if (rowsAffected == 0) {
+                    failedWrites++
+                }
             }
             
             stmt.close()
+            
+            if (failedWrites > 0) {
+                logger.atWarning().log("DB WRITE FAILED: $failedWrites out of ${stats.size} profession saves had 0 rows affected for player ${stats.firstOrNull()?.playerId}")
+            }
         }
         
         logger.atFine().log("Saved ${stats.size} profession stats for player ${stats.firstOrNull()?.playerId}")
@@ -332,7 +346,11 @@ class ProfessionsRepository(
             val deleted = stmt.executeUpdate()
             stmt.close()
             
-            logger.atFine().log("Deleted $deleted profession records for player $playerId")
+            if (deleted == 0) {
+                logger.atWarning().log("DB DELETE: 0 rows affected when deleting profession stats for player $playerId (may not exist)")
+            } else {
+                logger.atFine().log("Deleted $deleted profession records for player $playerId")
+            }
         }
     }
 }

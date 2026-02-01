@@ -1,17 +1,100 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.4.0 (Latest - Professions Complete!)
+## 1.4.1 (Latest - Stability & Performance Update)
+
+### 🎉 NEW: Tier 2 Ability Enhancements!
+
+All Tier 2 profession abilities now provide **MASSIVE** max stat increases for late-game value:
+
+- ⚡ **Combat (Iron Stomach):** +15 → **+35 max hunger** (100 → 135 total!)
+- ⚡ **Mining (Desert Nomad):** +10 → **+35 max thirst** (100 → 135 total!)
+- ⚡ **Logging (Tireless Woodsman):** +10 → **+35 max energy** (100 → 135 total!)
+- ⚡ **Building (Enduring Builder):** **+15 max stamina** (NOW IMPLEMENTED - was missing!)
+
+**Why the buff?** Level 45 is a significant milestone (mid-game) and deserves impactful rewards. These bonuses now allow you to:
+- Go **35% longer** without eating/drinking (hunger/thirst)
+- Survive **35% longer** in extended expeditions (energy)
+- Build/fight **longer** without exhaustion (stamina)
+
+### 🛡️ Critical Stability Fixes (11 Algorithm Audit Fixes)
+
+This update addresses critical race conditions, data integrity issues, and UX problems discovered during comprehensive algorithm audit:
+
+**Data Safety & Reliability:**
+- ✅ **Race Condition Protection** - Fixed concurrent modification of profession stats when admin commands and XP awards happen simultaneously
+- ✅ **Auto-Save System** - Added 5-minute periodic auto-save for both Professions and Metabolism data (prevents data loss on crashes)
+- ✅ **Database Write Verification** - All database writes now verify success with row count checks and warnings
+- ✅ **Memory Leak Prevention** - Guaranteed cleanup on player disconnect even when save operations fail
+
+**Immediate Response Improvements:**
+- ⚡ **Instant Food Effects** - Eating food now IMMEDIATELY updates buffs/debuffs and HUD (no more 2-second delay!)
+  - Before: Starving debuff persisted for 2 seconds after eating
+  - After: Debuff removed the instant you eat food
+- ⚡ **Smoother Buff Transitions** - Debuff hysteresis increased from 5 to 10 points (matches buffs)
+  - Prevents rapid flickering when stats hover near thresholds
+  - Example: Tier 1 debuff now exits at 85% instead of 80% (more stable)
+
+**Bug Fixes:**
+- 🔧 **Max Level XP Protection** - Players at max level (100) no longer receive XP
+  - Prevents wasteful processing when profession is maxed out
+- 🔧 **HUD Progress Bar Fix** - Progress bars correctly account for passive ability max increases
+  - Bar fills to 100% at max capacity (115 hunger with Iron Stomach, 110 thirst/energy with abilities)
+- 🔧 **Modded Consumables Warnings** - Fixed false validation warnings for T4-T7 modded foods
+  - Validator now correctly supports extended tier system (T1-T7)
+
+### Improved
+- 📝 **Config Readability** - Modded consumables config now includes item names for clarity
+  - New `itemId` field shows which item triggers which effect
+  - All 92 pre-configured consumables documented with item IDs
+- 🧹 **Code Cleanup** - Removed redundant annotations and unused methods (18 lines of dead code removed)
+
+### Technical Details
+- Coroutine Mutex synchronization for async-compatible profession state locking
+- Fresh session lookups prevent stale ECS store references
+- Finally blocks guarantee cleanup execution
+- Thread-safe ability state management with proper disconnect handling
+
+---
+
+## 1.4.0 (Modded Consumables + Professions Complete!)
+
+### 🎉 NEW: Modded Consumables Support!
+
+Living Lands now integrates seamlessly with food/drink mods! Your favorite gourmet meals from other mods now properly restore hunger, thirst, and energy.
+
+#### What's New
+- **92 Pre-configured Consumables** - Works out-of-the-box with popular food mods:
+  - 🍖 **Hidden's Harvest Delights** - 44 gourmet foods (T2-T7)
+  - 🍞 **NoCube's Bakehouse + Tavern + Orchard** - 48 items (breads, drinks, meals)
+- **Extended Tier System** - Support for T1-T7 items (vanilla only had T1-T3)
+  - T6 Exquisite Feast: Restores 53 hunger (69 with MEAT multiplier!)
+  - T7 Legendary Feast: Restores 65 hunger (84.5 with MEAT multiplier!)
+- **Automatic Tier Detection** - Smart detection from effect IDs (no manual config needed)
+- **Custom Multipliers** - Fine-tune restoration amounts per item
+- **Hot-Reload Support** - Edit config and `/ll reload` to apply changes instantly
+
+#### How It Works
+Just install your favorite food mod alongside Living Lands! The metabolism system will automatically detect and handle modded consumables. All 92 items are enabled by default.
 
 ### 🎉 Professions Module 100% Complete!
 
 All Tier 3 profession abilities are now fully functional! Reach level 100 to unlock powerful endgame abilities:
 
-#### New Tier 3 Abilities
+#### Tier 3 Abilities
 - **Survivalist (Combat)** - Passive -15% metabolism depletion reduction. Your survival stats drain 15% slower.
 - **Adrenaline Rush (Combat)** - Gain +10% speed boost for 5 seconds after killing an entity. Perfect for chasing down fleeing enemies or escaping danger.
 - **Ore Sense (Mining)** - 10% chance to get bonus ore drop when mining ore blocks. More resources for your efforts!
 - **Timber! (Logging)** - 25% chance to get extra log when chopping trees. Stock up on wood faster!
 - **Efficient Architect (Building)** - 12% chance to refund placed block back to inventory. Build more with less!
+
+### Fixed
+- 🔧 **HUD Max Capacity Display** - HUD now correctly shows 115/110/110 when Tier 2 abilities are active
+  - Iron Stomach (Combat): +15 max hunger → 115 total
+  - Desert Nomad (Mining): +10 max thirst → 110 total
+  - Tireless Woodsman (Logging): +10 max energy → 110 total
+- 🔧 **Food Consumption Messages** - Messages now show ACTUAL amount restored, not theoretical amount
+  - Example: Eating T6 food at 110/115 hunger now shows "+5.0 hunger" instead of "+68.9 hunger"
+  - Clearer feedback on how much your stats actually increased
 
 ### Improved
 - ⚡ **Admin Command UX** - Instant HUD refresh when using `/ll prof set/add/reset` commands
@@ -19,6 +102,7 @@ All Tier 3 profession abilities are now fully functional! Reach level 100 to unl
   - No more metabolism bar flickering during testing
   - Professions panel updates instantly when panel is open
   - Better experience for server owners testing and debugging
+- 📊 **Food Consumption Logging** - Enhanced debug logs show calculated vs actual restoration amounts
 
 ### Technical Implementation
 - Thread-safe ability triggers with proper cleanup on disconnect/shutdown

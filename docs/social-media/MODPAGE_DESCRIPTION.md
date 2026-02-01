@@ -43,6 +43,25 @@ Three stats tracked and shown on the HUD:
 
 Drain is **activity-based** (sprinting/combat/travel), and foods restore different needs.
 
+**NEW in v1.4.1:** 
+- 🎉 **Tier 2 Buff:** Max stat bonuses increased to +35 (was +15/+10) - 35% longer survival!
+- ⚡ **Instant Response:** Eating food IMMEDIATELY updates buffs/debuffs and HUD (no more 2-second delay)
+- 🔧 **Building Complete:** Enduring Builder (+15 stamina) now fully functional
+- 🛡️ **Rock-Solid Stability:** 11 critical fixes from algorithm audit (auto-save, race condition protection, memory leak prevention)
+
+### 🍖 Modded Consumables Support (v1.4.0+)
+
+Living Lands now seamlessly integrates with food/drink mods! Your favorite gourmet meals from other mods properly restore hunger, thirst, and energy.
+
+*   **92 Pre-configured Items** - Works out-of-the-box with popular food mods:
+    *   Hidden's Harvest Delights (44 gourmet foods, T2-T7)
+    *   NoCube's Bakehouse + Tavern + Orchard (48 items)
+*   **Extended Tier System** - Support for T1-T7 items (vanilla was T1-T3)
+    *   T6 Exquisite Feast: 53 hunger (69 with MEAT multiplier!)
+    *   T7 Legendary Feast: 65 hunger (84.5 with MEAT multiplier!)
+*   **Automatic Detection** - No manual config needed, just install and play
+*   **Hot-Reload Support** - Edit config, run `/ll reload`, changes apply instantly
+
 ***
 
 ## 🏅 Professions: Your Character Sheet In Motion
@@ -54,7 +73,7 @@ Gain XP from normal play:
 Abilities unlock at:
 
 *   **Level 15 (Tier 1):** +15% XP in that profession
-*   **Level 45 (Tier 2):** Combat +15 max hunger, Mining +10 max thirst, Logging +10 max energy, Gathering +4 hunger/thirst on food pickup, Building +15 max stamina (API pending)
+*   **Level 45 (Tier 2):** **MASSIVE survival boosts!** Combat +35 max hunger (135 total), Mining +35 max thirst (135 total), Logging +35 max energy (135 total), Building +15 max stamina, Gathering +4 hunger/thirst on food pickup ✅
 *   **Level 100 (Tier 3):** ✨ **ALL FUNCTIONAL IN 1.4.0!** ✨
     *   **Survivalist (Combat):** -15% metabolism depletion
     *   **Adrenaline Rush (Combat):** +10% speed for 5 seconds on kill
@@ -105,6 +124,16 @@ Note: per-world overrides are supported in config; world-specific routing is bei
 
 ***
 
+## 🛡️ Stability & Performance (v1.4.1)
+
+Living Lands Reloaded has undergone comprehensive algorithm auditing to ensure rock-solid reliability:
+
+*   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
+*   **Race Condition Protection** - Thread-safe synchronization prevents corruption when admin commands and gameplay events collide
+*   **Memory Leak Prevention** - Guaranteed cleanup on player disconnect, even when errors occur
+*   **Database Verification** - All writes verified with row count checks and failure warnings
+*   **Instant Feedback** - Buffs/debuffs and HUD update the moment you eat food (no delay)
+
 ## 🗺️ What's Coming Next
 
 **Next Updates:**
@@ -120,7 +149,7 @@ Players: join a server running Living Lands Reloaded. The HUD appears automatica
 
 Server owners:
 
-1.  Download `livinglands-reloaded-1.4.0.jar`
+1.  Download `livinglands-reloaded-1.4.1.jar`
 2.  Place it in your server `plugins/` folder
 3.  Start the server
 4.  Configs generate in `LivingLandsReloaded/config/`
@@ -135,7 +164,7 @@ Server owners:
 
 Built by **MoshPitCodes**.
 
-**Current Version:** 1.4.0 **License:** Apache 2.0 **Source Code:** Available on GitHub
+**Current Version:** 1.4.1 **License:** Apache 2.0 **Source Code:** Available on GitHub
 
 ***
 

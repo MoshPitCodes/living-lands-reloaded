@@ -6,10 +6,15 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Manages a 3-tier debuff for a single stat type with uniform thresholds.
  * 
- * **Thresholds:**
- * - Tier 1 (Mild):     enter ≤ 75%, exit > 80%
- * - Tier 2 (Moderate): enter ≤ 50%, exit > 55%
- * - Tier 3 (Severe):   enter ≤ 25%, exit > 30%
+ * **Thresholds (10-point hysteresis gap):**
+ * - Tier 1 (Mild):     enter ≤ 75%, exit > 85%
+ * - Tier 2 (Moderate): enter ≤ 50%, exit > 60%
+ * - Tier 3 (Severe):   enter ≤ 25%, exit > 35%
+ * 
+ * **10-point gap prevents flickering:**
+ * - Buffs use 10-point gaps (enter 90%, exit 80%)
+ * - Debuffs now use 10-point gaps to match (enter 75%, exit 85%)
+ * - Prevents rapid on/off transitions during natural stat fluctuation
  *
  * @property statName Name for logging (e.g., "hunger", "thirst", "energy")
  * @property tierNames Display names for each tier: [mild, moderate, severe]
@@ -22,11 +27,11 @@ class TieredDebuffController(
         require(tierNames.size == 3) { "Must provide exactly 3 tier names" }
     }
 
-    // Uniform thresholds for all debuff types
+    // Uniform thresholds for all debuff types (10-point hysteresis gap to match buffs)
     private val controllers = listOf(
-        HysteresisController.forDebuff(enterThreshold = 75.0, exitThreshold = 80.0),  // Tier 1
-        HysteresisController.forDebuff(enterThreshold = 50.0, exitThreshold = 55.0),  // Tier 2
-        HysteresisController.forDebuff(enterThreshold = 25.0, exitThreshold = 30.0)   // Tier 3
+        HysteresisController.forDebuff(enterThreshold = 75.0, exitThreshold = 85.0),  // Tier 1
+        HysteresisController.forDebuff(enterThreshold = 50.0, exitThreshold = 60.0),  // Tier 2
+        HysteresisController.forDebuff(enterThreshold = 25.0, exitThreshold = 35.0)   // Tier 3
     )
 
     /** Previous worst tier (0 = none, 1-3 = tier) */
