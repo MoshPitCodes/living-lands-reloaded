@@ -2,7 +2,7 @@
 
 **Current Version:** v1.3.1  
 **Status:** Production Ready (MVP Complete + Announcer Module)  
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-01
 
 ---
 
@@ -14,7 +14,7 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ## 📊 Development Status
 
-### Overall Progress: **~70% Complete**
+### Overall Progress: **MVP Complete (Core Features 100%)**
 
 | Category | Progress | Status |
 |----------|----------|--------|
@@ -22,8 +22,20 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 | **Metabolism System** | 100% | ✅ Complete |
 | **Professions System** | 100% | ✅ Complete |
 | **Announcer Module** | 100% | ✅ Complete |
-| **Polish & Testing** | 95% | 🚧 In Progress |
-| **Future Modules** | 20% | 🚧 In Progress |
+| **Polish & Testing** | 70% | 🚧 Needs Multi-Player Testing |
+| **Future Modules** | 0% | 📋 Planned (Design Phase) |
+
+---
+
+## Status Legend
+
+| Symbol | Meaning | Description |
+|--------|---------|-------------|
+| ✅ | Complete | Fully implemented and tested |
+| 🚧 | In Progress | Partially implemented, work ongoing |
+| ⚠️ | Stub | Defined but not functional (trigger logic missing) |
+| 📋 | Planned | Design phase only, not started |
+| ❌ | Deprecated | Obsolete/replaced by newer implementation |
 
 ---
 
@@ -127,24 +139,25 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 - ✅ **Thread-Safe** - AtomicLong counters with compareAndSet
 
 #### Abilities System (15 Total)
-- ✅ **Tier 1** (Level 10) - Basic passive unlocks (5 abilities)
-- ✅ **Tier 2** (Level 45) - Resource restoration on action (5 abilities)
-  - Combat: Restore hunger on kill
-  - Mining: Restore thirst on ore mine
-  - Logging: Restore energy on tree fell
-  - Building: Restore hunger on block place
-  - Gathering: Restore energy on gather
-- ✅ **Tier 3** (Level 100) - Powerful passives (5 abilities)
-  - Combat: +10% damage
-  - Mining: Chance for double ore drops
-  - Logging: Chance for double log drops
-  - Building: Reduced block placement cost
-  - Gathering: Increased gathering yield
+- ✅ **Tier 1** (Level 15) - Basic passive unlocks (5 abilities)
+  - +15% XP gain for respective profession
+- ✅ **Tier 2** (Level 45) - Permanent max stat increases (4/5 functional, 1 stub)
+  - Combat: **Iron Stomach** - +15 max hunger capacity ✅
+  - Mining: **Desert Nomad** - +10 max thirst capacity ✅
+  - Logging: **Tireless Woodsman** - +10 max energy capacity ✅
+  - Building: **Enduring Builder** - +15 max stamina capacity ⚠️ (Stub - stamina API pending)
+  - Gathering: **Hearty Gatherer** - +4 hunger/thirst per food pickup ✅
+- 🚧 **Tier 3** (Level 100) - Powerful passives (1/5 functional, 4 stubs)
+  - Combat: **Survivalist** - ✅ -15% metabolism depletion rate (FUNCTIONAL)
+  - Combat: **Adrenaline Rush** - ⚠️ +10% speed for 5s on kill (STUB - trigger not implemented)
+  - Mining: **Ore Sense** - ⚠️ 15% double ore drops (STUB - trigger not implemented)
+  - Logging: **Timber!** - ⚠️ 10% extra logs (STUB - trigger not implemented)
+  - Building: **Efficient Architect** - ⚠️ 20% block refund (STUB - trigger not implemented)
 
 #### Death Penalty System
-- ✅ **Progressive Penalty** - More deaths = higher penalty (up to -85% XP)
-- ✅ **Random Selection** - 2 random professions affected
-- ✅ **Adaptive Mercy** - Reduces penalty after 5+ deaths
+- ✅ **Progressive Penalty** - More deaths = higher penalty (10% base + 3%/death, max 35%)
+- ✅ **Highest Professions Affected** - 2 highest professions affected (not random)
+- ✅ **Adaptive Mercy** - Reduces penalty by 50% after 5+ deaths
 - ✅ **Configurable** - Penalty percent, threshold, mercy system
 
 #### HUD & Commands
@@ -167,10 +180,10 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ---
 
-### Polish & Quality (v1.2.3)
+### Polish & Quality
 
-**Status:** 🚧 **95% Complete**  
-**Remaining:** Multi-player stress testing
+**Status:** 🚧 **70% Complete**  
+**Remaining:** Multi-player stress testing, unit tests, JMH benchmarks
 
 #### Completed
 - ✅ **Performance Optimizations**
@@ -195,37 +208,79 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
   - FoodEffectDetector memory leak prevention
   - Food consumption repeated detection
 
-#### In Progress
-- ⚠️ **Multi-Player Testing** (Phase 9)
+#### Outstanding Work
+- ⚠️ **Multi-Player Testing** (Critical - blocks v1.4.0)
   - Stress test with 50+ concurrent players
   - Verify thread safety under load
   - Measure actual performance metrics
   - Identify bottlenecks
+  - **Status:** Not started, requires test environment setup
+- ⚠️ **Unit Test Infrastructure** (blocks v1.4.0)
+  - JUnit5 + Mockito setup
+  - Core system tests (>70% coverage)
+  - **Status:** Not started
+- ⚠️ **JMH Benchmarks** (nice-to-have for v1.4.0)
+  - Performance baselines
+  - Regression detection
+  - **Status:** Not started
 
 ---
 
 ## 🚧 In Progress
 
-### Phase 9: Multi-Player Testing
+### v1.4.0 Development Blockers
 
-**Status:** 📋 Planned  
-**Target:** Before v1.3.0 release  
-**Estimated Time:** 1-2 weeks
+**Status:** 📋 **Not Started**  
+**Target:** v1.4.0 release (TBD)  
+**Critical Path Items:**
 
-#### Testing Scenarios
+#### 1. Multi-Player Stress Testing (CRITICAL)
+**Estimated Time:** 3-5 days  
+**Blockers:** Requires test environment with 50+ player capacity
+
+**Testing Scenarios:**
 - [ ] 50+ concurrent players
-- [ ] Rapid join/leave cycles
+- [ ] Rapid join/leave cycles (100+ cycles)
 - [ ] World switching under load
 - [ ] Simultaneous food consumption
 - [ ] Concurrent profession XP gain
 - [ ] HUD performance with many players
+- [ ] 24-hour uptime stability test
 
-#### Success Criteria
+**Success Criteria:**
 - No thread safety violations
 - <100ms player join time (verified)
 - <5ms metabolism tick overhead
 - Stable memory usage over 24 hours
 - No data loss on server restart
+
+**Linear Issue:** LLR-87 (Backlog)
+
+#### 2. Unit Test Infrastructure (HIGH PRIORITY)
+**Estimated Time:** 2-3 days  
+**Status:** Not started
+
+**Scope:**
+- [ ] JUnit5 + Mockito setup
+- [ ] MetabolismService tests
+- [ ] ProfessionsService tests
+- [ ] ConfigManager tests
+- [ ] >70% code coverage target
+
+**Linear Issue:** LLR-86 (Backlog)
+
+#### 3. JMH Benchmark Suite (MEDIUM PRIORITY)
+**Estimated Time:** 2-3 days  
+**Status:** Not started
+
+**Scope:**
+- [ ] Metabolism tick benchmarks
+- [ ] HUD rendering benchmarks
+- [ ] Profession XP gain benchmarks
+- [ ] Database operation benchmarks
+- [ ] Baseline metrics documented
+
+**Linear Issue:** LLR-85 (Backlog)
 
 ---
 
@@ -235,12 +290,14 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 | Module | Priority | Target Version | Estimated Time | Status |
 |--------|----------|----------------|----------------|--------|
-| **Announcer** | Medium | v1.3.0 | 1-2 days | ✅ Complete |
-| **Economy** | Low | v1.4.0 | 2-3 weeks | 📋 Planned |
-| **Moderation Tools** | Medium | v1.4.0 | 1-2 weeks | 📋 Planned |
-| **Land Claims** | Medium | v1.5.0 | 2-3 weeks | 📋 Planned |
-| **Random Encounters** | Medium | v1.5.0 | 2-3 weeks | 📋 Planned |
-| **Groups/Clans** | Low | v1.6.0 | 3-4 weeks | 📋 Planned |
+| **Announcer** | ~~Medium~~ | v1.3.0 | ~~1-2 days~~ | ✅ **Complete** |
+| **Economy** | Low | v1.5.0 | 2-3 weeks | 📋 Design Phase |
+| **Moderation Tools** | Medium | v1.5.0 | 1-2 weeks | 📋 Design Phase |
+| **Land Claims** | Medium | v1.6.0 | 2-3 weeks | 📋 Design Phase |
+| **Random Encounters** | Medium | v1.6.0 | 2-3 weeks | 📋 Design Phase |
+| **Groups/Clans** | Low | v1.7.0 | 3-4 weeks | 📋 Design Phase |
+
+**Note:** v1.4.0 is dedicated to testing and quality assurance, not new feature modules.
 
 ---
 
@@ -601,57 +658,106 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - ✅ Memory leak prevention
 - ✅ Config ambiguity warnings
 
-### v1.4.0 (Next) - Target: Mid-March 2026
-**Status:** 📋 Planned  
-**Theme:** Testing, Performance & Tier 3 Abilities
+### v1.4.0 (Next) - Target: TBD
+**Status:** 📋 **Not Started - Blocked**  
+**Theme:** Testing & Quality Assurance  
+**Blockers:** Requires multi-player test environment setup
 
+**Planned Work:**
+- [ ] Complete Tier 3 Profession Abilities (4/5 remaining stubs) - 3-5 days
+  - [ ] Adrenaline Rush (Combat) - Speed buff on kill
+  - [ ] Ore Sense (Mining) - Double ore drops
+  - [ ] Timber! (Logging) - Extra log drops
+  - [ ] Efficient Architect (Building) - Block refund
 - [ ] Multi-player stress testing (50+ players) - 3-5 days
+- [ ] Unit test infrastructure (JUnit5 + Mockito) - 2-3 days
 - [ ] Performance benchmarks (JMH) - 2-3 days
-- [ ] Professions Tier 3 Abilities - 2-3 days
-- [ ] Unit test infrastructure - 2-3 days
 - [ ] Documentation improvements - 1 day
 
-**Total Estimated Effort:** 11-17 days  
-**Target Date:** March 15, 2026
+**Total Estimated Effort:** 14-22 days  
+**Target Date:** Not yet scheduled (awaiting test environment)
 
-### v1.5.0 - Target: Mid-April 2026
-**Status:** 📋 Planned  
-**Theme:** Economy & Moderation
+**Note:** This release focuses on quality and testing infrastructure. No new user-facing features planned except Tier 3 profession abilities.
 
+### v1.5.0 - Target: TBD (Post-v1.4.0)
+**Status:** 📋 Design Phase  
+**Theme:** Economy & Moderation Tools
+
+**Planned Features:**
 - [ ] Economy Module (currency system)
-- [ ] Player-to-player trading
+- [ ] Player-to-player trading (`/ll pay`)
 - [ ] Moderation Tools (admin commands)
-- [ ] Teleportation & visibility system
-- [ ] Item management commands
+- [ ] Teleportation system (`/ll tp`)
+- [ ] Visibility controls (`/ll vanish`)
+- [ ] Item management commands (`/ll give`, `/ll repair`)
+- [ ] Player management (`/ll heal`, `/ll feed`)
 
-### v1.6.0 - Target: Mid-May 2026
-**Status:** 📋 Planned  
+**Estimated Effort:** 3-5 weeks  
+**Dependencies:** v1.4.0 testing complete
+
+**Linear Issues:**
+- Economy: LLR-51 through LLR-56 (Backlog)
+- Moderation: LLR-57 through LLR-61 (Backlog)
+
+### v1.6.0 - Target: TBD (Post-v1.5.0)
+**Status:** 📋 Design Phase  
 **Theme:** Territory & Dynamic Content
 
-- [ ] Land Claims Module
+**Planned Features:**
+- [ ] Land Claims Module (per-world protection)
 - [ ] Random Encounters Module
-- [ ] World boss system
-- [ ] Profession-based encounters
-- [ ] Manual event spawning (moderator tools)
+  - Hostile spawns (mob ambushes)
+  - Friendly NPCs (traders, quest givers)
+  - Environmental events (meteor showers, auroras)
+  - Treasure discoveries
+  - World bosses (scheduled/random)
+- [ ] Profession-based encounter triggers
+- [ ] Manual event spawning (admin tools)
+- [ ] Claim visualization (particle boundaries)
 
-### v1.7.0 - Target: Mid-June 2026
-**Status:** 📋 Planned  
-**Theme:** Social Features
+**Estimated Effort:** 4-6 weeks  
+**Dependencies:** v1.5.0 complete
 
+**Linear Issues:**
+- Claims: LLR-62 through LLR-68 (Backlog)
+- Encounters: LLR-69 through LLR-75 (Backlog)
+
+### v1.7.0 - Target: TBD (Post-v1.6.0)
+**Status:** 📋 Design Phase  
+**Theme:** Social Features & Groups
+
+**Planned Features:**
 - [ ] Groups/Clans Module
-- [ ] Group territories (Claims integration)
-- [ ] Group encounters (Random Encounters integration)
+  - Group creation/management
+  - Member invitation/kick system
+  - Rank & permission system
+  - Group chat (private messaging)
+  - Group banks (shared economy, requires Economy Module)
+  - Group territories (requires Claims Module)
+- [ ] Group encounters (requires Random Encounters Module)
 - [ ] Shared progression tracking
 
-### v2.0.0 - Target: Q2-Q3 2026
-**Status:** 📋 Vision  
+**Estimated Effort:** 3-4 weeks  
+**Dependencies:** v1.6.0 complete (Claims + Encounters modules)
+
+**Linear Issues:** LLR-76 through LLR-83 (Backlog)
+
+### v2.0.0 - Target: Long-Term Vision
+**Status:** 💭 **Concept Phase**  
 **Theme:** Advanced Features & Polish
 
-- [ ] Quest/Mission system
-- [ ] Achievement system
+**Visionary Features:**
+- [ ] Quest/Mission system (branching storylines)
+- [ ] Achievement system (milestones, badges)
 - [ ] Leaderboards (professions, economy, encounters)
-- [ ] Advanced claim features (taxes, decay)
-- [ ] Economy shops and marketplaces
+- [ ] Advanced claim features (taxes, upkeep, decay)
+- [ ] Economy shops and marketplaces (NPC vendors)
+- [ ] Custom world events (admin-designed encounters)
+- [ ] Seasonal events (timed content)
+
+**Status:** These are aspirational features. Timeline depends on completion of v1.4-v1.7 and community feedback.
+
+**No Linear Issues Yet** - Features will be broken down when v1.7.0 nears completion.
 
 ---
 
@@ -670,21 +776,24 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 ### Target Metrics (v1.4.0)
 
-| Metric | Target | Current | Gap |
-|--------|--------|---------|-----|
-| **50+ Player Support** | Stable | Untested | Testing needed |
-| **24-Hour Uptime** | No crashes | Untested | Testing needed |
-| **Auto Tests** | 50%+ coverage | 0% | Framework needed |
-| **Documentation** | 100% APIs | ~80% | Improve KDoc |
+| Metric | Target | Current | Status |
+|--------|--------|---------|--------|
+| **50+ Player Support** | Stable | Untested | ❌ Blocked (no test env) |
+| **24-Hour Uptime** | No crashes | Untested | ❌ Blocked (no test env) |
+| **Unit Test Coverage** | >70% core | 0% | ❌ Not started |
+| **JMH Benchmarks** | Baselines documented | None | ❌ Not started |
+| **Documentation** | 100% public APIs | ~85% | 🟡 Good (improvements planned) |
 
 ---
 
 ## 🔧 Technical Debt
 
-### High Priority
-- [ ] **Unit Tests** - No automated tests exist (manual only)
-- [ ] **JMH Benchmarks** - Performance claims not quantitatively measured
-- [ ] **Integration Tests** - Multi-module interactions not tested
+### High Priority (Blocks v1.4.0)
+- [ ] **Tier 3 Ability Stubs** - 4/5 Tier 3 abilities are stubs (no trigger logic) - **Linear: LLR-113**
+- [ ] **Tier 2 Stamina API Stub** - Enduring Builder needs stamina API research - **Linear: LLR-114**
+- [ ] **Unit Tests** - No automated tests exist (manual only) - **Linear: LLR-86**
+- [ ] **JMH Benchmarks** - Performance claims not quantitatively measured - **Linear: LLR-85**
+- [ ] **Multi-Player Testing** - 50+ player stress testing not performed - **Linear: LLR-87**
 
 ### Medium Priority
 - [ ] **API Documentation** - Some public APIs missing KDoc
@@ -772,6 +881,40 @@ nix develop
 
 ---
 
-**Last Updated:** 2026-01-31  
-**Next Review:** After v1.4.0 release  
+**Last Updated:** 2026-02-01  
+**Next Review:** After v1.4.0 planning begins (test environment available)  
 **Maintained By:** MoshPitCodes
+
+---
+
+## 📝 Recent Updates (2026-02-01)
+
+**Comprehensive Accuracy Audit Completed:**
+- ✅ **Status Legend Added** - Clarifies ✅ Complete, 🚧 In Progress, ⚠️ Stub, 📋 Planned
+- 🔴 **Fixed Tier 1 Level** - Corrected unlock from Level 10 → Level 15
+- 🔴 **Rewrote Tier 2 Abilities** - CRITICAL FIX: Changed from "resource restoration" to "permanent max stat increases"
+  - Combat: Iron Stomach (+15 hunger)
+  - Mining: Desert Nomad (+10 thirst)
+  - Logging: Tireless Woodsman (+10 energy)
+  - Building: Enduring Builder (+15 stamina, stub - API pending)
+  - Gathering: Hearty Gatherer (+4 hunger/thirst per food pickup)
+- 🔴 **Corrected Tier 3 Status** - Changed from "✅ Complete" to "🚧 In Progress (1/5 functional)"
+  - Only Survivalist is functional (-15% metabolism depletion)
+  - 4 abilities are stubs: Adrenaline Rush, Ore Sense, Timber!, Efficient Architect
+- 🟡 **Fixed Death Penalty** - Corrected max penalty from 85% → 35%
+- 📋 **Updated v1.4.0 Scope** - Added explicit Tier 3 completion tasks (4 stubs remaining)
+- 📋 **Added Technical Debt** - Documented Tier 3 stubs and stamina API research
+- 📊 **Verified Accurate Sections** - Metabolism debuffs/buffs, food consumption, HUD, v2.6.0 migration all confirmed correct
+
+**Previous Updates (earlier on 2026-02-01):**
+- Updated "Last Updated" date to 2026-02-01
+- Revised overall progress to "MVP Complete (Core Features 100%)"
+- Updated Polish & Testing from 95% → 70% (more realistic given outstanding work)
+- Changed Future Modules from 20% → 0% (design phase only, no implementation)
+- Expanded v1.4.0 blockers section with detailed Linear issue references
+- Adjusted v1.4.0 release timeline to "TBD" (blocked on test environment)
+- Updated v1.5.0-v2.0.0 timelines to be more realistic ("TBD" instead of specific dates)
+- Added Linear issue references throughout for traceability
+- Clarified that v1.4.0 focuses on testing/quality, not new features
+- Updated Future Modules table with corrected target versions
+- Revised technical debt section with Linear issue references
