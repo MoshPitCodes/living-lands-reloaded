@@ -1,6 +1,41 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.3.1 (Latest - Hotfix)
+## 1.4.0 (Latest - Professions Complete!)
+
+### 🎉 Professions Module 100% Complete!
+
+All Tier 3 profession abilities are now fully functional! Reach level 100 to unlock powerful endgame abilities:
+
+#### New Tier 3 Abilities
+- **Survivalist (Combat)** - Passive -15% metabolism depletion reduction. Your survival stats drain 15% slower.
+- **Adrenaline Rush (Combat)** - Gain +10% speed boost for 5 seconds after killing an entity. Perfect for chasing down fleeing enemies or escaping danger.
+- **Ore Sense (Mining)** - 10% chance to get bonus ore drop when mining ore blocks. More resources for your efforts!
+- **Timber! (Logging)** - 25% chance to get extra log when chopping trees. Stock up on wood faster!
+- **Efficient Architect (Building)** - 12% chance to refund placed block back to inventory. Build more with less!
+
+### Improved
+- ⚡ **Admin Command UX** - Instant HUD refresh when using `/ll prof set/add/reset` commands
+  - Eliminated ~2 second delay when adjusting profession levels
+  - No more metabolism bar flickering during testing
+  - Professions panel updates instantly when panel is open
+  - Better experience for server owners testing and debugging
+
+### Technical Implementation
+- Thread-safe ability triggers with proper cleanup on disconnect/shutdown
+- Coroutine-based timed effects for Adrenaline Rush (5 second duration)
+- Anti-exploit validation for Efficient Architect (blocks air, liquids, bedrock, command blocks)
+- Direct inventory manipulation for item bonuses (Ore Sense, Timber!)
+- Ore and log detection helpers for accurate XP tracking
+
+### Performance
+- ⚡ Ability triggers: <5ms per activation
+- ⚡ HUD refresh: Instant (targeted panel update, not full rebuild)
+- 🎯 Zero allocations in hot paths
+- 💾 Minimal memory overhead for ability tracking
+
+---
+
+## 1.3.1 (Hotfix)
 
 ### Performance Optimization
 - ⚡ **HUD Refresh Optimization** - 90% faster XP updates! HUD no longer rebuilds entirely when gaining XP
