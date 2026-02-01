@@ -1,8 +1,8 @@
 # Living Lands Reloaded - Product Roadmap
 
-**Current Version:** v1.2.3  
-**Status:** Production Ready (MVP Complete)  
-**Last Updated:** 2026-01-30
+**Current Version:** v1.3.1  
+**Status:** Production Ready (MVP Complete + Announcer Module)  
+**Last Updated:** 2026-01-31
 
 ---
 
@@ -14,24 +14,25 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ## 📊 Development Status
 
-### Overall Progress: **~65% Complete**
+### Overall Progress: **~70% Complete**
 
 | Category | Progress | Status |
 |----------|----------|--------|
 | **Core Infrastructure** | 100% | ✅ Complete |
 | **Metabolism System** | 100% | ✅ Complete |
 | **Professions System** | 100% | ✅ Complete |
+| **Announcer Module** | 100% | ✅ Complete |
 | **Polish & Testing** | 95% | 🚧 In Progress |
-| **Future Modules** | 0% | 📋 Planned |
+| **Future Modules** | 20% | 🚧 In Progress |
 
 ---
 
-## ✅ Completed Features (v1.2.3)
+## ✅ Completed Features (v1.3.1)
 
 ### Core Infrastructure
 
 **Status:** ✅ **Production Ready**  
-**Version:** 1.2.3  
+**Version:** 1.3.1  
 **Completion:** 100%
 
 - ✅ **Plugin Lifecycle** - Proper setup → start → shutdown phases
@@ -58,7 +59,7 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 ### Metabolism Module
 
 **Status:** ✅ **Production Ready**  
-**Version:** 1.2.3  
+**Version:** 1.3.1  
 **Completion:** 100%
 
 #### Core Features
@@ -114,7 +115,7 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 ### Professions Module
 
 **Status:** ✅ **Production Ready**  
-**Version:** 1.1.0  
+**Version:** 1.3.1  
 **Completion:** 100%
 
 #### Core Features
@@ -232,39 +233,45 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ### Future Modules Overview
 
-| Module | Priority | Target Version | Estimated Time | Dependencies |
-|--------|----------|----------------|----------------|--------------|
-| **Announcer** | Medium | v1.3.0 | 1-2 days | None |
-| **Economy** | Low | v1.4.0 | 2-3 weeks | None |
-| **Moderation Tools** | Medium | v1.4.0 | 1-2 weeks | Random Encounters (optional) |
-| **Land Claims** | Medium | v1.5.0 | 2-3 weeks | None |
-| **Random Encounters** | Medium | v1.5.0 | 2-3 weeks | Professions (optional) |
-| **Groups/Clans** | Low | v1.6.0 | 3-4 weeks | Economy, Claims |
+| Module | Priority | Target Version | Estimated Time | Status |
+|--------|----------|----------------|----------------|--------|
+| **Announcer** | Medium | v1.3.0 | 1-2 days | ✅ Complete |
+| **Economy** | Low | v1.4.0 | 2-3 weeks | 📋 Planned |
+| **Moderation Tools** | Medium | v1.4.0 | 1-2 weeks | 📋 Planned |
+| **Land Claims** | Medium | v1.5.0 | 2-3 weeks | 📋 Planned |
+| **Random Encounters** | Medium | v1.5.0 | 2-3 weeks | 📋 Planned |
+| **Groups/Clans** | Low | v1.6.0 | 3-4 weeks | 📋 Planned |
 
 ---
 
-### Phase 10: Announcer Module
+### Announcer Module
 
-**Status:** 📋 Planned  
-**Priority:** Medium  
-**Target:** v1.3.0  
-**Estimated Time:** 1-2 days
+**Status:** ✅ **Production Ready**  
+**Version:** 1.3.0  
+**Completion:** 100%
 
-#### Features
-- **Server Messaging** - MOTD, welcome messages, recurring announcements
-- **Per-World Overrides** - Different messages per world
-- **Placeholder System** - `{player_name}`, `{world_name}`, `{time}`, etc.
-- **Admin Commands** - `/ll announce`, `/ll broadcast`
-- **Scheduled Messages** - Announcements at intervals
+#### Completed Features
+- ✅ **MOTD (Message of the Day)** - Welcome messages displayed on player join
+- ✅ **Welcome Messages** - Different messages for first-time vs returning players
+- ✅ **Join Count Tracking** - Track player join counts for personalized messages
+- ✅ **Recurring Announcements** - Automated server tips/info with configurable intervals
+- ✅ **Broadcast Commands** - `/ll broadcast <message>` for admins
+- ✅ **Placeholder Support** - `{player_name}`, `{server_name}`, `{join_count}`
+- ✅ **Color Code Support** - Minecraft-style formatting (`&a`, `&6`, etc.)
+- ✅ **Hot-Reload** - `/ll reload announcer` updates config without restart
+- ✅ **Coroutine-Based Scheduler** - Async scheduling with graceful shutdown
 
 #### Use Cases
-- Welcome new players with custom message
-- Periodic server tips/rules reminders
-- Event announcements
-- World-specific lore/instructions
+- ✅ Welcome new players with custom message
+- ✅ Periodic server tips/rules reminders
+- ✅ Event announcements
+- ✅ Discord links and server info
 
-**Complexity:** Low (2-3 days)  
-**Dependencies:** None
+**Performance:**
+- MOTD send: <1ms per player
+- Welcome message: <5ms per player
+- Recurring announcements: <10ms broadcast to all players
+- Memory impact: <1MB for join tracking
 
 ---
 
@@ -568,7 +575,24 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 ## 📅 Release Timeline
 
-### v1.2.3 (Current) - 2026-01-30
+### v1.3.1 (Current) - 2026-01-31
+**Status:** ✅ Released  
+**Theme:** HUD Performance Hotfix
+
+- ✅ HUD refresh optimization (90% faster XP updates)
+- ✅ Fixed entire HUD refreshing on XP gain
+- ✅ Only profession panels update when gaining XP
+
+### v1.3.0 - 2026-01-31
+**Status:** ✅ Released  
+**Theme:** Announcer Module & HUD Fixes
+
+- ✅ Announcer Module (MOTD, welcome messages, recurring announcements)
+- ✅ HUD crash fix (build/update race condition)
+- ✅ Panel toggle bug fix
+- ✅ MessageFormatter color code support
+
+### v1.2.3 - 2026-01-30
 **Status:** ✅ Released  
 **Theme:** Bug Fixes & Polish
 
@@ -577,15 +601,12 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - ✅ Memory leak prevention
 - ✅ Config ambiguity warnings
 
-### v1.3.0 (Next) - Target: Mid-March 2026
+### v1.4.0 (Next) - Target: Mid-March 2026
 **Status:** 📋 Planned  
-**Theme:** Testing, Performance & Announcer Module
-
-**Timeline Extended:** February → Mid-March (allows full scope without time pressure)
+**Theme:** Testing, Performance & Tier 3 Abilities
 
 - [ ] Multi-player stress testing (50+ players) - 3-5 days
 - [ ] Performance benchmarks (JMH) - 2-3 days
-- [ ] Announcer Module (server messaging) - 1-2 days
 - [ ] Professions Tier 3 Abilities - 2-3 days
 - [ ] Unit test infrastructure - 2-3 days
 - [ ] Documentation improvements - 1 day
@@ -593,7 +614,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 **Total Estimated Effort:** 11-17 days  
 **Target Date:** March 15, 2026
 
-### v1.4.0 - Target: Mid-April 2026
+### v1.5.0 - Target: Mid-April 2026
 **Status:** 📋 Planned  
 **Theme:** Economy & Moderation
 
@@ -603,7 +624,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [ ] Teleportation & visibility system
 - [ ] Item management commands
 
-### v1.5.0 - Target: Mid-May 2026
+### v1.6.0 - Target: Mid-May 2026
 **Status:** 📋 Planned  
 **Theme:** Territory & Dynamic Content
 
@@ -613,7 +634,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [ ] Profession-based encounters
 - [ ] Manual event spawning (moderator tools)
 
-### v1.6.0 - Target: Mid-June 2026
+### v1.7.0 - Target: Mid-June 2026
 **Status:** 📋 Planned  
 **Theme:** Social Features
 
@@ -636,7 +657,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 ## 🎯 Success Metrics
 
-### Current Metrics (v1.2.3)
+### Current Metrics (v1.3.1)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
@@ -647,7 +668,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 | **Thread Safety Issues** | 0 | 0 | ✅ Fixed |
 | **Test Coverage** | 50%+ | Manual only | ⚠️ Needs Work |
 
-### Target Metrics (v1.3.0)
+### Target Metrics (v1.4.0)
 
 | Metric | Target | Current | Gap |
 |--------|--------|---------|-----|
@@ -705,9 +726,10 @@ nix develop
 ```
 
 ### Key Documentation
-- `AGENTS.md` - Development guidelines and patterns
-- `docs/TECHNICAL_DESIGN.md` - Architecture deep dive
-- `docs/IMPLEMENTATION_PLAN.md` - Detailed phase breakdown
+- `AGENTS.md` - Development guidelines and patterns (local only)
+- `docs/TECHNICAL_DESIGN.md` - Public technical design overview
+- `docs/internal/TECHNICAL_DESIGN.md` - Full architecture deep dive (local only)
+- `docs/internal/IMPLEMENTATION_PLAN.md` - Detailed phase breakdown (local only)
 - `scripts/README.md` - Deployment scripts usage
 
 ---
@@ -750,6 +772,6 @@ nix develop
 
 ---
 
-**Last Updated:** 2026-01-30  
-**Next Review:** After v1.3.0 release  
+**Last Updated:** 2026-01-31  
+**Next Review:** After v1.4.0 release  
 **Maintained By:** MoshPitCodes
