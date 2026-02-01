@@ -14,6 +14,9 @@ import java.util.UUID
  * Version History:
  * - v1: Initial version with aggressive depletion rates (480s/360s/600s)
  * - v2: Balanced depletion rates for better gameplay (1440s/1080s/2400s)
+ * - v3: Restructured debuffs to 3-stage system
+ * - v4: Added per-world configuration overrides
+ * - v5: Added modded consumables support
  */
 data class MetabolismConfig(
     /**
@@ -92,7 +95,33 @@ data class MetabolismConfig(
      *       enabled: false  # Disable hunger completely
      * ```
      */
-    val worldOverrides: Map<String, MetabolismWorldOverride> = emptyMap()
+    val worldOverrides: Map<String, MetabolismWorldOverride> = emptyMap(),
+    
+    /**
+     * Modded consumables support.
+     * Configure custom food/drink/potion items from other mods with
+     * tier-based restoration values.
+     * 
+     * **Pre-configured Examples Available:**
+     * Run `/ll metabolism genconfig` to generate a metabolism.yml with
+     * 92 pre-configured items from popular mods:
+     * - Hidden's Harvest Delights (44 items)
+     * - NoCube's Bakehouse (48 items)
+     * 
+     * Or manually configure:
+     * ```yaml
+     * moddedConsumables:
+     *   enabled: true
+     *   warnIfMissing: true
+     *   foods:
+     *     - effectId: "FarmingMod:CookedChicken"
+     *       category: "MEAT"
+     *       tier: null  # auto-detect
+     * ```
+     * 
+     * See ModdedConsumablesConfig.getDefaultExampleConfig() for full list.
+     */
+    val moddedConsumables: ModdedConsumablesConfig = ModdedConsumablesConfig.getDefaultExampleConfig()
 ) : VersionedConfig {
     
     /** No-arg constructor for Jackson deserialization */
@@ -130,7 +159,7 @@ data class MetabolismConfig(
     
     companion object {
         /** Current config version */
-        const val CURRENT_VERSION = 4
+        const val CURRENT_VERSION = 5
         
         /** Config module ID for migration registry */
         const val MODULE_ID = "metabolism"
@@ -225,6 +254,43 @@ data class MetabolismConfig(
                             this["worldOverrides"] = emptyMap<String, Any>()
                         }
                         this["configVersion"] = 4
+                    }
+                }
+            ),
+            
+            // v4 -> v5: Add modded consumables support
+            ConfigMigration(
+                fromVersion = 4,
+                toVersion = 5,
+                description = "Add modded consumables support with grouped mod structure",
+                migrate = { old ->
+                    old.toMutableMap().apply {
+                        // Add moddedConsumables section if not present
+                        if (!containsKey("moddedConsumables")) {
+                            // For existing configs (migrations), add empty structure with disabled
+                            this["moddedConsumables"] = mapOf(
+                                "enabled" to false,  // Conservative: disabled by default for migrations
+                                "warnIfMissing" to true,
+                                "mods" to emptyMap<String, Any>()  // Empty mods map
+                            )
+                        } else {
+                            // If moddedConsumables exists but has old structure (foods/drinks/potions),
+                            // convert to new grouped structure
+                            @Suppress("UNCHECKED_CAST")
+                            val modded = this["moddedConsumables"] as? Map<String, Any>
+                            if (modded != null && (modded.containsKey("foods") || modded.containsKey("drinks") || modded.containsKey("potions"))) {
+                                // Old structure detected, convert to new grouped structure
+                                val enabled = modded["enabled"] as? Boolean ?: false
+                                val warnIfMissing = modded["warnIfMissing"] as? Boolean ?: true
+                                
+                                this["moddedConsumables"] = mapOf(
+                                    "enabled" to enabled,
+                                    "warnIfMissing" to warnIfMissing,
+                                    "mods" to emptyMap<String, Any>()  // Convert old entries to empty (too complex to auto-migrate)
+                                )
+                            }
+                        }
+                        this["configVersion"] = 5
                     }
                 }
             )

@@ -4,6 +4,8 @@ import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffect
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent
 import com.livinglands.core.PlayerSession
+import com.livinglands.modules.metabolism.food.modded.ItemTierDetector
+import com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -16,6 +18,8 @@ import java.util.concurrent.ConcurrentHashMap
  * **Detection Strategy:**
  * - Monitors EffectControllerComponent for new active effects
  * - Compares current effect indexes with previous tick
+ * - Checks modded consumables registry FIRST (if enabled)
+ * - Falls back to vanilla detection patterns
  * - Identifies new food/consumable effects by ID prefix
  * - Prevents duplicate detection with processed effect tracking
  * 
@@ -29,9 +33,11 @@ import java.util.concurrent.ConcurrentHashMap
  * - Concurrent collections for cross-tick state
  * 
  * @property logger Logger for debugging
+ * @property moddedRegistry Optional registry for modded consumables (null = vanilla only)
  */
 class FoodEffectDetector(
-    private val logger: HytaleLogger
+    private val logger: HytaleLogger,
+    private val moddedRegistry: ModdedConsumablesRegistry? = null
 ) {
     /**
      * Tracks effect indexes from previous tick for each player.
@@ -155,8 +161,8 @@ class FoodEffectDetector(
             
             if (effectId == null || effectId.isBlank()) continue
             
-            // Check if it's a consumable effect
-            val detection = FoodDetectionUtils.parseEffect(effectId)
+            // Try to detect consumable: modded registry first, then vanilla patterns
+            val detection = detectFoodType(effectId)
             if (detection != null) {
                 detections.add(detection)
                 
@@ -168,7 +174,8 @@ class FoodEffectDetector(
                 // Mark as processed with current timestamp to prevent duplicate detection
                 processed[index] = System.currentTimeMillis()
                 
-                logger.atFine().log("Detected food consumption: $effectId (tier ${detection.tier}, type ${detection.foodType})")
+                val source = if (moddedRegistry?.findByEffectId(effectId) != null) "modded" else "vanilla"
+                logger.atFine().log("Detected food consumption [$source]: $effectId (tier ${detection.tier}, type ${detection.foodType})")
             }
         }
         
@@ -291,5 +298,58 @@ class FoodEffectDetector(
      */
     fun cleanup(playerId: UUID) {
         removePlayer(playerId)
+    }
+    
+    /**
+     * Detect food type from effect ID.
+     * 
+     * Checks modded consumables registry FIRST (if enabled),
+     * then falls back to vanilla detection patterns.
+     * 
+     * @param effectId The effect ID to analyze
+     * @return FoodDetection with type and tier, or null if not a consumable
+     */
+    private fun detectFoodType(effectId: String): FoodDetection? {
+        // Check modded registry first (if enabled)
+        if (moddedRegistry != null && moddedRegistry.isEnabled()) {
+            val moddedEntry = moddedRegistry.findByEffectId(effectId)
+            if (moddedEntry != null) {
+                // Use category from modded config
+                val foodType = mapCategoryToFoodType(moddedEntry.category)
+                
+                // Use tier from config, or auto-detect if null
+                val tier = moddedEntry.tier ?: ItemTierDetector.detectTier(effectId)
+                
+                return FoodDetection(effectId, foodType, tier)
+            }
+        }
+        
+        // Fallback to vanilla detection
+        return FoodDetectionUtils.parseEffect(effectId)
+    }
+    
+    /**
+     * Map a modded consumable category string to a FoodType enum.
+     * 
+     * @param category The category string from config
+     * @return The corresponding FoodType
+     */
+    private fun mapCategoryToFoodType(category: String): FoodType {
+        return when (category.uppercase()) {
+            "MEAT" -> FoodType.MEAT
+            "FRUIT_VEGGIE" -> FoodType.FRUIT_VEGGIE
+            "BREAD" -> FoodType.BREAD
+            "WATER" -> FoodType.WATER
+            "MILK" -> FoodType.MILK
+            "INSTANT_HEAL" -> FoodType.INSTANT_HEAL
+            "HEALTH_REGEN" -> FoodType.HEALTH_REGEN
+            "HEALTH_BOOST" -> FoodType.HEALTH_BOOST
+            "STAMINA_BOOST" -> FoodType.STAMINA_BOOST
+            "HEALTH_POTION" -> FoodType.HEALTH_POTION
+            "MANA_POTION" -> FoodType.MANA_POTION
+            "STAMINA_POTION" -> FoodType.STAMINA_POTION
+            "GENERIC" -> FoodType.GENERIC
+            else -> FoodType.GENERIC
+        }
     }
 }

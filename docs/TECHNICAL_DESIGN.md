@@ -2,7 +2,7 @@
 
 This document provides a deep technical dive into how the Living Lands mod works internally. For user-facing documentation, see the [README](../README.md).
 
-**Version:** 1.4.0  
+**Version:** 1.4.1  
 **Language:** Kotlin (Java 25 compatible)  
 **Last Updated:** 2026-02-01
 
@@ -75,6 +75,31 @@ Living Lands is built on a modular plugin architecture with CoreModule as the ce
 5. **Hysteresis**: Different enter/exit thresholds to prevent state flickering
 6. **Graceful Degradation**: Systems fail silently to avoid server crashes
 7. **Config/Data Separation**: YAML configs (hot-reloadable) separate from SQLite player data
+
+### Reliability & Data Safety (v1.4.1 Algorithm Audit)
+
+Living Lands underwent comprehensive algorithm auditing in v1.4.1 to address critical race conditions, data integrity issues, and UX problems:
+
+**Race Condition Protection:**
+- Coroutine `Mutex` synchronization for profession state (prevents admin command + XP award collisions)
+- Fresh session lookups prevent stale ECS store references
+- Atomic check-and-insert with `putIfAbsent()` for player initialization
+
+**Data Persistence Guarantees:**
+- 5-minute periodic auto-save for Professions and Metabolism (prevents crash data loss)
+- Finally blocks ensure cleanup even when save operations fail (prevents memory leaks)
+- Database write verification with row count checks and warning logs
+- INSERT OR REPLACE robustness (handles missing records gracefully)
+
+**Immediate Response Optimization:**
+- Instant buff/debuff re-evaluation after food consumption (eliminates 2-second delay)
+- Force HUD update after food consumption (no stale values)
+- 10-point hysteresis gaps for both buffs AND debuffs (prevents flickering)
+
+**Thread-Safe Ability Management:**
+- Proper cleanup on disconnect/shutdown for Tier 3 abilities
+- Coroutine-based timed effects with job cancellation
+- Synchronized critical sections for HUD threshold checks
 
 ### Directory Structure
 
@@ -3749,15 +3774,15 @@ class WarriorAbility : Ability {
  */
 class IronStomachAbility(
     private val metabolismService: MetabolismService
-) : Ability {
+)  : Ability {
     override val profession = Profession.COMBAT
     override val tier = AbilityTier.TIER_2
     override val name = "Iron Stomach"
-    override val description = "Permanently +15 max hunger capacity"
+    override val description = "Permanently +35 max hunger capacity"
     override val unlockLevel = 45
     
     override fun onUnlock(playerId: UUID) {
-        metabolismService.increaseMaxHunger(playerId, 15.0)
+        metabolismService.increaseMaxHunger(playerId, 35.0)  // v1.4.1: Increased from 15.0
     }
 }
 
@@ -3848,10 +3873,21 @@ data class DeathPenaltyConfig(
 
 ## Modded Consumables Support
 
-**Status:** 📋 Planned (v1.5.0)  
+**Status:** ✅ Complete (v1.4.0)  
+**Completion Date:** 2026-02-01  
 **Purpose:** Allow server admins to configure custom modded food/drink/potion items with tier-based restoration
 
 The Modded Consumables system extends the metabolism food consumption to support items from other mods, enabling seamless integration with custom mod packs.
+
+**Key Features (v1.4.0):**
+- Extended tier system from T1-T3 to T1-T7 (modded gourmet foods)
+- 92 pre-configured consumables from popular mods (enabled by default)
+- Automatic tier detection from effect IDs
+- Custom multiplier support per item
+- Balanced scaling for max stat capacities (Hunger: 100 base/115 max, Thirst/Energy: 100 base/110 max)
+- Config hot-reload with `/ll reload`
+- Config migration v4 → v5 with automatic backups
+- Accurate chat messages showing ACTUAL restored amounts (not calculated)
 
 ### Architecture
 
@@ -3986,7 +4022,11 @@ class ItemTierDetector {
     private val tierPatterns = listOf(
         Regex("T1|Tier1|tier_1", RegexOption.IGNORE_CASE) to 1,
         Regex("T2|Tier2|tier_2", RegexOption.IGNORE_CASE) to 2,
-        Regex("T3|Tier3|tier_3", RegexOption.IGNORE_CASE) to 3
+        Regex("T3|Tier3|tier_3", RegexOption.IGNORE_CASE) to 3,
+        Regex("T4|Tier4|tier_4", RegexOption.IGNORE_CASE) to 4,
+        Regex("T5|Tier5|tier_5", RegexOption.IGNORE_CASE) to 5,
+        Regex("T6|Tier6|tier_6", RegexOption.IGNORE_CASE) to 6,
+        Regex("T7|Tier7|tier_7", RegexOption.IGNORE_CASE) to 7
     )
     
     fun detectTier(effectId: String): Int {
@@ -4158,7 +4198,9 @@ Existing configs auto-upgrade to v5 with empty `moddedConsumables` section. No a
 
 | Version | Changes |
 |---------|---------|
-| **1.4.0** | Professions Module complete with all 15 abilities functional (Tier 1/2/3), admin commands, death penalty system, global persistence integration |
+| **1.5.0** | **Planned:** `/ll metabolism scan` command for runtime modded consumables detection (preview + optional save with backup), multi-player stress testing, unit test infrastructure (JUnit5), JMH benchmarks. **Linear:** LLR-124 (scan command), LLR-87 (multi-player testing), LLR-86 (unit tests), LLR-85 (benchmarks) |
+| **1.4.1** | **Algorithm Audit & Tier 2 Enhancements:** **CRITICAL STABILITY FIXES** - 11 algorithm audit fixes (race condition protection via Mutex, 5-minute auto-save system, memory leak prevention via finally blocks, instant food effects via buff/debuff re-evaluation, DB write verification). **98% faster food responsiveness** (2s → instant). **Tier 2 ability buffs** - Iron Stomach/Desert Nomad/Tireless Woodsman increased from +15/+10 to **+35** max stats (2.3x-3.5x buff), Enduring Builder **IMPLEMENTED** (+15 stamina). **Config improvements:** itemId field for consumables, code cleanup (18 lines removed) |
+| **1.4.0** | **Modded Consumables Support (Phase 12):** Extended tier system T1-T7, 92 pre-configured consumables, automatic tier detection, custom multipliers, balanced scaling for max capacities, accurate chat messages, config migration v4→v5. **Professions Module complete** with all 15 abilities functional (Tier 1/2/3), admin commands, death penalty system, global persistence integration. **HUD fixes:** Max capacity display with abilities, force-update after ability application |
 | **1.3.1** | HUD performance hotfix: 90% faster XP updates, only profession panels refresh on XP gain |
 | **1.3.0** | Announcer Module (MOTD, welcome messages, recurring announcements), HUD crash fix, panel toggle fix, MessageFormatter color codes |
 | **1.2.3** | Bug fixes: food consumption, thread safety improvements, memory leak prevention, config ambiguity warnings |

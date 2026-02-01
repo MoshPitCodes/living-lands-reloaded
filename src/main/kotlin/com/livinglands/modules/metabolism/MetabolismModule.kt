@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -66,6 +67,12 @@ class MetabolismModule : AbstractModule(
     
     /** Food consumption processor */
     private lateinit var foodConsumptionProcessor: FoodConsumptionProcessor
+    
+    /** Modded consumables registry (null if disabled) */
+    private var moddedConsumablesRegistry: com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry? = null
+    
+    /** Modded item validator */
+    private var moddedItemValidator: com.livinglands.modules.metabolism.food.modded.ModdedItemValidator? = null
     
     /** Speed manager for centralized speed modifications */
     private lateinit var speedManager: SpeedManager
@@ -155,9 +162,17 @@ class MetabolismModule : AbstractModule(
         
         // Initialize food consumption system
         if (metabolismConfig.enabled && metabolismConfig.foodConsumption.enabled) {
-            // Create food detection components
-            foodEffectDetector = FoodEffectDetector(logger)
-            foodConsumptionProcessor = FoodConsumptionProcessor(metabolismService, metabolismConfig.foodConsumption, logger)
+            // Initialize modded consumables system (if enabled)
+            initializeModdedConsumables()
+            
+            // Create food detection components (with optional modded registry)
+            foodEffectDetector = FoodEffectDetector(logger, moddedConsumablesRegistry)
+            foodConsumptionProcessor = FoodConsumptionProcessor(
+                metabolismService, 
+                metabolismConfig.foodConsumption, 
+                logger,
+                moddedConsumablesRegistry
+            )
             
             // Register food detection tick system
             val foodTickSystem = FoodDetectionTickSystem(
@@ -174,6 +189,10 @@ class MetabolismModule : AbstractModule(
         if (metabolismConfig.enabled) {
             // Create speed manager (centralized speed modification)
             speedManager = SpeedManager(logger)
+            
+            // Register SpeedManager with ServiceRegistry so other modules (e.g., professions) can use it
+            CoreModule.services.register<SpeedManager>(speedManager)
+            logger.atFine().log("Registered SpeedManager with ServiceRegistry")
             
             // Create debuffs system (must be created before buffs for suppression check)
             debuffsSystem = DebuffsSystem(
@@ -250,8 +269,40 @@ class MetabolismModule : AbstractModule(
     override suspend fun onStart() {
         logger.atFine().log("Metabolism module started")
         
+        // Start periodic auto-save to prevent data loss on server crash
+        startPeriodicAutoSave()
+        
         // Initialize metabolism for any players already online
         initializeOnlinePlayers()
+    }
+    
+    // ============ Periodic Auto-Save ============
+    
+    /**
+     * Start periodic auto-save to prevent data loss on server crash.
+     * 
+     * Saves all cached player metabolism data every 5 minutes.
+     * This prevents stat loss if the server crashes between player login and logout.
+     */
+    private fun startPeriodicAutoSave() {
+        persistenceScope.launch {
+            while (true) {
+                delay(5 * 60 * 1000)  // 5 minutes
+                
+                try {
+                    val cacheSize = metabolismService.getCacheSize()
+                    if (cacheSize > 0) {
+                        logger.atFine().log("Periodic auto-save starting for $cacheSize cached players...")
+                        metabolismService.saveAllPlayers(metabolismRepository)
+                        logger.atFine().log("Periodic auto-save completed")
+                    }
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Periodic auto-save failed")
+                }
+            }
+        }
+        
+        logger.atFine().log("Periodic auto-save started (every 5 minutes)")
     }
     
     // ============ Player Lifecycle Hooks ============
@@ -549,6 +600,53 @@ class MetabolismModule : AbstractModule(
             }
         }
         logger.atFine().log("Metabolism configs re-resolved for $worldsResolved worlds")
+        
+        // Reload modded consumables registry
+        reloadModdedConsumables(newConfig)
+    }
+    
+    /**
+     * Reload modded consumables system with new config.
+     * Called during config hot-reload.
+     * 
+     * @param newConfig The new metabolism configuration
+     */
+    private fun reloadModdedConsumables(newConfig: MetabolismConfig) {
+        val moddedConfig = newConfig.moddedConsumables
+        
+        if (!moddedConfig.enabled) {
+            // Disable modded consumables
+            moddedConsumablesRegistry?.clear()
+            moddedItemValidator?.clearCache()
+            logger.atFine().log("Modded consumables support disabled on reload")
+            return
+        }
+        
+        // Reload existing registry or create new one
+        if (moddedConsumablesRegistry != null) {
+            moddedConsumablesRegistry?.reload(moddedConfig)
+        } else {
+            moddedConsumablesRegistry = com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry(
+                moddedConfig,
+                logger
+            )
+        }
+        
+        // Clear validator cache and re-validate
+        if (moddedItemValidator != null) {
+            moddedItemValidator?.clearCache()
+        } else {
+            moddedItemValidator = com.livinglands.modules.metabolism.food.modded.ModdedItemValidator(logger)
+        }
+        
+        // Validate entries
+        val allEntries = moddedConfig.getAllEntries()
+        if (allEntries.isNotEmpty()) {
+            validateModdedEntries(moddedConfig)
+        }
+        
+        val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
+        logger.atFine().log("Modded consumables reloaded: $registryCount entries")
     }
     
     /**
@@ -567,6 +665,72 @@ class MetabolismModule : AbstractModule(
                 logger.atWarning().withCause(e)
                     .log("Failed to resolve metabolism config for world ${worldContext.worldName} (${worldContext.worldId})")
             }
+        }
+    }
+    
+    /**
+     * Initialize modded consumables system if enabled in config.
+     * 
+     * Creates the registry and validator, then validates all configured entries.
+     * Invalid entries are logged as warnings but don't prevent the system from working.
+     */
+    private fun initializeModdedConsumables() {
+        val moddedConfig = metabolismConfig.moddedConsumables
+        
+        if (!moddedConfig.enabled) {
+            logger.atFine().log("Modded consumables support is disabled")
+            moddedConsumablesRegistry = null
+            moddedItemValidator = null
+            return
+        }
+        
+        // Create registry and validator
+        moddedConsumablesRegistry = com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry(
+            moddedConfig,
+            logger
+        )
+        moddedItemValidator = com.livinglands.modules.metabolism.food.modded.ModdedItemValidator(logger)
+        
+        // Validate all configured entries
+        val allEntries = moddedConfig.getAllEntries()
+        if (allEntries.isNotEmpty()) {
+            validateModdedEntries(moddedConfig)
+        }
+        
+        val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
+        if (registryCount > 0) {
+            logger.atFine().log("Modded consumables support enabled with $registryCount entries")
+        } else {
+            logger.atFine().log("Modded consumables support enabled (no entries configured)")
+        }
+    }
+    
+    /**
+     * Validate all modded consumable entries.
+     * 
+     * Logs warnings for invalid or missing items but doesn't fail.
+     * This allows graceful degradation when mods are removed.
+     * 
+     * @param config The modded consumables configuration
+     */
+    private fun validateModdedEntries(config: com.livinglands.modules.metabolism.config.ModdedConsumablesConfig) {
+        val validator = moddedItemValidator ?: return
+        
+        var validCount = 0
+        var invalidCount = 0
+        
+        config.getAllEntries().forEach { entry ->
+            if (validator.validateEntry(entry, config.warnIfMissing)) {
+                validCount++
+            } else {
+                invalidCount++
+            }
+        }
+        
+        if (invalidCount > 0) {
+            logger.atFine().log("Modded consumables validation: $validCount valid, $invalidCount invalid")
+        } else {
+            logger.atFine().log("Modded consumables validation: all $validCount entries valid")
         }
     }
     

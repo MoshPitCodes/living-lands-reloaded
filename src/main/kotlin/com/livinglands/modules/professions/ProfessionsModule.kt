@@ -138,8 +138,8 @@ class ProfessionsModule : AbstractModule(
         abilityEffectService = AbilityEffectService(logger)
         logger.atFine().log("Initialized ability effect service")
         
-        // Create service
-        professionsService = ProfessionsService(professionsConfig, xpCalculator, logger)
+        // Create service (pass repository for immediate DB saves)
+        professionsService = ProfessionsService(professionsConfig, xpCalculator, professionsRepository, logger)
         
         // Register services with CoreModule
         CoreModule.services.register<ProfessionsRepository>(professionsRepository)
@@ -165,7 +165,7 @@ class ProfessionsModule : AbstractModule(
 
         // Register admin commands
         CoreModule.mainCommand.registerSubCommand(
-            com.livinglands.modules.professions.commands.ProfAdminCommand(professionsService, abilityRegistry)
+            com.livinglands.modules.professions.commands.ProfAdminCommand(professionsService, abilityRegistry, abilityEffectService)
         )
         logger.atFine().log("Registered /ll prof admin command")
 
@@ -205,6 +205,9 @@ class ProfessionsModule : AbstractModule(
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to update HUD manager with profession services")
         }
+        
+        // Start periodic auto-save to prevent data loss on server crash
+        startPeriodicAutoSave()
         
         // Migrate v2.6.0 data if exists
         migrateV260Data()
@@ -287,6 +290,35 @@ class ProfessionsModule : AbstractModule(
         logger.atFine().log("Professions config reloaded: enabled=${newConfig.enabled}")
     }
     
+    // ============ Periodic Auto-Save ============
+    
+    /**
+     * Start periodic auto-save to prevent data loss on server crash.
+     * 
+     * Saves all cached player profession data every 5 minutes.
+     * This prevents XP loss if the server crashes between player login and logout.
+     */
+    private fun startPeriodicAutoSave() {
+        moduleScope.launch {
+            while (true) {
+                delay(5 * 60 * 1000)  // 5 minutes
+                
+                try {
+                    val cacheSize = professionsService.getCacheSize()
+                    if (cacheSize > 0) {
+                        logger.atFine().log("Periodic auto-save starting for $cacheSize cached players...")
+                        professionsService.saveAllPlayers(professionsRepository)
+                        logger.atFine().log("Periodic auto-save completed")
+                    }
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Periodic auto-save failed")
+                }
+            }
+        }
+        
+        logger.atFine().log("Periodic auto-save started (every 5 minutes)")
+    }
+    
     // ============ Lifecycle Hooks (called by CoreModule) ============
     
     /**
@@ -328,16 +360,25 @@ class ProfessionsModule : AbstractModule(
         // Load from database asynchronously, then apply abilities
         moduleScope.launch {
             try {
+                // CRITICAL: Single DB load to prevent race condition
                 // Wait for DB load to complete
                 val statsMap = professionsRepository.ensureStats(playerId.toString())
                 
-                // Check if we have any loaded data and abilities are enabled
+                // Update the in-memory cache with loaded data
+                val playerIdStr = playerId.toString()
+                statsMap.forEach { (profession, stats) ->
+                    val state = professionsService.getState(playerId, profession)
+                    if (state != null) {
+                        state.setXp(stats.xp, stats.level)
+                    }
+                }
+                
+                // Apply unlocked abilities if enabled
                 if (statsMap.isNotEmpty() && 
                     (professionsConfig.abilities.tier2ResourceRestore || professionsConfig.abilities.tier3Passives)) {
                     
-                    // Get profession levels ONCE (not inside a loop!)
-                    val professionLevels = professionsService.getAllStats(playerId)
-                        .mapValues { (_, stats) -> stats.level }
+                    // Use the freshly loaded statsMap directly
+                    val professionLevels = statsMap.mapValues { (_, stats) -> stats.level }
                     
                     // Apply all unlocked abilities (Tier 2 at 45, Tier 3 at 100)
                     abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
@@ -348,9 +389,6 @@ class ProfessionsModule : AbstractModule(
                 logger.atWarning().withCause(e).log("Failed to load abilities for player $playerId")
             }
         }
-        
-        // Also trigger the standard async load
-        professionsService.updatePlayerStateAsync(playerId, professionsRepository)
         
         // Send migration welcome message if this player was migrated from v2.6.0
         if (migratedPlayers.contains(playerId)) {
@@ -386,16 +424,18 @@ class ProfessionsModule : AbstractModule(
         saveScope.launch {
             try {
                 professionsService.savePlayer(playerId, professionsRepository)
-                professionsService.removeFromCache(playerId)
-                abilityRegistry.removePlayer(playerId.toString())
-                abilityEffectService.removePlayer(playerId)
-                
-                logger.atFine().log("Saved and cleaned up professions for player $playerId")
+                logger.atFine().log("Saved professions for player $playerId")
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Failed to save professions for player $playerId")
             } finally {
-                // Always decrement counter, even on failure
+                // CRITICAL: Always cleanup cache, even if save failed
+                // This prevents memory leaks from players who disconnect during save failures
+                professionsService.removeFromCache(playerId)
+                abilityRegistry.removePlayer(playerId.toString())
+                abilityEffectService.removePlayer(playerId)
                 pendingSaves.decrementAndGet()
+                
+                logger.atFine().log("Cleaned up professions cache for player $playerId")
             }
         }
     }

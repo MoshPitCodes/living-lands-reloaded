@@ -200,9 +200,10 @@ class CombatXpSystem(
         if (world != null) {
             world.execute {
                 try {
-                    val entityRef = playerRef.reference
-                    if (entityRef != null && entityRef.isValid) {
-                        speedManager.applySpeed(playerId, entityRef, store)
+                    // CRITICAL: Get fresh session inside world.execute to avoid stale store
+                    val session = CoreModule.players.getSession(playerId)
+                    if (session != null && session.entityRef.isValid) {
+                        speedManager.applySpeed(playerId, session.entityRef, session.store)
                         logger.atFine().log("Applied Adrenaline Rush (+10% speed) to player $playerId")
                     }
                 } catch (e: Exception) {
@@ -244,9 +245,10 @@ class CombatXpSystem(
         if (world != null) {
             world.execute {
                 try {
-                    val entityRef = playerRef.reference
-                    if (entityRef != null && entityRef.isValid) {
-                        speedManager.applySpeed(playerId, entityRef, store)
+                    // CRITICAL: Get fresh session inside world.execute to avoid stale store
+                    val session = CoreModule.players.getSession(playerId)
+                    if (session != null && session.entityRef.isValid) {
+                        speedManager.applySpeed(playerId, session.entityRef, session.store)
                         logger.atFine().log("Removed Adrenaline Rush effect from player $playerId")
                     }
                 } catch (e: Exception) {

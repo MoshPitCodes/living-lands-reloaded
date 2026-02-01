@@ -146,9 +146,15 @@ class FoodDetectionTickSystem(
                 // Check for new food effects
                 val detections = foodEffectDetector.checkForNewFoodEffects(playerId, session)
                 
-                // Process each detected consumption
+                // Process each detected consumption with ECS access for immediate buff/debuff updates
                 for (detection in detections) {
-                    foodConsumptionProcessor.processConsumption(playerId, detection)
+                    foodConsumptionProcessor.processConsumption(
+                        playerId = playerId,
+                        detection = detection,
+                        worldId = session.worldId,
+                        entityRef = session.entityRef,
+                        store = session.store
+                    )
                 }
             } catch (e: Exception) {
                 logger.atSevere().withCause(e).log("Error processing food consumption for player $playerId")

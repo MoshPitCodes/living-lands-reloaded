@@ -136,13 +136,18 @@ class SpeedManager(private val logger: HytaleLogger) {
      * 
      * **Important:** Must be called from world thread (use world.execute { }).
      * 
+     * After modifying the settings, we must call `movementManager.update(packetHandler)`
+     * to sync the movement settings to the client. Without this call, the server-side
+     * speed change won't be visible to the player.
+     * 
      * @param playerId Player UUID
      * @param entityRef Player's entity reference
      * @param store Entity store
-     * @param world World instance
      */
     fun applySpeed(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
         try {
+            if (!entityRef.isValid) return
+            
             val player = store.getComponent(entityRef, Player.getComponentType()) ?: return
             val movementManager = store.getComponent(entityRef, MovementManager.getComponentType()) ?: return
             val settings = movementManager.getSettings()
@@ -163,6 +168,14 @@ class SpeedManager(private val logger: HytaleLogger) {
             // Apply new speed
             val newSpeed = originalSpeed * combinedMultiplier
             settings.baseSpeed = newSpeed
+            
+            // CRITICAL: Sync movement settings to the client!
+            // Without this call, the speed change only exists server-side and
+            // the player won't see or feel any difference in movement speed.
+            val packetHandler = player.getPlayerConnection()
+            if (packetHandler != null) {
+                movementManager.update(packetHandler)
+            }
             
             // Track last applied multiplier
             lastAppliedMultipliers[playerId] = combinedMultiplier
@@ -186,15 +199,23 @@ class SpeedManager(private val logger: HytaleLogger) {
      * @param playerId Player UUID
      * @param entityRef Player's entity reference
      * @param store Entity store
-     * @param world World instance
      */
     fun restoreOriginalSpeed(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
         try {
+            if (!entityRef.isValid) return
+            
             val originalSpeed = originalBaseSpeeds.remove(playerId) ?: return
+            val player = store.getComponent(entityRef, Player.getComponentType()) ?: return
             val movementManager = store.getComponent(entityRef, MovementManager.getComponentType()) ?: return
             val settings = movementManager.getSettings()
             
             settings.baseSpeed = originalSpeed
+            
+            // CRITICAL: Sync movement settings to the client!
+            val packetHandler = player.getPlayerConnection()
+            if (packetHandler != null) {
+                movementManager.update(packetHandler)
+            }
             
             // Clear tracking
             multipliers.remove(playerId)

@@ -10,6 +10,8 @@ import com.livinglands.modules.professions.data.ProfessionStats
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ProfessionsService(
     private var config: ProfessionsConfig,
     private val xpCalculator: XpCalculator,
+    private val repository: ProfessionsRepository,
     private val logger: HytaleLogger
 ) {
     
@@ -50,6 +53,14 @@ class ProfessionsService(
      * Cleared on logout, restored on login from database.
      */
     private val deathPenaltyStates = ConcurrentHashMap<String, DeathPenaltyState>()
+    
+    /**
+     * Mutexes for coordinating admin commands with concurrent XP awards.
+     * 
+     * Key: Player UUID + Profession (e.g., "uuid:COMBAT")
+     * Value: Mutex for synchronizing operations on that specific profession
+     */
+    private val stateMutexes = ConcurrentHashMap<String, Mutex>()
     
     /**
      * Coroutine scope for async database operations.
@@ -223,6 +234,12 @@ class ProfessionsService(
         // CRITICAL: Capture old level BEFORE awarding XP (race condition prevention)
         val oldLevel = state.level
         
+        // Check if already at max level - no XP awarded
+        if (oldLevel >= config.xpCurve.maxLevel) {
+            logger.atFine().log("Player $playerId is at max level ($oldLevel) for ${profession.displayName} - no XP awarded")
+            return XpAwardResult(didLevelUp = false, oldLevel = oldLevel, newLevel = oldLevel, newXp = state.xp)
+        }
+        
         // Award XP atomically
         val newXp = state.awardXp(amount)
         
@@ -265,6 +282,21 @@ class ProfessionsService(
     }
     
     // ============ Stats Query ============
+    
+    /**
+     * Get mutable state for a profession (internal use only).
+     * 
+     * Used by admin commands and module initialization for direct state access.
+     * 
+     * @param playerId Player's UUID
+     * @param profession The profession
+     * @return PlayerProfessionState or null if not cached
+     */
+    fun getState(playerId: UUID, profession: Profession): PlayerProfessionState? {
+        val playerIdStr = playerId.toCachedString()
+        val stateMap = playerStates[playerIdStr] ?: return null
+        return stateMap[profession]
+    }
     
     /**
      * Get stats for a specific profession.
@@ -443,6 +475,7 @@ class ProfessionsService(
     fun clearDeathPenaltyState(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
         deathPenaltyStates.remove(playerIdStr)
+        logger.atFine().log("Cleared death penalty state for player $playerId")
     }
     
     /**
@@ -461,11 +494,15 @@ class ProfessionsService(
     /**
      * Set a player's level in a profession (admin command).
      * 
+     * Immediately saves to database.
+     * 
+     * THREAD SAFETY: Uses mutex to prevent race with concurrent XP awards.
+     * 
      * @param playerId Player's UUID
      * @param profession The profession
      * @param level Target level (1 to maxLevel)
      */
-    fun setLevel(playerId: UUID, profession: Profession, level: Int) {
+    suspend fun setLevel(playerId: UUID, profession: Profession, level: Int) {
         val playerIdStr = playerId.toCachedString()
         val stateMap = playerStates[playerIdStr] ?: return
         val state = stateMap[profession] ?: return
@@ -473,37 +510,89 @@ class ProfessionsService(
         val clampedLevel = level.coerceIn(1, config.xpCurve.maxLevel)
         val requiredXp = xpCalculator.xpForLevel(clampedLevel)
         
-        state.setXp(requiredXp, clampedLevel)
+        // CRITICAL: Use mutex to prevent race condition with concurrent XP awards
+        val mutexKey = "$playerIdStr:${profession.name}"
+        val mutex = stateMutexes.computeIfAbsent(mutexKey) { Mutex() }
         
-        logger.atFine().log("Set ${profession.displayName} level to $clampedLevel for player $playerId")
+        mutex.withLock {
+            state.setXp(requiredXp, clampedLevel)
+            
+            // Save to database immediately
+            val stats = state.toImmutableStats()
+            repository.updateStats(stats)
+        }
+        
+        logger.atFine().log("Set ${profession.displayName} level to $clampedLevel for player $playerId (saved to DB)")
     }
     
     /**
      * Add XP to a profession (admin command).
+     * 
+     * Immediately saves to database.
+     * 
+     * THREAD SAFETY: Uses mutex to prevent race with concurrent operations.
      * 
      * @param playerId Player's UUID
      * @param profession The profession
      * @param amount XP to add
      * @return XpAwardResult
      */
-    fun addXp(playerId: UUID, profession: Profession, amount: Long): XpAwardResult {
-        return awardXp(playerId, profession, amount)
+    suspend fun addXp(playerId: UUID, profession: Profession, amount: Long): XpAwardResult {
+        val playerIdStr = playerId.toCachedString()
+        val stateMap = playerStates[playerIdStr]
+        val state = stateMap?.get(profession)
+        
+        if (state == null) {
+            logger.atWarning().log("Cannot add XP to $playerId - state not found")
+            return XpAwardResult(didLevelUp = false, oldLevel = 1, newLevel = 1, newXp = 0L)
+        }
+        
+        // CRITICAL: Use mutex to ensure atomicity with DB save
+        val mutexKey = "$playerIdStr:${profession.name}"
+        val mutex = stateMutexes.computeIfAbsent(mutexKey) { Mutex() }
+        
+        val result = mutex.withLock {
+            val res = awardXp(playerId, profession, amount)
+            
+            // Save to database immediately
+            val stats = state.toImmutableStats()
+            repository.updateStats(stats)
+            logger.atFine().log("Saved ${profession.displayName} stats to DB after admin XP add")
+            
+            res
+        }
+        
+        return result
     }
     
     /**
      * Reset a profession to level 1 (admin command).
      * 
+     * Immediately saves to database.
+     * 
+     * THREAD SAFETY: Uses mutex to prevent race with concurrent operations.
+     * 
      * @param playerId Player's UUID
      * @param profession The profession
      */
-    fun resetProfession(playerId: UUID, profession: Profession) {
+    suspend fun resetProfession(playerId: UUID, profession: Profession) {
         val playerIdStr = playerId.toCachedString()
         val stateMap = playerStates[playerIdStr] ?: return
         val state = stateMap[profession] ?: return
         
-        state.setXp(0L, 1)
+        // CRITICAL: Use mutex to ensure atomicity with DB save
+        val mutexKey = "$playerIdStr:${profession.name}"
+        val mutex = stateMutexes.computeIfAbsent(mutexKey) { Mutex() }
         
-        logger.atFine().log("Reset ${profession.displayName} for player $playerId")
+        mutex.withLock {
+            state.setXp(0L, 1)
+            
+            // Save to database immediately
+            val stats = state.toImmutableStats()
+            repository.updateStats(stats)
+        }
+        
+        logger.atFine().log("Reset ${profession.displayName} for player $playerId (saved to DB)")
     }
     
     // ============ Persistence ============

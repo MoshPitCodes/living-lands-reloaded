@@ -1,6 +1,9 @@
 package com.livinglands.modules.metabolism
 
+import com.hypixel.hytale.component.Ref
+import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.core.WorldContext
 import com.livinglands.core.hud.LivingLandsHudElement
@@ -844,8 +847,15 @@ class MetabolismService(
             // Get unified HUD from MultiHudManager
             val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return false
             
-            // Update the HUD element with current values
-            hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
+            // Update the HUD element with current values and max capacities
+            hudElement.updateMetabolism(
+                hunger = state.hunger,
+                thirst = state.thirst,
+                energy = state.energy,
+                maxHunger = state.maxHunger,
+                maxThirst = state.maxThirst,
+                maxEnergy = state.maxEnergy
+            )
             
             // Push the update to the client
             hudElement.updateMetabolismHud()
@@ -871,7 +881,14 @@ class MetabolismService(
         // Get unified HUD from MultiHudManager
         val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return
         
-        hudElement.updateMetabolism(state.hunger, state.thirst, state.energy)
+        hudElement.updateMetabolism(
+            hunger = state.hunger,
+            thirst = state.thirst,
+            energy = state.energy,
+            maxHunger = state.maxHunger,
+            maxThirst = state.maxThirst,
+            maxEnergy = state.maxEnergy
+        )
         hudElement.updateMetabolismHud()
         state.markDisplayed()
     }
@@ -907,4 +924,32 @@ class MetabolismService(
      * Get the debuffs system for accessing active debuff names.
      */
     fun getDebuffsSystem(): com.livinglands.modules.metabolism.buffs.DebuffsSystem? = debuffsSystem
+    
+    /**
+     * Trigger immediate buff/debuff re-evaluation for a player.
+     * Used after food consumption to update buff/debuff state without waiting for next tick.
+     * 
+     * IMPORTANT: Must be called from world thread (wrap in world.execute { } if needed).
+     * 
+     * @param playerId Player's UUID
+     * @param entityRef Player's entity reference
+     * @param store Entity store
+     * @param buffsConfig World-specific buffs config
+     * @param debuffsConfig World-specific debuffs config
+     */
+    fun triggerBuffDebuffReevaluation(
+        playerId: UUID,
+        entityRef: Ref<EntityStore>,
+        store: Store<EntityStore>,
+        buffsConfig: com.livinglands.modules.metabolism.config.BuffsConfig,
+        debuffsConfig: com.livinglands.modules.metabolism.config.DebuffsConfig
+    ) {
+        val stats = getStats(playerId) ?: return
+        
+        // Re-evaluate debuffs first (they suppress buffs)
+        debuffsSystem?.tick(playerId, stats, entityRef, store, debuffsConfig)
+        
+        // Then re-evaluate buffs (will be suppressed if debuffs active)
+        buffsSystem?.tick(playerId, stats, entityRef, store, buffsConfig)
+    }
 }

@@ -128,9 +128,9 @@ class LivingLandsHudElement(
         
         // Set all three bars with vanilla-styled progress
         val stats = metabolismStats.get()
-        updateProgressBar(builder, "Hunger", stats.hunger, "#27ae60")
-        updateProgressBar(builder, "Thirst", stats.thirst, "#3498db")
-        updateProgressBar(builder, "Energy", stats.energy, "#f39c12")
+        updateProgressBar(builder, "Hunger", stats.hunger, stats.maxHunger, "#27ae60")
+        updateProgressBar(builder, "Thirst", stats.thirst, stats.maxThirst, "#3498db")
+        updateProgressBar(builder, "Energy", stats.energy, stats.maxEnergy, "#f39c12")
         
         // Set buffs/debuffs (respecting visibility preferences)
         if (metabolismPreferences.buffsVisible) {
@@ -156,12 +156,13 @@ class LivingLandsHudElement(
      * 
      * @param builder UI command builder
      * @param barName Bar name (e.g., "Hunger", "Thirst", "Energy")
-     * @param value Current stat value (0-100)
+     * @param value Current stat value (0-max)
+     * @param maxValue Maximum stat capacity (100 base, 115/110 with abilities)
      * @param baseColor Base color for healthy state (unused in text mode, kept for compatibility)
      */
-    private fun updateProgressBar(builder: UICommandBuilder, barName: String, value: Float, baseColor: String) {
+    private fun updateProgressBar(builder: UICommandBuilder, barName: String, value: Float, maxValue: Float, baseColor: String) {
         // Create text-based progress bar using Unicode blocks
-        val barText = buildTextProgressBar(value)
+        val barText = buildTextProgressBar(value, maxValue)
         
         // Update the bar label (e.g., #HungerBar, #ThirstBar, #EnergyBar)
         builder.set("#${barName}Bar.Text", barText)
@@ -169,21 +170,27 @@ class LivingLandsHudElement(
     
     /**
      * Build a text-based progress bar using simple ASCII characters.
-     * Example: "[||||||||||] 100%" or "[|||||.....] 50%"
+     * Example: "[||||||||||] 115" (full at max) or "[|||||.....] 50" (half full)
      * 
-     * @param value Current stat value (0-100)
-     * @return Text representation of progress bar
+     * The bar fills based on percentage of current max capacity.
+     * Max capacity increases with abilities (Iron Stomach: 115, Desert Nomad: 110, etc.)
+     * so the bar correctly represents fullness relative to the increased max.
+     * 
+     * @param value Current stat value (0-max)
+     * @param maxValue Maximum stat capacity (100 base, 115/110 with abilities)
+     * @return Text representation of progress bar with current value only
      */
-    private fun buildTextProgressBar(value: Float): String {
+    private fun buildTextProgressBar(value: Float, maxValue: Float): String {
         val barLength = 10 // Number of characters in the bar
-        val filledBlocks = ((value / 100.0f) * barLength).toInt().coerceIn(0, barLength)
+        val percentage = if (maxValue > 0f) (value / maxValue) else 0f
+        val filledBlocks = (percentage * barLength).toInt().coerceIn(0, barLength)
         val emptyBlocks = barLength - filledBlocks
         
         val filled = "|".repeat(filledBlocks)
         val empty = ".".repeat(emptyBlocks)
-        val percentage = value.toInt()
+        val displayValue = value.toInt()
         
-        return "[$filled$empty] $percentage%"
+        return "[$filled$empty] $displayValue"
     }
     
     /**
@@ -255,11 +262,25 @@ class LivingLandsHudElement(
     }
     
     /**
-     * Update metabolism stats.
+     * Update metabolism stats with current values and max capacities.
      * Call updateHud() after this to push changes to client.
+     * 
+     * @param hunger Current hunger (0-maxHunger)
+     * @param thirst Current thirst (0-maxThirst)
+     * @param energy Current energy (0-maxEnergy)
+     * @param maxHunger Maximum hunger capacity (default 100, up to 115 with Iron Stomach)
+     * @param maxThirst Maximum thirst capacity (default 100, up to 110 with Desert Nomad)
+     * @param maxEnergy Maximum energy capacity (default 100, up to 110 with Tireless Woodsman)
      */
-    fun updateMetabolism(hunger: Float, thirst: Float, energy: Float) {
-        metabolismStats.set(MetabolismStats(hunger, thirst, energy))
+    fun updateMetabolism(
+        hunger: Float, 
+        thirst: Float, 
+        energy: Float,
+        maxHunger: Float = 100f,
+        maxThirst: Float = 100f,
+        maxEnergy: Float = 100f
+    ) {
+        metabolismStats.set(MetabolismStats(hunger, thirst, energy, maxHunger, maxThirst, maxEnergy))
         
         // Get actual buff/debuff names from the systems
         val buffs = buffsSystem?.getActiveBuffNames(playerId) ?: emptyList()
@@ -280,9 +301,9 @@ class LivingLandsHudElement(
         
         // Set the progress bars (only if stats visible)
         if (metabolismPreferences.statsVisible) {
-            updateProgressBar(builder, "Hunger", stats.hunger, "#27ae60")
-            updateProgressBar(builder, "Thirst", stats.thirst, "#3498db")
-            updateProgressBar(builder, "Energy", stats.energy, "#f39c12")
+            updateProgressBar(builder, "Hunger", stats.hunger, stats.maxHunger, "#27ae60")
+            updateProgressBar(builder, "Thirst", stats.thirst, stats.maxThirst, "#3498db")
+            updateProgressBar(builder, "Energy", stats.energy, stats.maxEnergy, "#f39c12")
         }
         
         // Update buffs/debuffs display
@@ -528,7 +549,8 @@ class LivingLandsHudElement(
             builder.set("#${professionName}Percent.Text", "$progressPercent%")
             
             // Set progress bar as text (can't dynamically resize Group anchors)
-            val progressBar = buildTextProgressBar((progress * 100).toFloat())
+            // Progress is 0-1, convert to 0-100 percentage for display
+            val progressBar = buildTextProgressBar((progress * 100).toFloat(), 100f)
             builder.set("#${professionName}Bar.Text", progressBar)
             
             // Set XP text
@@ -708,11 +730,14 @@ class LivingLandsHudElement(
     // ============ Data Classes ============
     
     /**
-     * Holds the current metabolism stat values.
+     * Holds the current metabolism stat values and max capacities.
      */
     data class MetabolismStats(
         val hunger: Float,
         val thirst: Float,
-        val energy: Float
+        val energy: Float,
+        val maxHunger: Float = 100f,
+        val maxThirst: Float = 100f,
+        val maxEnergy: Float = 100f
     )
 }

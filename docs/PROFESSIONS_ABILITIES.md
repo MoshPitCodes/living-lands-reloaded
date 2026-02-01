@@ -46,8 +46,8 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Implementation:** XP multiplier applied on kill
 
 ### Tier 2: Iron Stomach (Level 45)
-**Effect:** Permanently +15 max hunger capacity  
-**Description:** Your maximum hunger increases from 100 to 115  
+**Effect:** Permanently +35 max hunger capacity  
+**Description:** Your maximum hunger increases from 100 to 135  
 **Why Iron Stomach?** Warriors need extra food capacity for extended battles  
 **Implementation:** Permanent max stat increase
 
@@ -67,8 +67,8 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Implementation:** XP multiplier applied on ore break
 
 ### Tier 2: Desert Nomad (Level 45)
-**Effect:** Permanently +10 max thirst capacity  
-**Description:** Your maximum thirst increases from 100 to 110  
+**Effect:** Permanently +35 max thirst capacity  
+**Description:** Your maximum thirst increases from 100 to 135  
 **Why Desert Nomad?** Miners work in hot, dry mines and need extra hydration  
 **Implementation:** Permanent max stat increase
 
@@ -88,8 +88,8 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Implementation:** XP multiplier applied on log break
 
 ### Tier 2: Tireless Woodsman (Level 45)
-**Effect:** Permanently +10 max energy capacity  
-**Description:** Your maximum energy increases from 100 to 110  
+**Effect:** Permanently +35 max energy capacity  
+**Description:** Your maximum energy increases from 100 to 135  
 **Why Tireless?** Chopping trees is physically demanding work requiring more stamina  
 **Implementation:** Permanent max stat increase
 
@@ -109,12 +109,13 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Description:** Gain experience 15% faster when placing blocks  
 **Implementation:** XP multiplier applied on block placement
 
-### Tier 2: Enduring Builder (Level 45)
+### Tier 2: Enduring Builder (Level 45) ✅
 **Effect:** Permanently +15 max stamina capacity  
 **Description:** Your maximum stamina (Hytale built-in stat) increases by 15  
 **Why Enduring?** Construction work requires sustained physical effort  
 **Note:** Stamina is NOT part of the metabolism system - it's a vanilla Hytale stat  
-**Implementation:** Permanent max stat modifier on `EntityStatMap`
+**Status:** Implemented in v1.4.1  
+**Implementation:** Permanent max stat modifier on `EntityStatMap` using ADDITIVE calculation, applies/removes via `putModifier()`/`removeModifier()`
 
 ### Tier 3: Efficient Architect (Level 100) ✅
 **Effect:** 12% chance to not consume block on placement  
@@ -152,9 +153,9 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 
 | Tier | Unlock Level | Theme | Status |
 |------|--------------|-------|--------|
-| **Tier 1** | Level 15 | XP boost (+15%) | Implemented |
-| **Tier 2** | Level 45 | Max stat increase (expand survival capacity) | **Implemented in v1.2.0** |
-| **Tier 3** | Level 100 | Unique permanent passive | **Implemented in v1.4.0** |
+| **Tier 1** | Level 15 | XP boost (+15%) | ✅ Implemented |
+| **Tier 2** | Level 45 | Max stat increase (expand survival capacity) | ✅ **BUFFED in v1.4.1** (+35 max stats, +15 stamina) |
+| **Tier 3** | Level 100 | Unique permanent passive | ✅ **Implemented in v1.4.0** |
 
 **Design Rationale:**
 - Level 15 provides early progression milestone
@@ -201,10 +202,14 @@ val finalXp = (baseXp * tier1Multiplier).toLong()
 data object IronStomachAbility : Tier2Ability() {
     override val id = "combat_iron_stomach"
     override val name = "Iron Stomach"
-    override val description = "Permanently +15 max hunger capacity"
+    override val description = "Permanently +35 max hunger capacity"
     override val profession = Profession.COMBAT
-    val maxHungerBonus = 15.0
+    val maxHungerBonus = 35.0  // v1.4.1: Increased from 15.0
 }
+
+// Applied when player reaches level 45
+val newMaxHunger = 100.0 + IronStomachAbility.maxHungerBonus  // = 135
+metabolismService.setMaxHunger(playerId, newMaxHunger)
 ```
 
 ### Triggered Effects (Tier 3)

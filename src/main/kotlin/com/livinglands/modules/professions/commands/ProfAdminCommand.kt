@@ -26,7 +26,8 @@ import java.util.UUID
  */
 class ProfAdminCommand(
     private val professionsService: ProfessionsService,
-    private val abilityRegistry: AbilityRegistry
+    private val abilityRegistry: AbilityRegistry,
+    private val abilityEffectService: com.livinglands.modules.professions.abilities.AbilityEffectService
 ) : AsyncCommandBase(
     "prof",
     "Admin commands for profession management",
@@ -187,6 +188,11 @@ class ProfAdminCommand(
         professionsService.setLevel(playerId, data.profession, data.level)
         logger.atFine().log("Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}")
         
+        // Reapply all abilities with updated levels
+        val professionLevels = professionsService.getAllStats(playerId)
+            .mapValues { (_, stats) -> stats.level }
+        abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
+        
         // Refresh HUD if player is online
         refreshPlayerHud(playerId)
         
@@ -203,6 +209,13 @@ class ProfAdminCommand(
         }
 
         val result = professionsService.addXp(playerId, data.profession, data.xp)
+        
+        // Reapply abilities if leveled up (new abilities may have unlocked)
+        if (result.didLevelUp) {
+            val professionLevels = professionsService.getAllStats(playerId)
+                .mapValues { (_, stats) -> stats.level }
+            abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
+        }
         
         // Refresh HUD if player is online
         refreshPlayerHud(playerId)
@@ -251,6 +264,11 @@ class ProfAdminCommand(
             professionsService.resetProfession(playerId, data.profession)
             logger.atFine().log("Reset ${data.profession.displayName} for ${data.playerName}")
             
+            // Reapply abilities after reset (remove ability bonuses)
+            val professionLevels = professionsService.getAllStats(playerId)
+                .mapValues { (_, stats) -> stats.level }
+            abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
+            
             // Refresh HUD if player is online
             refreshPlayerHud(playerId)
             
@@ -260,6 +278,11 @@ class ProfAdminCommand(
                 professionsService.resetProfession(playerId, profession)
             }
             logger.atFine().log("Reset all professions for ${data.playerName}")
+            
+            // Reapply abilities after reset (remove all ability bonuses)
+            val professionLevels = professionsService.getAllStats(playerId)
+                .mapValues { (_, stats) -> stats.level }
+            abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
             
             // Refresh HUD if player is online
             refreshPlayerHud(playerId)

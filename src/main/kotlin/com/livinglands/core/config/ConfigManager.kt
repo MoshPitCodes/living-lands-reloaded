@@ -1,5 +1,6 @@
 package com.livinglands.core.config
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -70,8 +71,9 @@ class ConfigManager(
             // Pretty printing with indentation
             enable(SerializationFeature.INDENT_OUTPUT)
             
-            // Don't write null values
+            // Don't write null values (both map values and object fields)
             disable(SerializationFeature.WRITE_NULL_MAP_VALUES)
+            setSerializationInclusion(JsonInclude.Include.NON_NULL)
             
             // Don't write dates as timestamps
             disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)

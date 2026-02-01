@@ -1,7 +1,12 @@
 package com.livinglands.modules.professions.abilities
 
 import com.hypixel.hytale.logger.HytaleLogger
+import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap
+import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes
+import com.hypixel.hytale.server.core.modules.entitystats.modifier.Modifier
+import com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier
 import com.livinglands.core.CoreModule
+import com.livinglands.core.toCachedString
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.data.Profession
 import java.util.UUID
@@ -66,10 +71,14 @@ class AbilityEffectService(
             Profession.BUILDING -> applyEnduringBuilder(playerId, playerIdStr)
             Profession.GATHERING -> applyHeartyGatherer(playerId, playerIdStr)
         }
+        
+        // Force HUD update to immediately reflect new max capacities
+        metabolismService.forceUpdateHud(playerIdStr, playerId)
+        logger.atInfo().log("[DEBUG] Applied Tier 2 ability for $profession, forced HUD update")
     }
     
     /**
-     * Iron Stomach (Combat Tier 2) - +15 max hunger.
+     * Iron Stomach (Combat Tier 2) - +35 max hunger.
      */
     private fun applyIronStomach(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
@@ -84,18 +93,18 @@ class AbilityEffectService(
             return
         }
         
-        // Apply +15 max hunger (100 -> 115)
+        // Apply +35 max hunger (100 -> 135)
         val newMaxHunger = 100.0 + IronStomachAbility.maxHungerBonus
         metabolismService.setMaxHunger(playerId, newMaxHunger)
         
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atFine().log("Applied Iron Stomach (+${IronStomachAbility.maxHungerBonus.toInt()} max hunger) to player $playerId")
+        logger.atInfo().log("[DEBUG] Applied Iron Stomach: set max hunger to $newMaxHunger for player $playerId")
     }
     
     /**
-     * Desert Nomad (Mining Tier 2) - +10 max thirst.
+     * Desert Nomad (Mining Tier 2) - +35 max thirst.
      */
     private fun applyDesertNomad(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
@@ -110,7 +119,7 @@ class AbilityEffectService(
             return
         }
         
-        // Apply +10 max thirst (100 -> 110)
+        // Apply +35 max thirst (100 -> 135)
         val newMaxThirst = 100.0 + DesertNomadAbility.maxThirstBonus
         metabolismService.setMaxThirst(playerId, newMaxThirst)
         
@@ -121,7 +130,7 @@ class AbilityEffectService(
     }
     
     /**
-     * Tireless Woodsman (Logging Tier 2) - +10 max energy.
+     * Tireless Woodsman (Logging Tier 2) - +35 max energy.
      */
     private fun applyTirelessWoodsman(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
@@ -136,7 +145,7 @@ class AbilityEffectService(
             return
         }
         
-        // Apply +10 max energy (100 -> 110)
+        // Apply +35 max energy (100 -> 135)
         val newMaxEnergy = 100.0 + TirelessWoodsmanAbility.maxEnergyBonus
         metabolismService.setMaxEnergy(playerId, newMaxEnergy)
         
@@ -150,7 +159,7 @@ class AbilityEffectService(
      * Enduring Builder (Building Tier 2) - +15 max stamina.
      * 
      * NOTE: Stamina is a Hytale built-in stat, NOT part of our metabolism system.
-     * This ability requires Hytale API research to implement properly.
+     * Uses ECS EntityStatMap with ADDITIVE modifier for permanent max stamina increase.
      */
     private fun applyEnduringBuilder(playerId: UUID, playerIdStr: String) {
         val abilityId = EnduringBuilderAbility.id
@@ -161,11 +170,47 @@ class AbilityEffectService(
             return
         }
         
-        // TODO: Implement when Hytale stamina API is researched
-        // For now, just log and track the ability
-        markAbilityApplied(playerIdStr, abilityId, 2)
+        // Get player session for ECS access
+        val session = CoreModule.players.getSession(playerId)
+        if (session == null) {
+            logger.atWarning().log("Cannot apply Enduring Builder - player session not found for $playerId")
+            return
+        }
         
-        logger.atFine().log("Enduring Builder unlocked for player $playerId (stamina API pending)")
+        // Apply +15 max stamina using EntityStatMap
+        session.world.execute {
+            try {
+                val statMap = session.store.getComponent(session.entityRef, EntityStatMap.getComponentType())
+                if (statMap == null) {
+                    logger.atWarning().log("Cannot apply Enduring Builder - EntityStatMap not found for $playerId")
+                    return@execute
+                }
+                
+                val staminaId = DefaultEntityStatTypes.getStamina()
+                
+                // Create ADDITIVE modifier for flat +15 max stamina
+                val modifier = StaticModifier(
+                    Modifier.ModifierTarget.MAX,
+                    StaticModifier.CalculationType.ADDITIVE,
+                    EnduringBuilderAbility.maxStaminaBonus.toFloat()  // +15
+                )
+                
+                // Use SELF predictable to ensure client receives the stat update
+                statMap.putModifier(
+                    EntityStatMap.Predictable.SELF,
+                    staminaId,
+                    "livinglands_ability_enduring_builder",
+                    modifier
+                )
+                
+                logger.atInfo().log("Applied Enduring Builder: +${EnduringBuilderAbility.maxStaminaBonus.toInt()} max stamina for player $playerId")
+            } catch (e: Exception) {
+                logger.atWarning().withCause(e).log("Failed to apply Enduring Builder for player $playerId")
+            }
+        }
+        
+        // Track that this ability was applied
+        markAbilityApplied(playerIdStr, abilityId, 2)
     }
     
     /**
@@ -312,17 +357,39 @@ class AbilityEffectService(
     
     /**
      * Re-apply all unlocked abilities for a player.
-     * Called on world switch to ensure bonuses persist.
+     * Called on world switch or level changes to ensure bonuses are correct.
+     * 
+     * IMPORTANT: This method resets max stats to base values FIRST, then
+     * re-applies only the abilities the player qualifies for. This ensures
+     * that when a player's level drops below a tier threshold, the bonuses
+     * are correctly removed.
      * 
      * @param playerId Player's UUID
      * @param professionLevels Map of profession to current level
      */
     fun reapplyAllAbilities(playerId: UUID, professionLevels: Map<Profession, Int>) {
-        val playerIdStr = playerId.toString()
+        val playerIdStr = playerId.toCachedString()
         
         // Clear tracking (will re-populate as we apply)
         appliedTier2Abilities.remove(playerIdStr)
         appliedTier3Abilities.remove(playerIdStr)
+        
+        // CRITICAL FIX: Reset max stats to base values BEFORE re-applying abilities.
+        // This ensures that when level drops below 45, the max stats revert to 100.
+        // Without this, the old buffed values (110, 115, etc.) persist even after
+        // the player no longer qualifies for the ability.
+        val metabolismService = CoreModule.services.get<MetabolismService>()
+        if (metabolismService != null) {
+            metabolismService.resetMaxStats(playerId)
+            
+            // Also remove Survivalist depletion modifier (will be re-applied if still qualified)
+            metabolismService.removeDepletionModifier(playerId, "professions:survivalist")
+            
+            logger.atFine().log("Reset max stats and modifiers to base values for $playerId before re-applying abilities")
+        }
+        
+        // Remove Enduring Builder stamina modifier (will be re-applied if still qualified)
+        removeEnduringBuilderModifier(playerId)
         
         professionLevels.forEach { (profession, level) ->
             // Re-apply Tier 2 if level >= 45
@@ -336,10 +403,45 @@ class AbilityEffectService(
             }
         }
         
-        logger.atFine().log("Re-applied all abilities for player $playerId after world switch")
+        // Force HUD update to reflect new/reset max capacities
+        if (metabolismService != null) {
+            metabolismService.forceUpdateHud(playerIdStr, playerId)
+            logger.atFine().log("Force HUD update called after reapplying abilities for $playerId")
+        } else {
+            logger.atWarning().log("MetabolismService not available when reapplying abilities for $playerId")
+        }
+        
+        logger.atFine().log("Re-applied abilities for player $playerId (levels: ${professionLevels.entries.joinToString(", ") { "${it.key.name}=${it.value}" }})")
     }
     
     // ============ Ability Removal (config reload) ============
+    
+    /**
+     * Remove Enduring Builder stamina modifier from a player.
+     * Used when resetting abilities or when level drops below 45.
+     * 
+     * @param playerId Player's UUID
+     */
+    private fun removeEnduringBuilderModifier(playerId: UUID) {
+        val session = CoreModule.players.getSession(playerId) ?: return
+        
+        session.world.execute {
+            try {
+                val statMap = session.store.getComponent(session.entityRef, EntityStatMap.getComponentType())
+                if (statMap != null) {
+                    val staminaId = DefaultEntityStatTypes.getStamina()
+                    statMap.removeModifier(
+                        EntityStatMap.Predictable.SELF,
+                        staminaId,
+                        "livinglands_ability_enduring_builder"
+                    )
+                    logger.atFine().log("Removed Enduring Builder stamina modifier from player $playerId")
+                }
+            } catch (e: Exception) {
+                logger.atFine().log("Failed to remove Enduring Builder modifier for $playerId: ${e.message}")
+            }
+        }
+    }
     
     /**
      * Remove all ability effects from a player.
@@ -348,7 +450,7 @@ class AbilityEffectService(
      * @param playerId Player's UUID
      */
     fun removeAllAbilities(playerId: UUID) {
-        val playerIdStr = playerId.toString()
+        val playerIdStr = playerId.toCachedString()
         val metabolismService = CoreModule.services.get<MetabolismService>()
         
         if (metabolismService != null) {
@@ -360,6 +462,9 @@ class AbilityEffectService(
             // Remove Survivalist depletion modifier
             metabolismService.removeDepletionModifier(playerId, "professions:survivalist")
         }
+        
+        // Remove Enduring Builder stamina modifier
+        removeEnduringBuilderModifier(playerId)
         
         // Clear tracking
         appliedTier2Abilities.remove(playerIdStr)
