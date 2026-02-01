@@ -33,22 +33,21 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.3.0** - Metabolism system complete. Professions system complete with Tier 1 & Tier 2 abilities. Announcer module added. Critical HUD fixes.
+**Current Status:** **v1.4.0** - Professions module 100% complete! All Tier 3 abilities implemented and functional. Admin command UX improvements.
 
 ---
 
 ## Recent Updates
 
-**v1.3.0 Changes (NEW FEATURES + CRITICAL FIXES):**
-- 🎉 **NEW MODULE:** Announcer system for server messaging
-  - MOTD and welcome messages with placeholders
-  - Recurring announcements with configurable intervals
-  - Broadcast commands for admins
-  - Per-world message overrides
-  - Color code support (`&a`, `&6`, etc.)
-- 🔥 **CRITICAL FIX:** HUD crash on player join (build/update pattern separation)
-- 🔥 **CRITICAL FIX:** Panel toggle commands now work correctly
-- ✅ Performance and memory optimizations
+**v1.4.0 Changes (PROFESSIONS 100% COMPLETE!):**
+- 🎉 **ALL TIER 3 ABILITIES IMPLEMENTED:**
+  - **Survivalist** (Combat) - Passive -15% metabolism depletion
+  - **Adrenaline Rush** (Combat) - +10% speed for 5s on kill
+  - **Ore Sense** (Mining) - 10% chance bonus ore drop
+  - **Timber!** (Logging) - 25% chance extra log
+  - **Efficient Architect** (Building) - 12% chance block refund
+- ✅ **Admin Command UX:** Instant HUD refresh (no more 2s delay)
+- ✅ **Professions Module:** Now 100% feature-complete!
 
 ---
 
@@ -62,11 +61,22 @@
 - **Global Persistence** - Stats follow players across worlds
 - **Thread-Safe** - Async database operations with proper synchronization
 
-### Professions System (Partial)
+### Professions System (Complete)
 - **5 Professions** - Combat, Mining, Logging, Building, Gathering
 - **100 Levels Each** - Exponential XP curve with configurable rates
 - **XP From Activities** - Kill mobs, mine ores, chop logs, place blocks, gather items
-- **Tier 1 Abilities** - +15% XP boost at level 15 (working)
+- **Tier 1 Abilities (Level 15)** - +15% XP boost for each profession
+- **Tier 2 Abilities (Level 45)** - Permanent max stat increases
+  - Iron Stomach (Combat) - +15 max hunger
+  - Desert Nomad (Mining) - +10 max thirst
+  - Tireless Woodsman (Logging) - +10 max energy
+  - Hearty Gatherer (Gathering) - +4 hunger/thirst per food pickup
+- **Tier 3 Abilities (Level 100)** - Powerful active/passive effects
+  - Survivalist (Combat) - -15% metabolism depletion
+  - Adrenaline Rush (Combat) - +10% speed for 5s on kill
+  - Ore Sense (Mining) - 10% chance bonus ore
+  - Timber! (Logging) - 25% chance extra log
+  - Efficient Architect (Building) - 12% chance block refund
 - **Level-Up Notifications** - Chat messages when leveling up
 - **Death Penalty** - Lose XP on death (progressive 10-35% on 2 highest professions)
 - **Global Persistence** - Stats survive server restarts and world switches
