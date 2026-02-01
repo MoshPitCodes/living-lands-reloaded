@@ -187,6 +187,9 @@ class ProfAdminCommand(
         professionsService.setLevel(playerId, data.profession, data.level)
         logger.atFine().log("Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}")
         
+        // Refresh HUD if player is online
+        refreshPlayerHud(playerId)
+        
         // Notify player if online
         notifyPlayer(playerId, "[Admin] Your ${data.profession.displayName} was set to level ${data.level}")
     }
@@ -200,6 +203,9 @@ class ProfAdminCommand(
         }
 
         val result = professionsService.addXp(playerId, data.profession, data.xp)
+        
+        // Refresh HUD if player is online
+        refreshPlayerHud(playerId)
 
         if (result.didLevelUp) {
             logger.atFine().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName} - Level up! ${result.oldLevel} → ${result.newLevel}")
@@ -244,12 +250,20 @@ class ProfAdminCommand(
         if (data.profession != null) {
             professionsService.resetProfession(playerId, data.profession)
             logger.atFine().log("Reset ${data.profession.displayName} for ${data.playerName}")
+            
+            // Refresh HUD if player is online
+            refreshPlayerHud(playerId)
+            
             notifyPlayer(playerId, "[Admin] Your ${data.profession.displayName} has been reset to level 1")
         } else {
             Profession.values().forEach { profession ->
                 professionsService.resetProfession(playerId, profession)
             }
             logger.atFine().log("Reset all professions for ${data.playerName}")
+            
+            // Refresh HUD if player is online
+            refreshPlayerHud(playerId)
+            
             notifyPlayer(playerId, "[Admin] All your professions have been reset to level 1")
         }
     }
@@ -310,6 +324,34 @@ class ProfAdminCommand(
         }
     }
 
+    /**
+     * Refresh the professions panel HUD for a player if they're online.
+     * Uses updateProfessionsPanel() to avoid refreshing the entire HUD.
+     */
+    private fun refreshPlayerHud(playerId: UUID) {
+        CoreModule.players.getSession(playerId)?.let { session ->
+            session.world.execute {
+                try {
+                    val player = session.store.getComponent(
+                        session.entityRef,
+                        com.hypixel.hytale.server.core.entity.entities.Player.getComponentType()
+                    )
+                    @Suppress("DEPRECATION")
+                    val playerRef = player?.playerRef ?: return@execute
+                    
+                    // Get the HUD and update ONLY professions panel (not entire HUD)
+                    val hud = CoreModule.hudManager.getHud(playerId)
+                    hud?.refreshProfessionsPanel()  // Set refresh flag
+                    hud?.updateProfessionsPanel()   // Update only professions section
+                    
+                    logger.atFine().log("Refreshed professions panel for player $playerId")
+                } catch (e: Exception) {
+                    logger.atFine().log("Could not refresh professions panel for player $playerId: ${e.message}")
+                }
+            }
+        }
+    }
+    
     /**
      * Send a message to a player if they're online.
      */
