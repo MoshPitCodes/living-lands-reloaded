@@ -6,14 +6,19 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.component.query.Query
 import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
+import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent
+import com.hypixel.hytale.server.core.inventory.ItemStack
 import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.universe.Universe
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
+import com.livinglands.modules.professions.abilities.TimberAbility
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
+import kotlin.random.Random
 
 /**
  * ECS system for Logging XP awards.
@@ -139,6 +144,16 @@ class LoggingXpSystem(
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
             logger.atFine().log("Awarded $xpAmount Logging XP to player ${playerUuid} ($blockId)")
         }
+        
+        // ========== Tier 3 Ability: Timber! ==========
+        // Check if player has Timber! ability
+        try {
+            if (abilityEffectService.hasTimber(playerUuid)) {
+                applyTimber(playerRef, playerUuid, blockId, store)
+            }
+        } catch (e: Exception) {
+            logger.atWarning().log("Error applying Timber! for player $playerUuid: ${e.message}")
+        }
     }
     
     /**
@@ -167,5 +182,93 @@ class LoggingXpSystem(
         
         // Default multiplier for any log
         return config.xpRewards.logging.logMultipliers["default"] ?: 1.0
+    }
+    
+    /**
+     * Apply Timber! ability - chance to add bonus logs to player inventory.
+     * 
+     * Effect: 25% chance to drop extra logs (adds extra log to inventory).
+     * 
+     * **Algorithm:**
+     * 1. Check random chance (25% by default from TimberAbility.extraLogChance)
+     * 2. If triggered, create an ItemStack of 1 log
+     * 3. Add to player's inventory (combined storage)
+     * 
+     * **Thread Safety:**
+     * - Inventory access must happen on world thread (via world.execute)
+     * - Random is thread-safe for individual calls
+     * 
+     * @param playerRef Player's PlayerRef component
+     * @param playerId Player's UUID
+     * @param blockId The log block identifier (e.g., "hytale:oak_log")
+     * @param store Entity store for ECS access
+     */
+    private fun applyTimber(
+        playerRef: PlayerRef,
+        playerId: java.util.UUID,
+        blockId: String,
+        store: Store<EntityStore>
+    ) {
+        // Random chance check (25% = 0.25)
+        if (Random.nextDouble() >= TimberAbility.extraLogChance) {
+            return // Ability did not trigger
+        }
+        
+        // Get world for thread-safe inventory access
+        val worldUuid = playerRef.worldUuid
+        if (worldUuid == null) {
+            logger.atFine().log("Timber!: World UUID not available for player $playerId")
+            return
+        }
+        val world = Universe.get().getWorld(worldUuid)
+        if (world == null) {
+            logger.atFine().log("Timber!: World not found for player $playerId")
+            return
+        }
+        
+        // Execute on world thread for ECS safety
+        world.execute {
+            try {
+                val entityRef = playerRef.reference
+                if (entityRef == null || !entityRef.isValid) {
+                    return@execute
+                }
+                
+                // Get Player component to access inventory
+                val player = store.getComponent(entityRef, Player.getComponentType())
+                if (player == null) {
+                    logger.atFine().log("Timber!: Player component not found for $playerId")
+                    return@execute
+                }
+                
+                val inventory = player.inventory
+                if (inventory == null) {
+                    logger.atFine().log("Timber!: Inventory not found for player $playerId")
+                    return@execute
+                }
+                
+                // Use the block ID as the item ID for logs
+                // Logs typically drop as the same item as the block
+                val itemId = blockId
+                
+                // Create ItemStack with 1 extra log
+                val bonusItem = ItemStack(itemId, 1)
+                
+                // Add to combined storage (hotbar + storage)
+                val container = inventory.combinedHotbarFirst
+                val transaction = container.addItemStack(bonusItem)
+                
+                if (transaction.succeeded()) {
+                    logger.atFine().log("Timber! triggered! Added bonus $itemId to player $playerId")
+                    
+                    // Send inventory update to client
+                    player.sendInventory()
+                } else {
+                    logger.atFine().log("Timber!: Could not add bonus item to inventory (full?) for player $playerId")
+                }
+            } catch (e: Exception) {
+                logger.atWarning().log("Error in Timber! for player $playerId: ${e.message}")
+            }
+        }
     }
 }

@@ -8,12 +8,19 @@ import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.modules.entity.damage.event.KillFeedEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.universe.Universe
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
+import com.livinglands.core.CoreModule
+import com.livinglands.core.SpeedManager
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
+import com.livinglands.modules.professions.abilities.AdrenalineRushAbility
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
+import kotlinx.coroutines.*
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * ECS system for Combat XP awards.
@@ -42,6 +49,24 @@ class CombatXpSystem(
      * Component type for PlayerRef to extract from ECS.
      */
     private val playerRefType = PlayerRef.getComponentType()
+    
+    /**
+     * Coroutine scope for handling timed effects like Adrenaline Rush.
+     * Uses SupervisorJob to prevent single failure from cancelling all jobs.
+     */
+    private val effectScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    /**
+     * Track active Adrenaline Rush effects to prevent stacking.
+     * Key: Player UUID, Value: Job for the timed effect removal
+     */
+    private val activeAdrenalineRush = ConcurrentHashMap<UUID, Job>()
+    
+    /**
+     * Speed multiplier category for Adrenaline Rush.
+     * Uses "buff:" prefix so it's treated as a temporary buff by SpeedManager.
+     */
+    private val ADRENALINE_RUSH_CATEGORY = "buff:adrenaline_rush"
     
     /**
      * Query to match entities - Combat XP only applies to players.
@@ -126,5 +151,133 @@ class CombatXpSystem(
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
             logger.atFine().log("Awarded $xpAmount Combat XP to player ${playerUuid} (kill)")
         }
+        
+        // ========== Tier 3 Ability: Adrenaline Rush ==========
+        // Check if player has Adrenaline Rush ability and apply speed buff
+        try {
+            if (abilityEffectService.hasAdrenalineRush(playerUuid)) {
+                applyAdrenalineRush(playerRef, playerUuid, store)
+            }
+        } catch (e: Exception) {
+            logger.atWarning().log("Error applying Adrenaline Rush for player $playerUuid: ${e.message}")
+        }
+    }
+    
+    /**
+     * Apply Adrenaline Rush speed buff to the player.
+     * 
+     * Effect: +10% movement speed for 5 seconds on kill.
+     * 
+     * **Thread Safety:**
+     * - SpeedManager is thread-safe (uses ConcurrentHashMap)
+     * - Speed application requires world thread (uses world.execute {})
+     * - Timed removal uses coroutine with proper cleanup
+     * 
+     * **Stacking Behavior:**
+     * - If already active, refreshes the duration (cancels old job, starts new)
+     * - Does NOT stack the effect (still +10%, not +20%)
+     * 
+     * @param playerRef Player's PlayerRef component
+     * @param playerId Player's UUID
+     * @param store Entity store for ECS access
+     */
+    private fun applyAdrenalineRush(playerRef: PlayerRef, playerId: UUID, store: Store<EntityStore>) {
+        val speedManager = CoreModule.services.get<SpeedManager>()
+        if (speedManager == null) {
+            logger.atWarning().log("Cannot apply Adrenaline Rush - SpeedManager not available")
+            return
+        }
+        
+        // Cancel existing effect if active (refresh duration)
+        activeAdrenalineRush[playerId]?.cancel()
+        
+        // Apply speed buff (+10%)
+        speedManager.setMultiplier(playerId, ADRENALINE_RUSH_CATEGORY, AdrenalineRushAbility.speedMultiplier.toFloat())
+        
+        // Apply the speed change to player (requires world thread)
+        val worldUuid = playerRef.worldUuid ?: return
+        val world = Universe.get().getWorld(worldUuid)
+        if (world != null) {
+            world.execute {
+                try {
+                    val entityRef = playerRef.reference
+                    if (entityRef != null && entityRef.isValid) {
+                        speedManager.applySpeed(playerId, entityRef, store)
+                        logger.atFine().log("Applied Adrenaline Rush (+10% speed) to player $playerId")
+                    }
+                } catch (e: Exception) {
+                    logger.atWarning().log("Error applying Adrenaline Rush speed for player $playerId: ${e.message}")
+                }
+            }
+        }
+        
+        // Schedule removal after duration
+        val job = effectScope.launch {
+            delay(AdrenalineRushAbility.durationMs)
+            removeAdrenalineRush(playerRef, playerId, store)
+        }
+        activeAdrenalineRush[playerId] = job
+    }
+    
+    /**
+     * Remove Adrenaline Rush speed buff from the player.
+     * 
+     * Called automatically after the duration expires, or manually on disconnect.
+     * 
+     * @param playerRef Player's PlayerRef component
+     * @param playerId Player's UUID
+     * @param store Entity store for ECS access
+     */
+    private fun removeAdrenalineRush(playerRef: PlayerRef, playerId: UUID, store: Store<EntityStore>) {
+        val speedManager = CoreModule.services.get<SpeedManager>()
+        if (speedManager == null) return
+        
+        // Remove the speed multiplier
+        speedManager.removeMultiplier(playerId, ADRENALINE_RUSH_CATEGORY)
+        
+        // Remove from tracking
+        activeAdrenalineRush.remove(playerId)
+        
+        // Apply the speed change to player (requires world thread)
+        val worldUuid = playerRef.worldUuid ?: return
+        val world = Universe.get().getWorld(worldUuid)
+        if (world != null) {
+            world.execute {
+                try {
+                    val entityRef = playerRef.reference
+                    if (entityRef != null && entityRef.isValid) {
+                        speedManager.applySpeed(playerId, entityRef, store)
+                        logger.atFine().log("Removed Adrenaline Rush effect from player $playerId")
+                    }
+                } catch (e: Exception) {
+                    logger.atFine().log("Error removing Adrenaline Rush speed for player $playerId: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Clean up Adrenaline Rush effect for a player.
+     * 
+     * Should be called when player disconnects to prevent memory leaks.
+     * 
+     * @param playerId Player's UUID
+     */
+    fun cleanupPlayer(playerId: UUID) {
+        activeAdrenalineRush[playerId]?.cancel()
+        activeAdrenalineRush.remove(playerId)
+        
+        // Also remove the speed multiplier if SpeedManager is available
+        CoreModule.services.get<SpeedManager>()?.removeMultiplier(playerId, ADRENALINE_RUSH_CATEGORY)
+    }
+    
+    /**
+     * Shutdown the effect scope.
+     * 
+     * Should be called when the system is being unregistered.
+     */
+    fun shutdown() {
+        effectScope.cancel()
+        activeAdrenalineRush.clear()
     }
 }

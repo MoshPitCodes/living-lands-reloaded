@@ -51,10 +51,11 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Why Iron Stomach?** Warriors need extra food capacity for extended battles  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Adrenaline Rush (Level 100)
+### Tier 3: Adrenaline Rush (Level 100) ✅
 **Effect:** +10% movement speed for 5 seconds on kill  
 **Description:** Killing a mob triggers a temporary speed boost  
-**Implementation:** Temporary buff using `SpeedManager`, triggered on `KillFeedEvent`
+**Status:** Implemented in v1.4.0  
+**Implementation:** Temporary buff using `SpeedManager`, triggered on `KillFeedEvent.KillerMessage` in `CombatXpSystem`
 
 ---
 
@@ -71,10 +72,11 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Why Desert Nomad?** Miners work in hot, dry mines and need extra hydration  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Ore Sense (Level 100)
+### Tier 3: Ore Sense (Level 100) ✅
 **Effect:** +10% ore drop chance  
 **Description:** 10% chance to get an additional ore when mining  
-**Implementation:** Extra drop chance on `BreakBlockEvent` for ore blocks
+**Status:** Implemented in v1.4.0  
+**Implementation:** Random chance check in `MiningXpSystem.applyOreSense()`, adds bonus ore to player inventory
 
 ---
 
@@ -91,11 +93,12 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Why Tireless?** Chopping trees is physically demanding work requiring more stamina  
 **Implementation:** Permanent max stat increase
 
-### Tier 3: Timber! (Level 100)
+### Tier 3: Timber! (Level 100) ✅
 **Effect:** 25% chance for extra log drop  
 **Description:** When chopping logs, 25% chance to get an additional log  
 **Why "Timber!"?** Classic lumberjack shout when a tree falls  
-**Implementation:** Extra drop chance on `BreakBlockEvent` for log blocks
+**Status:** Implemented in v1.4.0  
+**Implementation:** Random chance check in `LoggingXpSystem.applyTimber()`, adds bonus log to player inventory
 
 ---
 
@@ -113,11 +116,12 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Note:** Stamina is NOT part of the metabolism system - it's a vanilla Hytale stat  
 **Implementation:** Permanent max stat modifier on `EntityStatMap`
 
-### Tier 3: Efficient Architect (Level 100)
+### Tier 3: Efficient Architect (Level 100) ✅
 **Effect:** 12% chance to not consume block on placement  
 **Description:** When placing blocks, 12% chance the block isn't removed from inventory  
 **Why 12%?** Balanced to save ~1 in 8 blocks without being overpowered  
-**Implementation:** Random chance check on `PlaceBlockEvent`, cancel item consumption
+**Status:** Implemented in v1.4.0  
+**Implementation:** Random chance check in `BuildingXpSystem.applyEfficientArchitect()`, refunds block to player inventory after placement (with anti-exploit validation)
 
 ---
 
@@ -135,10 +139,11 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 **Why the exception?** Gathering is about finding food, so it makes thematic sense to restore stats  
 **Implementation:** Triggered effect on `InteractivelyPickupItemEvent` for food items only
 
-### Tier 3: Survivalist (Level 100)
+### Tier 3: Survivalist (Level 100) ✅
 **Effect:** -15% metabolism depletion rate  
 **Description:** ALL metabolism stats (hunger, thirst, energy) deplete 15% slower  
 **Why powerful?** Because it's the capstone ability for the survival profession  
+**Status:** Implemented in v1.2.0  
 **Implementation:** Applies a `0.85` multiplier to all metabolism depletion via `MetabolismService` modifier system
 
 ---
@@ -149,7 +154,7 @@ Each profession gets a unique powerful passive that enhances their playstyle.
 |------|--------------|-------|--------|
 | **Tier 1** | Level 15 | XP boost (+15%) | Implemented |
 | **Tier 2** | Level 45 | Max stat increase (expand survival capacity) | **Implemented in v1.2.0** |
-| **Tier 3** | Level 100 | Unique permanent passive | Planned |
+| **Tier 3** | Level 100 | Unique permanent passive | **Implemented in v1.4.0** |
 
 **Design Rationale:**
 - Level 15 provides early progression milestone

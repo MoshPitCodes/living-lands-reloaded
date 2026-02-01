@@ -6,14 +6,19 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.component.query.Query
 import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
+import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.event.events.ecs.PlaceBlockEvent
+import com.hypixel.hytale.server.core.inventory.ItemStack
 import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.universe.Universe
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
+import com.livinglands.modules.professions.abilities.EfficientArchitectAbility
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
+import kotlin.random.Random
 
 /**
  * ECS system for Building XP awards.
@@ -137,6 +142,16 @@ class BuildingXpSystem(
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
             logger.atFine().log("Awarded $xpAmount Building XP to player ${playerUuid} ($blockId)")
         }
+        
+        // ========== Tier 3 Ability: Efficient Architect ==========
+        // Check if player has Efficient Architect ability
+        try {
+            if (abilityEffectService.hasEfficientArchitect(playerUuid)) {
+                applyEfficientArchitect(playerRef, playerUuid, blockId, store)
+            }
+        } catch (e: Exception) {
+            logger.atWarning().log("Error applying Efficient Architect for player $playerUuid: ${e.message}")
+        }
     }
     
     /**
@@ -202,5 +217,136 @@ class BuildingXpSystem(
                blockId.contains("glass") ||
                blockId.contains("tile") ||
                blockId.contains("cut")
+    }
+    
+    /**
+     * Check if a block is valid for the Efficient Architect refund.
+     * 
+     * Excludes blocks that could cause exploits or don't make sense to refund:
+     * - Air and void blocks
+     * - Liquids (water, lava)
+     * - Non-placeable blocks
+     * - Creative-only blocks
+     * 
+     * @param blockId The block identifier (lowercase)
+     * @return true if the block can be refunded
+     */
+    private fun isValidRefundBlock(blockId: String): Boolean {
+        // Exclude air, void, and technical blocks
+        if (blockId.contains("air") || blockId.contains("void")) {
+            return false
+        }
+        
+        // Exclude liquids
+        if (blockId.contains("water") || blockId.contains("lava") || blockId.contains("liquid")) {
+            return false
+        }
+        
+        // Exclude bedrock and barrier blocks
+        if (blockId.contains("bedrock") || blockId.contains("barrier")) {
+            return false
+        }
+        
+        // Exclude command blocks and structure blocks (creative-only)
+        if (blockId.contains("command") || blockId.contains("structure")) {
+            return false
+        }
+        
+        return true
+    }
+    
+    /**
+     * Apply Efficient Architect ability - chance to refund a placed block.
+     * 
+     * Effect: 12% chance to not consume the block on placement (adds it back to inventory).
+     * 
+     * **Algorithm:**
+     * 1. Validate the block is refund-eligible (not air, liquids, etc.)
+     * 2. Check random chance (12% by default from EfficientArchitectAbility.noConsumeChance)
+     * 3. If triggered, create an ItemStack of 1 block
+     * 4. Add to player's inventory (combined storage)
+     * 
+     * **Thread Safety:**
+     * - Inventory access must happen on world thread (via world.execute)
+     * - Random is thread-safe for individual calls
+     * 
+     * **Anti-Exploit Measures:**
+     * - Excludes air, liquids, bedrock, command blocks, structure blocks
+     * - Cannot be triggered for invalid blocks
+     * - Refund happens AFTER the block is placed (not preventing placement)
+     * 
+     * @param playerRef Player's PlayerRef component
+     * @param playerId Player's UUID
+     * @param blockId The block identifier (e.g., "hytale:oak_planks")
+     * @param store Entity store for ECS access
+     */
+    private fun applyEfficientArchitect(
+        playerRef: PlayerRef,
+        playerId: java.util.UUID,
+        blockId: String,
+        store: Store<EntityStore>
+    ) {
+        // Anti-exploit: Check if block is valid for refund
+        if (!isValidRefundBlock(blockId)) {
+            return
+        }
+        
+        // Random chance check (12% = 0.12)
+        if (Random.nextDouble() >= EfficientArchitectAbility.noConsumeChance) {
+            return // Ability did not trigger
+        }
+        
+        // Get world for thread-safe inventory access
+        val worldUuid = playerRef.worldUuid
+        if (worldUuid == null) {
+            logger.atFine().log("Efficient Architect: World UUID not available for player $playerId")
+            return
+        }
+        val world = Universe.get().getWorld(worldUuid)
+        if (world == null) {
+            logger.atFine().log("Efficient Architect: World not found for player $playerId")
+            return
+        }
+        
+        // Execute on world thread for ECS safety
+        world.execute {
+            try {
+                val entityRef = playerRef.reference
+                if (entityRef == null || !entityRef.isValid) {
+                    return@execute
+                }
+                
+                // Get Player component to access inventory
+                val player = store.getComponent(entityRef, Player.getComponentType())
+                if (player == null) {
+                    logger.atFine().log("Efficient Architect: Player component not found for $playerId")
+                    return@execute
+                }
+                
+                val inventory = player.inventory
+                if (inventory == null) {
+                    logger.atFine().log("Efficient Architect: Inventory not found for player $playerId")
+                    return@execute
+                }
+                
+                // Create ItemStack with 1 refunded block
+                val refundItem = ItemStack(blockId, 1)
+                
+                // Add to combined storage (hotbar + storage)
+                val container = inventory.combinedHotbarFirst
+                val transaction = container.addItemStack(refundItem)
+                
+                if (transaction.succeeded()) {
+                    logger.atFine().log("Efficient Architect triggered! Refunded $blockId to player $playerId")
+                    
+                    // Send inventory update to client
+                    player.sendInventory()
+                } else {
+                    logger.atFine().log("Efficient Architect: Could not refund item to inventory (full?) for player $playerId")
+                }
+            } catch (e: Exception) {
+                logger.atWarning().log("Error in Efficient Architect for player $playerId: ${e.message}")
+            }
+        }
     }
 }

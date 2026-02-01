@@ -6,14 +6,19 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.component.query.Query
 import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
+import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent
+import com.hypixel.hytale.server.core.inventory.ItemStack
 import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.universe.Universe
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
+import com.livinglands.modules.professions.abilities.OreSenseAbility
 import com.livinglands.modules.professions.config.ProfessionsConfig
 import com.livinglands.modules.professions.data.Profession
+import kotlin.random.Random
 
 /**
  * ECS system for Mining XP awards.
@@ -140,6 +145,16 @@ class MiningXpSystem(
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
             logger.atFine().log("Awarded $xpAmount Mining XP to player ${playerUuid} ($blockId)")
         }
+        
+        // ========== Tier 3 Ability: Ore Sense ==========
+        // Check if player has Ore Sense ability and block is an ore
+        try {
+            if (isOreBlock(blockId) && abilityEffectService.hasOreSense(playerUuid)) {
+                applyOreSense(playerRef, playerUuid, blockId, store)
+            }
+        } catch (e: Exception) {
+            logger.atWarning().log("Error applying Ore Sense for player $playerUuid: ${e.message}")
+        }
     }
     
     /**
@@ -158,5 +173,124 @@ class MiningXpSystem(
         
         // Not a mining-related block
         return null
+    }
+    
+    /**
+     * Check if a block is an ore block.
+     * 
+     * @param blockId The block identifier (lowercase)
+     * @return true if this is an ore block
+     */
+    private fun isOreBlock(blockId: String): Boolean {
+        return blockId.contains("ore")
+    }
+    
+    /**
+     * Apply Ore Sense ability - chance to add bonus ore to player inventory.
+     * 
+     * Effect: 10% chance to double ore drops (adds extra ore to inventory).
+     * 
+     * **Algorithm:**
+     * 1. Check random chance (10% by default from OreSenseAbility.dropChanceBonus)
+     * 2. If triggered, create an ItemStack of 1 ore
+     * 3. Add to player's inventory (combined storage)
+     * 
+     * **Thread Safety:**
+     * - Inventory access must happen on world thread (via world.execute)
+     * - Random is thread-safe for individual calls
+     * 
+     * @param playerRef Player's PlayerRef component
+     * @param playerId Player's UUID
+     * @param blockId The ore block identifier (e.g., "hytale:iron_ore")
+     * @param store Entity store for ECS access
+     */
+    private fun applyOreSense(
+        playerRef: PlayerRef,
+        playerId: java.util.UUID,
+        blockId: String,
+        store: Store<EntityStore>
+    ) {
+        // Random chance check (10% = 0.10)
+        if (Random.nextDouble() >= OreSenseAbility.dropChanceBonus) {
+            return // Ability did not trigger
+        }
+        
+        // Get world for thread-safe inventory access
+        val worldUuid = playerRef.worldUuid
+        if (worldUuid == null) {
+            logger.atFine().log("Ore Sense: World UUID not available for player $playerId")
+            return
+        }
+        val world = Universe.get().getWorld(worldUuid)
+        if (world == null) {
+            logger.atFine().log("Ore Sense: World not found for player $playerId")
+            return
+        }
+        
+        // Execute on world thread for ECS safety
+        world.execute {
+            try {
+                val entityRef = playerRef.reference
+                if (entityRef == null || !entityRef.isValid) {
+                    return@execute
+                }
+                
+                // Get Player component to access inventory
+                val player = store.getComponent(entityRef, Player.getComponentType())
+                if (player == null) {
+                    logger.atFine().log("Ore Sense: Player component not found for $playerId")
+                    return@execute
+                }
+                
+                val inventory = player.inventory
+                if (inventory == null) {
+                    logger.atFine().log("Ore Sense: Inventory not found for player $playerId")
+                    return@execute
+                }
+                
+                // Get the item ID from the block ID
+                // Ores typically drop as items with the same ID (e.g., "hytale:iron_ore" -> "hytale:iron_ore")
+                // Some ores might drop raw materials instead (e.g., "hytale:diamond_ore" -> "hytale:diamond")
+                // For now, we'll use the block ID as the item ID - this may need adjustment based on game mechanics
+                val itemId = getItemIdFromOre(blockId)
+                
+                // Create ItemStack with 1 extra ore
+                val bonusItem = ItemStack(itemId, 1)
+                
+                // Add to combined storage (hotbar + storage)
+                val container = inventory.combinedHotbarFirst
+                val transaction = container.addItemStack(bonusItem)
+                
+                if (transaction.succeeded()) {
+                    logger.atFine().log("Ore Sense triggered! Added bonus $itemId to player $playerId")
+                    
+                    // Send inventory update to client
+                    player.sendInventory()
+                } else {
+                    logger.atFine().log("Ore Sense: Could not add bonus item to inventory (full?) for player $playerId")
+                }
+            } catch (e: Exception) {
+                logger.atWarning().log("Error in Ore Sense for player $playerId: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Get the item ID that should drop from an ore block.
+     * 
+     * Some ores drop raw materials instead of the ore block itself.
+     * This mapping can be expanded based on game mechanics.
+     * 
+     * @param blockId The ore block identifier
+     * @return The item identifier that should be added to inventory
+     */
+    private fun getItemIdFromOre(blockId: String): String {
+        // By default, use the block ID as the item ID
+        // This can be customized for specific ores that drop different items
+        // Example mappings (uncomment and adjust as needed):
+        // if (blockId.contains("diamond_ore")) return "hytale:diamond"
+        // if (blockId.contains("coal_ore")) return "hytale:coal"
+        
+        return blockId
     }
 }
