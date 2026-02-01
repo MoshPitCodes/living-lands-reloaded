@@ -1,6 +1,37 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.4.1 (Latest - Stability & Performance Update)
+## 1.4.2 (Latest - Critical Hotfix)
+
+### 🚨 CRITICAL HOTFIX
+
+**If you downloaded v1.4.0 or v1.4.1, please update to v1.4.2 immediately.**
+
+This release fixes a critical issue where modded consumables implementation files were accidentally omitted from v1.4.0 and v1.4.1.
+
+### What Was Fixed
+
+#### Missing Implementation Files (763 lines of code)
+Added 4 core files required for modded consumables feature to work:
+- ✅ **ModdedConsumablesConfig.kt** - Configuration data class with 92 pre-configured items
+- ✅ **ItemTierDetector.kt** - Automatic tier detection from effect IDs (T1-T7)
+- ✅ **ModdedConsumablesRegistry.kt** - O(1) lookup registry for fast item resolution
+- ✅ **ModdedItemValidator.kt** - Validation system with caching
+
+#### Impact Without This Hotfix
+- ❌ Modded consumables feature completely non-functional
+- ❌ Users cloning from GitHub would get compilation errors
+- ❌ Feature was announced and documented but implementation was missing
+
+#### What's Included
+All features from v1.4.0 and v1.4.1 are included:
+- 🎉 Tier 2 Abilities with +35 max stat bonuses
+- 🍲 Modded Consumables Support (92 pre-configured items) - **NOW FULLY FUNCTIONAL**
+- ⚡ Instant food effects (98% faster)
+- 🛡️ 11 algorithm audit fixes (auto-save, race conditions, memory leaks)
+
+---
+
+## 1.4.1 (Stability & Performance Update)
 
 ### 🎉 NEW: Tier 2 Ability Enhancements!
 

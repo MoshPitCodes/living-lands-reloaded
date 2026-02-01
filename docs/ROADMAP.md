@@ -1,6 +1,6 @@
 # Living Lands Reloaded - Product Roadmap
 
-**Current Version:** v1.4.1  
+**Current Version:** v1.4.2  
 **Status:** Production Ready (MVP Complete + All Abilities + Algorithm Audit)  
 **Last Updated:** 2026-02-01
 
@@ -40,7 +40,34 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ---
 
-## ✅ Completed Features (v1.4.1)
+## ✅ Completed Features (v1.4.2)
+
+### Critical Hotfix (v1.4.2)
+
+**Status:** ✅ **Complete**  
+**Version:** 1.4.2  
+**Completion Date:** 2026-02-01  
+**Completion:** 100%
+
+**Mission:** Fix critical missing files that made modded consumables non-functional in v1.4.0 and v1.4.1
+
+**Issue:**
+- ❌ 4 implementation files (763 lines) accidentally omitted from git
+- ❌ Modded consumables feature announced but completely non-functional
+- ❌ Users cloning from GitHub got compilation errors
+
+**Resolution:**
+- ✅ Added `ModdedConsumablesConfig.kt` (297 lines) - Configuration with 92 items
+- ✅ Added `ItemTierDetector.kt` (104 lines) - Automatic tier detection
+- ✅ Added `ModdedConsumablesRegistry.kt` (195 lines) - O(1) lookup registry
+- ✅ Added `ModdedItemValidator.kt` (164 lines) - Validation with caching
+
+**Impact:**
+- ✅ Modded consumables feature now fully functional
+- ✅ Git repository complete and buildable
+- ✅ All announced features working as documented
+
+---
 
 ### Algorithm Audit & Tier 2 Enhancements (v1.4.1)
 
@@ -88,9 +115,11 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 ### Modded Consumables Support (Phase 12)
 
 **Status:** ✅ **Complete**  
-**Version:** 1.4.0 (Improved in 1.4.1)  
+**Version:** 1.4.0 (Improved in 1.4.1, Fixed in 1.4.2)  
 **Completion Date:** 2026-02-01  
 **Completion:** 100%
+
+**Note:** v1.4.2 hotfix added missing implementation files that were accidentally omitted from v1.4.0 and v1.4.1.
 
 - ✅ **Extended Tier System** - T1-T7 support (vanilla was T1-T3)
 - ✅ **92 Pre-configured Items** - Enabled by default:
