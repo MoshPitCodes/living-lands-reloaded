@@ -682,6 +682,35 @@ The original Leveling module has been fully replaced by the more comprehensive P
 **GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.0
 
 ### v1.5.0 (Next) - Target: TBD
+**Status:** 📋 **Planned**  
+**Theme:** Modded Consumables Support  
+**Priority:** Medium (Quality of Life)
+
+**Planned Features:**
+- [ ] Modded consumables config support - 2-3 days
+  - Config-based registry for food/drinks/potions from other mods
+  - Automatic tier detection (T1/T2/T3) with manual override
+  - Item validation (warn if mod not loaded)
+  - Custom restoration multipliers per item
+  - Category classification (MEAT, WATER, HEALTH_POTION, etc.)
+- [ ] Config migration v4 → v5 with backwards compatibility
+- [ ] Server admin documentation for adding modded items
+
+**Total Estimated Effort:** 2-3 days  
+**Target Date:** TBD (post-v1.4.0)
+
+**Linear Issues:** LLR-118 through LLR-122
+
+**Example Use Case:**
+```yaml
+moddedConsumables:
+  foods:
+    - effectId: "FarmingMod:CookedChicken"
+      category: "MEAT"
+      tier: null  # Auto-detect
+```
+
+### v1.6.0 - Target: TBD (Post-v1.5.0)
 **Status:** 📋 **Planned - Awaiting Multi-Player Testing**  
 **Theme:** Testing & Quality Assurance  
 **Blockers:** Requires multi-player test environment setup
@@ -695,9 +724,9 @@ The original Leveling module has been fully replaced by the more comprehensive P
 **Total Estimated Effort:** 14-22 days  
 **Target Date:** Not yet scheduled (awaiting test environment)
 
-**Note:** This release focuses on quality and testing infrastructure before adding new modules.
+**Note:** This release focuses on quality and testing infrastructure.
 
-### v1.6.0 - Target: TBD (Post-v1.5.0)
+### v1.7.0 - Target: TBD (Post-v1.6.0)
 **Status:** 📋 Design Phase  
 **Theme:** Economy & Moderation Tools
 
@@ -717,7 +746,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - Economy: LLR-51 through LLR-56 (Backlog)
 - Moderation: LLR-57 through LLR-61 (Backlog)
 
-### v1.7.0 - Target: TBD (Post-v1.6.0)
+### v1.8.0 - Target: TBD (Post-v1.7.0)
 **Status:** 📋 Design Phase  
 **Theme:** Territory & Dynamic Content
 
@@ -734,13 +763,13 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [ ] Claim visualization (particle boundaries)
 
 **Estimated Effort:** 4-6 weeks  
-**Dependencies:** v1.6.0 complete
+**Dependencies:** v1.7.0 complete
 
 **Linear Issues:**
 - Claims: LLR-62 through LLR-68 (Backlog)
 - Encounters: LLR-69 through LLR-75 (Backlog)
 
-### v1.8.0 - Target: TBD (Post-v1.7.0)
+### v1.9.0 - Target: TBD (Post-v1.8.0)
 **Status:** 📋 Design Phase  
 **Theme:** Social Features & Groups
 
@@ -756,7 +785,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [ ] Shared progression tracking
 
 **Estimated Effort:** 3-4 weeks  
-**Dependencies:** v1.7.0 complete (Claims + Encounters modules)
+**Dependencies:** v1.8.0 complete (Claims + Encounters modules)
 
 **Linear Issues:** LLR-76 through LLR-83 (Backlog)
 
