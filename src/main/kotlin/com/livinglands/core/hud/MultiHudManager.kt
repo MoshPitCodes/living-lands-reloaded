@@ -61,7 +61,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MultiHudManager(
     @PublishedApi
-    internal val logger: HytaleLogger
+    internal val logger: HytaleLogger,
+    private var maxBuffs: Int = LivingLandsHudElement.DEFAULT_MAX_BUFFS,
+    private var maxDebuffs: Int = LivingLandsHudElement.DEFAULT_MAX_DEBUFFS
 ) {
     
     /** Track unified HUDs by player UUID */
@@ -106,7 +108,9 @@ class MultiHudManager(
             buffsSystem = buffsSystem,
             debuffsSystem = debuffsSystem,
             professionsService = professionsService,
-            abilityRegistry = abilityRegistry
+            abilityRegistry = abilityRegistry,
+            maxBuffs = maxBuffs,
+            maxDebuffs = maxDebuffs
         )
         
         // Store the HUD element
@@ -205,6 +209,23 @@ class MultiHudManager(
         playerHuds.values.forEach { hud ->
             hud.clearMetabolismServices()
         }
+    }
+    
+    /**
+     * Update HUD configuration values.
+     * Call this when core config is reloaded.
+     * 
+     * **Note:** Changing max buffs/debuffs only affects NEW HUD instances.
+     * Existing player HUDs retain their original values until they reconnect.
+     * 
+     * @param maxBuffs Maximum number of buffs to display (default 3)
+     * @param maxDebuffs Maximum number of debuffs to display (default 3)
+     */
+    fun updateHudConfig(maxBuffs: Int, maxDebuffs: Int) {
+        logger.atFine().log("Updating HUD config: maxBuffs=$maxBuffs, maxDebuffs=$maxDebuffs")
+        this.maxBuffs = maxBuffs
+        this.maxDebuffs = maxDebuffs
+        logger.atFine().log("HUD config updated (will apply to new player HUDs)")
     }
     
     /**
