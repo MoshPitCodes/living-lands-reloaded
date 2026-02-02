@@ -245,15 +245,26 @@ class LivingLandsHudElement(
     }
     
     /**
-     * Update the buffs display labels.
+     * Generic method to update status effect display (buffs or debuffs).
+     * Extracts common logic to follow DRY principle.
+     * 
+     * @param builder UI command builder
+     * @param statusList List of status effect names to display
+     * @param maxDisplayed Maximum number of status effects to show
+     * @param idPrefix Element ID prefix ("#Buff" or "#Debuff")
      */
-    private fun updateBuffsDisplay(builder: UICommandBuilder, buffs: List<String>) {
-        for (i in 1..MAX_BUFFS) {
-            val selector = "#Buff$i"
+    private fun updateStatusDisplay(
+        builder: UICommandBuilder,
+        statusList: List<String>,
+        maxDisplayed: Int,
+        idPrefix: String
+    ) {
+        for (i in 1..maxDisplayed) {
+            val selector = "$idPrefix$i"
             val containerSelector = "${selector}Container"
             
-            if (i <= buffs.size) {
-                builder.set("$selector.Text", buffs[i - 1])
+            if (i <= statusList.size) {
+                builder.set("$selector.Text", statusList[i - 1])
                 builder.set("$containerSelector.Visible", true)
             } else {
                 builder.set("$selector.Text", "")
@@ -263,21 +274,17 @@ class LivingLandsHudElement(
     }
     
     /**
+     * Update the buffs display labels.
+     */
+    private fun updateBuffsDisplay(builder: UICommandBuilder, buffs: List<String>) {
+        updateStatusDisplay(builder, buffs, MAX_BUFFS, "#Buff")
+    }
+    
+    /**
      * Update the debuffs display labels.
      */
     private fun updateDebuffsDisplay(builder: UICommandBuilder, debuffs: List<String>) {
-        for (i in 1..MAX_DEBUFFS) {
-            val selector = "#Debuff$i"
-            val containerSelector = "${selector}Container"
-            
-            if (i <= debuffs.size) {
-                builder.set("$selector.Text", debuffs[i - 1])
-                builder.set("$containerSelector.Visible", true)
-            } else {
-                builder.set("$selector.Text", "")
-                builder.set("$containerSelector.Visible", false)
-            }
-        }
+        updateStatusDisplay(builder, debuffs, MAX_DEBUFFS, "#Debuff")
     }
     
     /**
@@ -719,6 +726,29 @@ class LivingLandsHudElement(
         // Mark panels as needing refresh to clear their content
         professionsPanelNeedsRefresh = true
         progressPanelNeedsRefresh = true
+    }
+    
+    /**
+     * Update metabolism services when the metabolism module is re-enabled.
+     * This shows the metabolism stats, buffs, and debuffs.
+     * Called when metabolism module is enabled via config hot-reload.
+     * 
+     * Matches the pattern used by setProfessionServices() for consistency.
+     * 
+     * @param buffsSystem The BuffsSystem instance (or null to disable buffs)
+     * @param debuffsSystem The DebuffsSystem instance (or null to disable debuffs)
+     */
+    fun setMetabolismServices(buffsSystem: BuffsSystem?, debuffsSystem: DebuffsSystem?) {
+        logger.atFine().log("setMetabolismServices called for player $playerId")
+        this.buffsSystem = buffsSystem
+        this.debuffsSystem = debuffsSystem
+        
+        // Show metabolism UI elements (restore to default visible state)
+        metabolismPreferences.statsVisible = true
+        metabolismPreferences.buffsVisible = true
+        metabolismPreferences.debuffsVisible = true
+        
+        logger.atFine().log("Enabled metabolism UI due to module enable")
     }
     
     /**
