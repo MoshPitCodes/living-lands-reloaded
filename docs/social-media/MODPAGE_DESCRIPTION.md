@@ -43,15 +43,21 @@ Three stats tracked and shown on the HUD:
 
 Drain is **activity-based** (sprinting/combat/travel), and foods restore different needs.
 
-**NEW in v1.4.1:** 
-- 🎉 **Tier 2 Buff:** Max stat bonuses increased to +35 (was +15/+10) - 35% longer survival!
-- ⚡ **Instant Response:** Eating food IMMEDIATELY updates buffs/debuffs and HUD (no more 2-second delay)
-- 🔧 **Building Complete:** Enduring Builder (+15 stamina) now fully functional
-- 🛡️ **Rock-Solid Stability:** 11 critical fixes from algorithm audit (auto-save, race condition protection, memory leak prevention)
+**🔥 v1.4.2 CRITICAL UPDATE - UPGRADE IMMEDIATELY 🔥**
 
-### 🍖 Modded Consumables Support (v1.4.0+)
+**v1.4.0 and v1.4.1 had missing implementation files - modded consumables were completely broken!**
 
-Living Lands now seamlessly integrates with food/drink mods! Your favorite gourmet meals from other mods properly restore hunger, thirst, and energy.
+- 🛑 **CRITICAL FIX:** Restored 4 missing files (763 lines) - modded consumables now functional
+- 🎉 **Tier 2 Enhanced:** Max stat bonuses +35 (was +15/+10) - 35% longer survival!
+- ⚡ **Instant Response:** Eating food IMMEDIATELY updates buffs/debuffs and HUD
+- 🛡️ **11 Algorithm Fixes:** Auto-save, race condition protection, memory leak prevention
+- 🔧 **Building Complete:** Enduring Builder (+15 stamina) fully functional
+
+### 🍖 Modded Consumables Support (v1.4.2 - NOW WORKING!)
+
+**FIXED IN v1.4.2:** Modded consumables are now fully functional (v1.4.0/v1.4.1 had missing files)!
+
+Living Lands seamlessly integrates with food/drink mods! Your favorite gourmet meals from other mods properly restore hunger, thirst, and energy.
 
 *   **92 Pre-configured Items** - Works out-of-the-box with popular food mods:
     *   Hidden's Harvest Delights (44 gourmet foods, T2-T7)
@@ -124,15 +130,17 @@ Note: per-world overrides are supported in config; world-specific routing is bei
 
 ***
 
-## 🛡️ Stability & Performance (v1.4.1)
+## 🛡️ Stability & Performance (v1.4.2)
 
 Living Lands Reloaded has undergone comprehensive algorithm auditing to ensure rock-solid reliability:
 
+*   **Critical Files Restored (v1.4.2)** - All modded consumables implementation files now present and functional
 *   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
-*   **Race Condition Protection** - Thread-safe synchronization prevents corruption when admin commands and gameplay events collide
+*   **Race Condition Protection** - Coroutine Mutex prevents corruption when admin commands and gameplay events collide
 *   **Memory Leak Prevention** - Guaranteed cleanup on player disconnect, even when errors occur
 *   **Database Verification** - All writes verified with row count checks and failure warnings
 *   **Instant Feedback** - Buffs/debuffs and HUD update the moment you eat food (no delay)
+*   **Wider Hysteresis Gaps** - 10-point gaps eliminate debuff flickering
 
 ## 🗺️ What's Coming Next
 
@@ -149,10 +157,10 @@ Players: join a server running Living Lands Reloaded. The HUD appears automatica
 
 Server owners:
 
-1.  Download `livinglands-reloaded-1.4.1.jar`
-2.  Place it in your server `plugins/` folder
+1.  Download `livinglands-reloaded-1.4.2.jar` (**v1.4.0/v1.4.1 are broken - use v1.4.2!**)
+2.  Place it in your Hytale global mods folder: `AppData/Roaming/Hytale/UserData/Mods/`
 3.  Start the server
-4.  Configs generate in `LivingLandsReloaded/config/`
+4.  Configs generate in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
 
 ***
 
@@ -164,7 +172,7 @@ Server owners:
 
 Built by **MoshPitCodes**.
 
-**Current Version:** 1.4.1 **License:** Apache 2.0 **Source Code:** Available on GitHub
+**Current Version:** 1.4.2 **License:** Apache 2.0 **Source Code:** Available on GitHub
 
 ***
 
