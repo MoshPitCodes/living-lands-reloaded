@@ -9,6 +9,7 @@ package com.livinglands.core.config
  * Version History:
  * - v1: Initial version with debug and enabledModules
  * - v2: Added logging configuration with log levels
+ * - v3: Added HUD configuration (maxBuffs, maxDebuffs)
  */
 data class CoreConfig(
     /**
@@ -31,6 +32,11 @@ data class CoreConfig(
     val logging: LoggingConfig = LoggingConfig(),
     
     /**
+     * HUD display configuration.
+     */
+    val hud: HudConfig = HudConfig(),
+    
+    /**
      * List of module IDs to enable.
      * Modules not in this list will not be loaded.
      * 
@@ -50,6 +56,7 @@ data class CoreConfig(
         configVersion = CURRENT_VERSION,
         debug = false,
         logging = LoggingConfig(),
+        hud = HudConfig(),
         enabledModules = listOf("metabolism", "professions")
     )
     
@@ -62,7 +69,7 @@ data class CoreConfig(
     
     companion object {
         /** Current config version */
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
         
         /** Config module ID for migration registry */
         const val MODULE_ID = "core"
@@ -132,4 +139,73 @@ data class LoggingConfig(
         globalLevel = "INFO",
         moduleOverrides = emptyMap()
     )
+}
+
+/**
+ * HUD display configuration for Living Lands.
+ * 
+ * Controls how many buffs/debuffs are displayed in the HUD.
+ * 
+ * **Examples:**
+ * ```yaml
+ * # Show more buffs and debuffs
+ * hud:
+ *   maxBuffs: 5
+ *   maxDebuffs: 5
+ * 
+ * # Minimal display (only 2 each)
+ * hud:
+ *   maxBuffs: 2
+ *   maxDebuffs: 2
+ * ```
+ * 
+ * **Note:** Changing these values requires updating the UI file
+ * (src/main/resources/Common/UI/Custom/Hud/LivingLandsHud.ui) to add
+ * the corresponding Buff4, Buff5, etc. elements. Values above 3 are
+ * currently not supported by the UI template.
+ */
+data class HudConfig(
+    /**
+     * Maximum number of buffs to display in the HUD.
+     * Default: 3
+     * Range: 1-10 (values above 3 require UI template updates)
+     */
+    val maxBuffs: Int = 3,
+    
+    /**
+     * Maximum number of debuffs to display in the HUD.
+     * Default: 3
+     * Range: 1-10 (values above 3 require UI template updates)
+     */
+    val maxDebuffs: Int = 3
+) {
+    /**
+     * No-arg constructor for YAML deserialization.
+     */
+    constructor() : this(
+        maxBuffs = 3,
+        maxDebuffs = 3
+    )
+    
+    /**
+     * Validate configuration values.
+     * Called by ConfigManager after loading.
+     */
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        
+        if (maxBuffs < 1 || maxBuffs > 10) {
+            errors.add("hud.maxBuffs must be between 1 and 10 (got: $maxBuffs)")
+        }
+        
+        if (maxDebuffs < 1 || maxDebuffs > 10) {
+            errors.add("hud.maxDebuffs must be between 1 and 10 (got: $maxDebuffs)")
+        }
+        
+        if (maxBuffs > 3 || maxDebuffs > 3) {
+            errors.add("WARNING: hud.maxBuffs/maxDebuffs values above 3 require UI template updates")
+        }
+        
+        return errors
+    }
 }

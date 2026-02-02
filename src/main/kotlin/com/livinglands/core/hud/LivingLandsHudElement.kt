@@ -56,6 +56,8 @@ import java.util.concurrent.atomic.AtomicReference
  * @param debuffsSystem Optional debuffs system for debuff display
  * @param professionsService Optional professions service for profession data
  * @param abilityRegistry Optional ability registry for ability data
+ * @param maxBuffs Maximum number of buffs to display (from config, default 3)
+ * @param maxDebuffs Maximum number of debuffs to display (from config, default 3)
  */
 class LivingLandsHudElement(
     playerRef: PlayerRef,
@@ -63,16 +65,18 @@ class LivingLandsHudElement(
     private var buffsSystem: BuffsSystem? = null,
     private var debuffsSystem: DebuffsSystem? = null,
     private var professionsService: ProfessionsService? = null,
-    private var abilityRegistry: AbilityRegistry? = null
+    private var abilityRegistry: AbilityRegistry? = null,
+    private val maxBuffs: Int = 3,
+    private val maxDebuffs: Int = 3
 ) : CustomUIHud(playerRef) {
     
     companion object {
         /** HUD namespace for Living Lands unified HUD */
         const val NAMESPACE = "livinglands:hud"
         
-        /** Maximum number of buffs/debuffs to display */
-        const val MAX_BUFFS = 3
-        const val MAX_DEBUFFS = 3
+        /** Default maximum number of buffs/debuffs to display (used as fallback) */
+        const val DEFAULT_MAX_BUFFS = 3
+        const val DEFAULT_MAX_DEBUFFS = 3
         
         private val logger = HytaleLogger.getLogger()
     }
@@ -155,7 +159,7 @@ class LivingLandsHudElement(
         if (metabolismPreferences.buffsVisible) {
             updateBuffsDisplay(builder, currentBuffs.get())
         } else {
-            for (i in 1..MAX_BUFFS) {
+            for (i in 1..maxBuffs) {
                 builder.set("#Buff${i}Container.Visible", false)
             }
         }
@@ -163,7 +167,7 @@ class LivingLandsHudElement(
         if (metabolismPreferences.debuffsVisible) {
             updateDebuffsDisplay(builder, currentDebuffs.get())
         } else {
-            for (i in 1..MAX_DEBUFFS) {
+            for (i in 1..maxDebuffs) {
                 builder.set("#Debuff${i}Container.Visible", false)
             }
         }
@@ -204,12 +208,16 @@ class LivingLandsHudElement(
         val percentage = if (maxValue > 0f) (value / maxValue) else 0f
         val filledBlocks = (percentage * barLength).toInt().coerceIn(0, barLength)
         val emptyBlocks = barLength - filledBlocks
-        
-        val filled = "|".repeat(filledBlocks)
-        val empty = ".".repeat(emptyBlocks)
         val displayValue = value.toInt()
         
-        return "[$filled$empty] $displayValue"
+        // Use buildString {} for efficient string construction
+        return buildString(capacity = barLength + 10) { // Preallocate: "[||||||||||] " + "123" ~= 20
+            append('[')
+            repeat(filledBlocks) { append('|') }
+            repeat(emptyBlocks) { append('.') }
+            append("] ")
+            append(displayValue)
+        }
     }
     
     /**
@@ -277,14 +285,14 @@ class LivingLandsHudElement(
      * Update the buffs display labels.
      */
     private fun updateBuffsDisplay(builder: UICommandBuilder, buffs: List<String>) {
-        updateStatusDisplay(builder, buffs, MAX_BUFFS, "#Buff")
+        updateStatusDisplay(builder, buffs, maxBuffs, "#Buff")
     }
     
     /**
      * Update the debuffs display labels.
      */
     private fun updateDebuffsDisplay(builder: UICommandBuilder, debuffs: List<String>) {
-        updateStatusDisplay(builder, debuffs, MAX_DEBUFFS, "#Debuff")
+        updateStatusDisplay(builder, debuffs, maxDebuffs, "#Debuff")
     }
     
     /**
@@ -369,7 +377,7 @@ class LivingLandsHudElement(
         if (metabolismPreferences.buffsVisible) {
             updateBuffsDisplay(builder, currentBuffs.get())
         } else {
-            for (i in 1..MAX_BUFFS) {
+            for (i in 1..maxBuffs) {
                 builder.set("#Buff${i}Container.Visible", false)
             }
         }
@@ -389,7 +397,7 @@ class LivingLandsHudElement(
         if (metabolismPreferences.debuffsVisible) {
             updateDebuffsDisplay(builder, currentDebuffs.get())
         } else {
-            for (i in 1..MAX_DEBUFFS) {
+            for (i in 1..maxDebuffs) {
                 builder.set("#Debuff${i}Container.Visible", false)
             }
         }

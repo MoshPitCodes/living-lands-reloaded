@@ -145,6 +145,9 @@ object CoreModule {
             // Apply logging configuration
             applyLoggingConfig(coreConfig)
             
+            // Update HUD configuration
+            hudManager.updateHudConfig(coreConfig.hud.maxBuffs, coreConfig.hud.maxDebuffs)
+            
             logger.atFine().log("Core config reloaded: logLevel=${coreConfig.logging.globalLevel}, version=${coreConfig.configVersion}")
             
             // Notify all modules of config reload
@@ -156,7 +159,11 @@ object CoreModule {
         globalPersistence = GlobalPersistenceService(dataDir, logger)
         worlds = WorldRegistry(dataDir, logger)
         players = PlayerRegistry()
-        hudManager = MultiHudManager(logger)
+        hudManager = MultiHudManager(
+            logger = logger,
+            maxBuffs = coreConfig.hud.maxBuffs,
+            maxDebuffs = coreConfig.hud.maxDebuffs
+        )
         
         // Register core services
         services.register<ConfigManager>(config)
