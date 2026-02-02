@@ -304,7 +304,7 @@ class MetabolismModule : AbstractModule(
         
         // Trigger auto-scan if config is empty (events might not fire reliably)
         if (shouldAutoScan() && !autoScanComplete) {
-            logger.atFine().log("Empty consumables config detected - triggering auto-scan...")
+            logger.atInfo().log("Empty consumables config detected - running auto-scan...")
             autoScanComplete = true
             
             // Run scan on default world thread
