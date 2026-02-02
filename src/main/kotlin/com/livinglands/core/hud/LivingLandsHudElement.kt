@@ -25,11 +25,30 @@ import java.util.concurrent.atomic.AtomicReference
  * - Progress panel (compact XP progress bars)
  * - XP notifications
  * 
- * IMPORTANT: Hytale's CustomUI system can only handle ONE append() call per HudElement.
+ * ## Architecture Decision
+ * 
+ * **IMPORTANT:** Hytale's CustomUI system can only handle ONE append() call per HudElement.
  * All UI must be in a single file: Hud/LivingLandsHud.ui
  * 
+ * This unified HUD approach is superior to composite patterns (like MHUD) because:
+ * - **Simpler:** No reflection needed, uses standard Hytale API
+ * - **Faster:** Direct method calls, no reflection overhead
+ * - **Safer:** No reflection security concerns, no API breakage risk
+ * - **Maintainable:** Easier to understand, test, and modify
+ * - **Hytale-native:** Works with the "one append()" limitation, not against it
+ * 
  * Modules update their sections by calling methods on this element, which then
- * pushes updates to the client.
+ * pushes updates to the client via `update(false, builder)`.
+ * 
+ * ## Thread Safety
+ * 
+ * **All HUD operations MUST occur on WorldThread.** Use `world.execute { }` from async contexts.
+ * 
+ * Hytale's UI API is not documented as thread-safe, and calling from other threads
+ * may result in undefined behavior or crashes.
+ * 
+ * Internal state uses thread-safe primitives (`AtomicReference`, `AtomicBoolean`, `@Volatile`)
+ * for defensive programming, but this does NOT make the public API thread-safe.
  * 
  * @param playerRef The player this HUD is for
  * @param playerId Player's UUID
