@@ -193,6 +193,8 @@ class MultiHudManager(
     /**
      * Remove the HUD for a player.
      * 
+     * **Thread Safety:** Must be called from WorldThread
+     * 
      * @param player The player entity
      * @param playerRef The player reference
      * @param playerId Player's UUID
@@ -200,15 +202,17 @@ class MultiHudManager(
     fun removeHud(player: Player, playerRef: PlayerRef, playerId: UUID) {
         logger.atFine().log("Removing HUD for player $playerId")
         
-        playerHuds.remove(playerId)
-        playerRefs.remove(playerId)
-        
         try {
             val hudManager = player.hudManager
             hudManager.setCustomHud(playerRef, null)
             logger.atFine().log("Removed HUD for player $playerId")
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to remove HUD for player $playerId")
+        } finally {
+            // ALWAYS clean up maps, even if setCustomHud() fails
+            // This prevents memory leaks from failed HUD removal
+            playerHuds.remove(playerId)
+            playerRefs.remove(playerId)
         }
     }
     
