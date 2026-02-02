@@ -13,17 +13,40 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Manages the unified Living Lands HUD for all players.
  * 
+ * ## Architecture Decision
+ * 
  * **IMPORTANT:** Hytale's CustomUI system can only handle ONE append() call per HudElement.
  * Therefore, we use a SINGLE unified LivingLandsHudElement per player that contains
  * ALL Living Lands UI elements (metabolism, professions, progress panels, etc.).
  * 
- * This replaces the previous composite pattern which tried to combine multiple HUD elements
- * but failed because each element called append() separately.
+ * This unified HUD approach was chosen over composite patterns (like MHUD) for:
+ * - **Simplicity:** No reflection, no CSS selector prefixing, standard Hytale API
+ * - **Performance:** Direct method calls, no reflection overhead
+ * - **Security:** No reflection risks, no SecurityManager concerns
+ * - **Reliability:** Won't break on Hytale API changes (no reflection on private methods)
+ * - **Maintainability:** Easier to understand, test, and debug
  * 
- * Usage:
+ * See `docs/internal/architecture-decisions/ADR-001-unified-hud-pattern.md` for details.
+ * 
+ * ## Thread Safety
+ * 
+ * Uses `ConcurrentHashMap` for player tracking to support concurrent access.
+ * However, **all HUD operations (register/remove/update) must occur on WorldThread**.
+ * 
+ * Caller is responsible for ensuring WorldThread execution via `world.execute { }`.
+ * 
+ * ## Usage
+ * 
  * ```kotlin
- * // Register the unified HUD for a player
- * CoreModule.hudManager.registerHud(player, playerRef, playerId, buffsSystem, debuffsSystem, professionsService, abilityRegistry)
+ * // Register the unified HUD for a player (WorldThread required)
+ * world.execute {
+ *     val player = store.getComponent(ref, Player.getComponentType())
+ *     CoreModule.hudManager.registerHud(
+ *         player, playerRef, playerId, 
+ *         buffsSystem, debuffsSystem, 
+ *         professionsService, abilityRegistry
+ *     )
+ * }
  * 
  * // Get the HUD element to update it
  * val hud = CoreModule.hudManager.getHud(playerId)
