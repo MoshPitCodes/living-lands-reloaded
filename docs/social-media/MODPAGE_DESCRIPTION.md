@@ -194,6 +194,7 @@ Living Lands Reloaded has been tested and confirmed compatible with the followin
 *   **BetterMap** (v1.2.7) - Improved minimap and navigation features
 *   **WhereThisAt** (v1.0.6) - Coordinate display and waypoint management
 *   **Simply-Trash** (v1.0.0) - Trash can and item deletion utilities
+*   **BetterWardrobes** (v1.0.2) - Enhanced wardrobe management system
 
 ### Gameplay Enhancement Mods
 *   **BloodMoon** (v1.2.1) - Challenging night events with increased difficulty
@@ -204,6 +205,35 @@ Living Lands Reloaded has been tested and confirmed compatible with the followin
 ### Utility Mods
 *   **Hybrid** (v1.7 - 2026.01.17) - Server-side utility features
 *   **Overstacked** (v2026.1.28) - Increased stack sizes for better inventory management
+
+### Content Expansion Mods
+
+#### Food & Consumables (Works seamlessly with Living Lands auto-scan!)
+*   **Hidden's Harvest Delights** (v0.0.3) - Expanded food variety and recipes
+*   **NoCube Bakehouse** (v0.0.2) - Bakery items and bread varieties
+*   **NoCube Culinary** (v0.0.2) - Cooking expansion with new recipes
+*   **NoCube Tavern** (v0.0.2) - Tavern-themed food and drinks
+*   **NoCube Orchard** (v0.0.2) - Fruit trees and orchard mechanics
+*   **NoCube Cultivation** (v0.0.2) - Advanced farming mechanics
+*   **More Potions** (v2.0.0) - Additional potion types and effects
+
+#### Creatures & NPCs
+*   **Aures Horses** (v01.02.2026 - Evil Update) - Horse variants and mechanics
+*   **Aures Livestock** (v01.02.2026) - Farm animal expansion
+*   **NoCube Undead Warriors** (v0.0.3) - Undead enemy types
+*   **Skeleton Banging Shield** (v0.2) - Enhanced skeleton AI
+
+#### Items & Equipment
+*   **NoCube Bags** (v0.0.2) - Inventory expansion bags
+*   **NoCube Resource Bags** (v0.0.2) - Resource-specific storage bags
+*   **Outlanders Armor Pack** (v1.2) - Additional armor sets
+*   **Thorium Chests** (v1.0.0) - Enhanced chest storage
+*   **Thorium Furnaces** (v1.0.2) - Advanced smelting options
+
+#### Decoration & Building
+*   **Artisan's Palette** (v1.0.1) - Decorative building blocks
+*   **Violet's Furnishings** - Furniture and decorative items
+*   **Violet's Wardrobe** - Clothing and cosmetic items
 
 **Note:** This list represents mods that have been tested in a live server environment alongside Living Lands Reloaded. If you discover compatibility issues with any of these mods, please report them on [GitHub](https://github.com/MoshPitCodes/living-lands-reloaded/issues).
 
