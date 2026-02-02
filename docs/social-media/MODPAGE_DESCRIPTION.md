@@ -43,29 +43,36 @@ Three stats tracked and shown on the HUD:
 
 Drain is **activity-based** (sprinting/combat/travel), and foods restore different needs.
 
-**🔥 v1.4.2 CRITICAL UPDATE - UPGRADE IMMEDIATELY 🔥**
+**🎉 v1.4.3 - AUTOMATIC CONSUMABLES DISCOVERY! 🎉**
 
-**v1.4.0 and v1.4.1 had missing implementation files - modded consumables were completely broken!**
+**Zero-configuration modded consumables - just install mods and start your server!**
 
-- 🛑 **CRITICAL FIX:** Restored 4 missing files (763 lines) - modded consumables now functional
-- 🎉 **Tier 2 Enhanced:** Max stat bonuses +35 (was +15/+10) - 35% longer survival!
-- ⚡ **Instant Response:** Eating food IMMEDIATELY updates buffs/debuffs and HUD
-- 🛡️ **11 Algorithm Fixes:** Auto-save, race condition protection, memory leak prevention
-- 🔧 **Building Complete:** Enduring Builder (+15 stamina) fully functional
+- ✨ **Auto-Scan System:** Automatically discovers all food/drink/potion items on first startup
+- 🏷️ **Smart Grouping:** Organizes items by mod namespace (Hytale, NoCube, ChampionsVandal)
+- ⚡ **Fast Performance:** ~200ms scan time for 162 consumable items
+- 🔍 **Manual Scan:** `/ll scan consumables --save` to discover new items after installing mods
+- 📁 **Separate Config:** Clean organization in `metabolism_consumables.yml`
 
-### 🍖 Modded Consumables Support (v1.4.2 - NOW WORKING!)
+### 🍖 Modded Consumables Support (v1.4.3 - AUTO-DISCOVERY!)
 
-**FIXED IN v1.4.2:** Modded consumables are now fully functional (v1.4.0/v1.4.1 had missing files)!
+**NEW IN v1.4.3:** Living Lands automatically discovers and configures consumables from installed mods!
 
-Living Lands seamlessly integrates with food/drink mods! Your favorite gourmet meals from other mods properly restore hunger, thirst, and energy.
+No more manual configuration - just install your favorite food/drink mods and Living Lands handles the rest.
 
-*   **92 Pre-configured Items** - Works out-of-the-box with popular food mods:
-    *   Hidden's Harvest Delights (44 gourmet foods, T2-T7)
-    *   NoCube's Bakehouse + Tavern + Orchard (48 items)
+*   **Automatic Discovery** - Scans Item registry for all consumable items
+    *   114 consumables with valid effects found across 3 mods
+    *   73 vanilla Hytale items (foods, potions, drinks)
+    *   22 NoCube Bakehouse items (breads, pastries)
+    *   19 ChampionsVandal More Potions items (stamina/regen/resistance)
+*   **Namespace Detection** - Smart grouping by mod for easy management
+    *   Uses Hytale's `AssetMap.getAssetPack()` API for accurate detection
+    *   Creates organized sections: `AutoScan_2026-02-02_Hytale`, `AutoScan_2026-02-02_NoCube`
 *   **Extended Tier System** - Support for T1-T7 items (vanilla was T1-T3)
     *   T6 Exquisite Feast: 53 hunger (69 with MEAT multiplier!)
     *   T7 Legendary Feast: 65 hunger (84.5 with MEAT multiplier!)
-*   **Automatic Detection** - No manual config needed, just install and play
+*   **Manual Scan Command** - Need to discover new items after installing more mods?
+    *   `/ll scan consumables` - Preview discovered items
+    *   `/ll scan consumables --save` - Save to config with namespace grouping
 *   **Hot-Reload Support** - Edit config, run `/ll reload`, changes apply instantly
 
 ***
@@ -127,14 +134,16 @@ Note: per-world overrides are supported in config; world-specific routing is bei
 *   `/ll reload [module]` - reload configuration files (operator only)
 *   `/ll broadcast <message>` - broadcast message to all players (operator only)
 *   `/ll prof set/add/reset/show` - manage player professions (operator only)
+*   `/ll scan consumables [--save] [--section <name>]` - discover consumable items (operator only)
 
 ***
 
-## 🛡️ Stability & Performance (v1.4.2)
+## 🛡️ Stability & Performance (v1.4.3)
 
 Living Lands Reloaded has undergone comprehensive algorithm auditing to ensure rock-solid reliability:
 
-*   **Critical Files Restored (v1.4.2)** - All modded consumables implementation files now present and functional
+*   **Auto-Discovery System (v1.4.3)** - Automatic consumables detection with ~200ms scan time for 162 items
+*   **Smart Namespace Grouping (v1.4.3)** - Efficient mod detection using Hytale's AssetMap API
 *   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
 *   **Race Condition Protection** - Coroutine Mutex prevents corruption when admin commands and gameplay events collide
 *   **Memory Leak Prevention** - Guaranteed cleanup on player disconnect, even when errors occur

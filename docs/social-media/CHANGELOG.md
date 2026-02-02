@@ -1,6 +1,69 @@
 # Living Lands Reloaded - Changelog (Mod Upload)
 
-## 1.4.2 (Latest - Critical Hotfix)
+## 1.4.3 (Latest - Auto-Scan Consumables)
+
+### 🎉 NEW: Automatic Consumables Discovery!
+
+Living Lands now **automatically discovers** all consumable items (food, drinks, potions) from installed mods on first startup - no manual configuration needed!
+
+#### Auto-Scan System
+- ✅ **Zero-Configuration Setup** - Just install mods and start your server
+- ✅ **Automatic Discovery** - Scans Item registry for all consumable items (114 found across 3 mods)
+- ✅ **Smart Grouping** - Organizes items by mod namespace for easy management
+  - 73 vanilla Hytale items (foods, potions, drinks)
+  - 22 NoCube Bakehouse items (breads, pastries)
+  - 19 ChampionsVandal More Potions items (stamina/regen/resistance potions)
+- ✅ **Fast Performance** - ~200ms scan time for 162 consumable items
+- ✅ **Separate Config** - Organized in `metabolism_consumables.yml` (separate from main config)
+
+#### Manual Scan Command
+Need to discover new items after installing more mods? Use the manual scan command:
+
+```
+/ll scan consumables              # Preview discovered items (no save)
+/ll scan consumables --save       # Save to config with namespace grouping
+/ll scan consumables --save --section MyMod  # Custom section name
+```
+
+**Output Shows:**
+- NEW vs ALREADY CONFIGURED items
+- Items grouped by mod namespace
+- Tier + category for each item
+
+#### How It Works
+Living Lands uses Hytale's `AssetMap.getAssetPack()` API to extract the mod namespace from each item:
+- `"Hytale:Hytale"` → `"Hytale"`
+- `"NoCube:[NoCube's] Bakehouse"` → `"NoCube"`
+- `"ChampionsVandal:More Potions"` → `"ChampionsVandal"`
+
+Items are automatically categorized (MEAT, BREAD, POTION, etc.) and assigned tiers (T1-T7) for balanced restoration values.
+
+#### Config Example
+```yaml
+consumables:
+  AutoScan_2026-02-02_Hytale:
+    - effectId: Root_Secondary_Consume_Food_T3
+      category: FRUIT_VEGGIE
+      tier: 3
+      itemId: Food_Pie_Apple
+    # ... 73 vanilla items
+    
+  AutoScan_2026-02-02_NoCube:
+    - effectId: Root_Secondary_Consume_Food_T1
+      category: BREAD
+      tier: 1
+      itemId: NoCube_Food_Brioche
+    # ... 22 bakehouse items
+```
+
+### Technical Improvements
+- **Effect Detection:** Uses `InteractionType.Secondary` (right-click consumption) instead of `Use`
+- **Config Migration:** v5→v6 automatically removes old nested structure
+- **Performance:** Optimized scanning with early filtering and efficient namespace extraction
+
+---
+
+## 1.4.2 (Critical Hotfix)
 
 ### 🚨 CRITICAL HOTFIX
 

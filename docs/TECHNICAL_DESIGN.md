@@ -2,7 +2,7 @@
 
 This document provides a deep technical dive into how the Living Lands mod works internally. For user-facing documentation, see the [README](../README.md).
 
-**Version:** 1.4.2  
+**Version:** 1.4.3  
 **Language:** Kotlin (Java 25 compatible)  
 **Last Updated:** 2026-02-01
 
@@ -3873,91 +3873,218 @@ data class DeathPenaltyConfig(
 
 ## Modded Consumables Support
 
-**Status:** ✅ Complete (v1.4.0)  
-**Completion Date:** 2026-02-01  
-**Purpose:** Allow server admins to configure custom modded food/drink/potion items with tier-based restoration
+**Status:** ✅ Complete (v1.4.3)  
+**Completion Date:** 2026-02-02  
+**Purpose:** Automatic discovery and configuration of modded consumable items with namespace-based organization
 
-The Modded Consumables system extends the metabolism food consumption to support items from other mods, enabling seamless integration with custom mod packs.
+The Modded Consumables system extends the metabolism food consumption to support items from other mods, enabling seamless integration with custom mod packs through automatic discovery and intelligent grouping.
 
-**Key Features (v1.4.0):**
-- Extended tier system from T1-T3 to T1-T7 (modded gourmet foods)
-- 92 pre-configured consumables from popular mods (enabled by default)
+**Key Features (v1.4.3):**
+- **Auto-Scan System:** Automatically discovers consumable items on first startup
+- **Namespace Detection:** Groups items by mod (Hytale, NoCube, ChampionsVandal, etc.) using `AssetMap.getAssetPack()`
+- **Manual Scan Command:** `/ll scan consumables [--save] [--section <name>]` for runtime discovery
+- **Separate Config File:** `metabolism_consumables.yml` with section-based organization
+- Extended tier system T1-T7 (modded gourmet foods)
 - Automatic tier detection from effect IDs
 - Custom multiplier support per item
 - Balanced scaling for max stat capacities (Hunger: 100 base/115 max, Thirst/Energy: 100 base/110 max)
 - Config hot-reload with `/ll reload`
-- Config migration v4 → v5 with automatic backups
-- Accurate chat messages showing ACTUAL restored amounts (not calculated)
+- Config migration v5 → v6 with automatic backups
+- Performance: ~200ms scan time for 114 consumables
+
+### Auto-Scan System
+
+**Trigger:** Runs in `MetabolismModule.onStart()` when `metabolism_consumables.yml` is empty
+
+```kotlin
+private fun performAutoScan() {
+    // Scan Item registry with empty exclude set (discover all)
+    val discovered = ConsumablesScanner.scanItemRegistry(emptySet(), logger)
+    
+    if (discovered.isEmpty()) {
+        logger.atInfo().log("Auto-scan complete: No consumables discovered")
+        return
+    }
+    
+    // Group by namespace and convert to config entries
+    val groupedByNamespace = discovered.groupBy { it.namespace }
+    val newSections = mutableMapOf<String, List<ModdedConsumableEntry>>()
+    
+    groupedByNamespace.forEach { (namespace, items) ->
+        val sectionName = "AutoScan_${LocalDate.now()}_$namespace"
+        val entries = items.map { item ->
+            ModdedConsumableEntry(
+                effectId = item.effectId,
+                category = item.category,
+                tier = item.tier,
+                itemId = item.itemId
+            )
+        }
+        newSections[sectionName] = entries
+    }
+    
+    // Save to config file
+    val updatedConfig = consumablesConfig.copy(
+        enabled = true,
+        consumables = consumablesConfig.consumables + newSections
+    )
+    CoreModule.config.save(MetabolismConsumablesConfig.CONFIG_NAME, updatedConfig)
+}
+```
+
+### Namespace Detection
+
+**Uses Hytale's AssetMap API to extract mod namespace:**
+
+```kotlin
+private fun extractNamespaceFromAsset(item: Item, itemId: String, logger: HytaleLogger): String {
+    val itemStore = Item.getAssetStore()
+    val packName = itemStore.assetMap.getAssetPack(itemId)  // "Hytale:Hytale", "NoCube:Bakehouse"
+    
+    if (packName != null) {
+        val modGroup = packName.substringBefore(":")  // Extract "Hytale", "NoCube"
+        logger.atFine().log("Extracted namespace: $itemId -> $modGroup (pack: $packName)")
+        return modGroup
+    }
+    
+    // Fallback to item ID pattern matching
+    return extractNamespaceFromItemId(itemId)
+}
+```
+
+**Supported Patterns:**
+- `"Hytale:Hytale"` → `"Hytale"`
+- `"NoCube:[NoCube's] Bakehouse"` → `"NoCube"`
+- `"ChampionsVandal:More Potions"` → `"ChampionsVandal"`
 
 ### Architecture
 
 ```kotlin
 /**
- * Modded consumables support extending FoodConsumptionProcessor.
+ * Scanner for discovering consumable items from Item registry.
+ */
+object ConsumablesScanner {
+    fun scanItemRegistry(excludeEffects: Set<String>, logger: HytaleLogger): List<DiscoveredConsumable> {
+        val itemStore = Item.getAssetStore()
+        val allItems = itemStore.assetMap.assetMap
+        val discovered = mutableListOf<DiscoveredConsumable>()
+        
+        allItems.forEach { (itemId, item) ->
+            if (!item.isConsumable) return@forEach
+            
+            // Extract effect ID from Secondary interaction (right-click consumption)
+            val effectId = item.interactions?.get(InteractionType.Secondary)
+            if (effectId == null || effectId.startsWith("*")) return@forEach  // Skip placeholders
+            if (effectId in excludeEffects) return@forEach  // Skip already configured
+            
+            val tier = ItemTierDetector.detectTier(effectId)
+            val category = inferCategory(item, effectId)
+            val namespace = extractNamespaceFromAsset(item, itemId, logger)
+            
+            discovered.add(DiscoveredConsumable(itemId, effectId, namespace, category, tier))
+        }
+        
+        return discovered
+    }
+}
+
+/**
+ * Registry for fast lookup of modded consumables.
  */
 class ModdedConsumablesRegistry(
-    private val config: ModdedConsumablesConfig,
+    entries: List<ModdedConsumableEntry>,
     private val logger: HytaleLogger
 ) {
-    private val entries = ConcurrentHashMap<String, ModdedConsumableEntry>()
-    private val validator = ModdedItemValidator(logger)
-    private val tierDetector = ItemTierDetector()
+    private val entriesMap = ConcurrentHashMap<String, ModdedConsumableEntry>()
     
-    fun initialize() {
-        if (!config.enabled) return
-        
-        // Load and validate all entries
-        config.foods.forEach { entry ->
-            if (validator.validateItem(entry.effectId, config.warnIfMissing)) {
-                entries[entry.effectId] = entry
-            }
+    init {
+        entries.forEach { entry ->
+            entriesMap[entry.effectId] = entry
         }
-        
-        config.drinks.forEach { entry ->
-            if (validator.validateItem(entry.effectId, config.warnIfMissing)) {
-                entries[entry.effectId] = entry
-            }
-        }
-        
-        config.potions.forEach { entry ->
-            if (validator.validateItem(entry.effectId, config.warnIfMissing)) {
-                entries[entry.effectId] = entry
-            }
-        }
-        
-        logger.info("Loaded ${entries.size} modded consumables")
+        logger.atFine().log("Loaded ${entriesMap.size} modded consumables")
     }
     
-    /**
-     * Lookup modded consumable by effect ID.
-     */
-    fun getEntry(effectId: String): ModdedConsumableEntry? {
-        return entries[effectId]
+    fun getEntry(effectId: String): ModdedConsumableEntry? = entriesMap[effectId]
+    fun reload(newEntries: List<ModdedConsumableEntry>) {
+        entriesMap.clear()
+        newEntries.forEach { entriesMap[it.effectId] = it }
     }
 }
 ```
 
 ### Configuration
 
+**File:** `metabolism_consumables.yml` (separate from `metabolism.yml`)
+
+```yaml
+configVersion: 1
+enabled: true
+warnIfMissing: true
+
+consumables:
+  # Auto-generated sections (grouped by mod namespace)
+  AutoScan_2026-02-02_Hytale:
+    - effectId: Root_Secondary_Consume_Food_T3
+      category: FRUIT_VEGGIE
+      tier: 3
+      itemId: Food_Pie_Apple
+    # ... 73 vanilla Hytale items
+  
+  AutoScan_2026-02-02_NoCube:
+    - effectId: Root_Secondary_Consume_Food_T1
+      category: BREAD
+      tier: 1
+      itemId: NoCube_Food_Brioche
+    # ... 22 NoCube Bakehouse items
+  
+  AutoScan_2026-02-02_ChampionsVandal:
+    - effectId: Root_Secondary_Consume_Potion
+      category: STAMINA_POTION
+      tier: 1
+      itemId: Potion_Endurance_Greater
+    # ... 19 More Potions items
+  
+  # Custom sections (manually added or via --section flag)
+  CustomMod_Foods:
+    - effectId: MyMod:Special_Food
+      category: MEAT
+      tier: 5
+      customMultipliers:
+        hunger: 2.0
+        thirst: 1.5
+        energy: 1.2
+```
+
+**Kotlin Structure:**
+
 ```kotlin
 /**
- * Modded consumables configuration (v5).
+ * Modded consumables configuration (v6 - section-based).
  */
-data class ModdedConsumablesConfig(
-    val enabled: Boolean = true,
+data class MetabolismConsumablesConfig(
+    override val configVersion: Int = CURRENT_VERSION,
+    val enabled: Boolean = false,
     val warnIfMissing: Boolean = true,
-    val foods: List<ModdedConsumableEntry> = emptyList(),
-    val drinks: List<ModdedConsumableEntry> = emptyList(),
-    val potions: List<ModdedConsumableEntry> = emptyList()
-)
+    val consumables: Map<String, List<ModdedConsumableEntry>> = emptyMap()
+) : VersionedConfig {
+    companion object {
+        const val CONFIG_NAME = "metabolism_consumables"
+        const val CURRENT_VERSION = 1
+    }
+    
+    fun getAllEntries(): List<ModdedConsumableEntry> = consumables.values.flatten()
+    fun getEntryCount(): Int = consumables.values.sumOf { it.size }
+    fun isEmpty(): Boolean = consumables.isEmpty() || getEntryCount() == 0
+}
 
 /**
  * Individual modded consumable entry.
  */
 data class ModdedConsumableEntry(
-    val effectId: String,           // e.g., "FarmingMod:CookedChicken"
-    val category: String,           // MEAT, FRUIT_VEGGIE, WATER, etc.
-    val tier: Int?,                 // null = auto-detect, or 1/2/3
+    val effectId: String,                      // e.g., "Root_Secondary_Consume_Food_T3"
+    val category: String,                      // MEAT, FRUIT_VEGGIE, WATER, etc.
+    val tier: Int = 1,                         // 1-7
+    val itemId: String? = null,                // Optional reference: "Food_Pie_Apple"
     val customMultipliers: CustomMultipliers? = null
 )
 
@@ -4199,6 +4326,7 @@ Existing configs auto-upgrade to v5 with empty `moddedConsumables` section. No a
 | Version | Changes |
 |---------|---------|
 | **1.5.0** | **Planned:** `/ll metabolism scan` command for runtime modded consumables detection (preview + optional save with backup), multi-player stress testing, unit test infrastructure (JUnit5), JMH benchmarks. **Linear:** LLR-124 (scan command), LLR-87 (multi-player testing), LLR-86 (unit tests), LLR-85 (benchmarks) |
+| **1.4.3** | **Auto-Scan Consumables with Namespace Detection (Phase 13):** Automatic discovery and configuration of consumable items with intelligent mod grouping. Auto-scan triggers on first startup, scans 162 consumables (~200ms), groups by namespace via `AssetMap.getAssetPack()` (Hytale, NoCube, ChampionsVandal). Manual scan command: `/ll scan consumables [--save] [--section <name>]`. Separate config file: `metabolism_consumables.yml` with section-based organization. Config migration v5→v6 removes old nested structure. Effect detection uses `InteractionType.Secondary` (not `Use`). **New files:** ConsumablesScanner.kt, ScanConsumablesCommand.kt, ScanCommand.kt, MetabolismConsumablesConfig.kt |
 | **1.4.2** | **CRITICAL HOTFIX:** Added 4 missing implementation files (763 lines) for modded consumables feature: ModdedConsumablesConfig.kt, ItemTierDetector.kt, ModdedConsumablesRegistry.kt, ModdedItemValidator.kt. Files were accidentally omitted from v1.4.0 and v1.4.1, causing feature to be non-functional. Modded consumables now fully operational. |
 | **1.4.1** | **Algorithm Audit & Tier 2 Enhancements:** **CRITICAL STABILITY FIXES** - 11 algorithm audit fixes (race condition protection via Mutex, 5-minute auto-save system, memory leak prevention via finally blocks, instant food effects via buff/debuff re-evaluation, DB write verification). **98% faster food responsiveness** (2s → instant). **Tier 2 ability buffs** - Iron Stomach/Desert Nomad/Tireless Woodsman increased from +15/+10 to **+35** max stats (2.3x-3.5x buff), Enduring Builder **IMPLEMENTED** (+15 stamina). **Config improvements:** itemId field for consumables, code cleanup (18 lines removed) |
 | **1.4.0** | **Modded Consumables Support (Phase 12):** Extended tier system T1-T7, 92 pre-configured consumables, automatic tier detection, custom multipliers, balanced scaling for max capacities, accurate chat messages, config migration v4→v5. **Professions Module complete** with all 15 abilities functional (Tier 1/2/3), admin commands, death penalty system, global persistence integration. **HUD fixes:** Max capacity display with abilities, force-update after ability application |

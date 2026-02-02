@@ -3,7 +3,6 @@ package com.livinglands.modules.metabolism.food.modded
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.config.ModdedConsumableEntry
-import com.livinglands.modules.metabolism.config.ModdedConsumablesConfig
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
  * - Target: < 0.1ms per lookup
  */
 class ModdedConsumablesRegistry(
-    private val config: ModdedConsumablesConfig,
+    entries: List<ModdedConsumableEntry>,
     private val logger: HytaleLogger
 ) {
     /**
@@ -32,47 +31,33 @@ class ModdedConsumablesRegistry(
     private val registry = ConcurrentHashMap<String, ModdedConsumableEntry>()
     
     /**
-     * Statistics about loaded entries per mod
+     * Track if registry is enabled (has entries)
      */
-    private val loadedPerMod = ConcurrentHashMap<String, Int>()
+    private var enabled: Boolean = false
     
     init {
-        if (config.enabled) {
-            loadEntries()
-        }
+        loadEntries(entries)
     }
     
     /**
-     * Load all entries from config into the registry.
+     * Load all entries into the registry.
      */
-    private fun loadEntries() {
-        loadedPerMod.clear()
+    private fun loadEntries(entries: List<ModdedConsumableEntry>) {
+        registry.clear()
         
-        // Load entries from each mod
-        config.mods.forEach { (modId, modConfig) ->
-            if (modConfig.enabled) {
-                var modLoadedCount = 0
-                
-                modConfig.consumables.forEach { entry ->
-                    if (entry.isValid()) {
-                        registry[entry.effectId.lowercase()] = entry
-                        modLoadedCount++
-                    }
-                }
-                
-                if (modLoadedCount > 0) {
-                    loadedPerMod[modId] = modLoadedCount
-                }
+        var validCount = 0
+        entries.forEach { entry ->
+            if (entry.isValid()) {
+                registry[entry.effectId.lowercase()] = entry
+                validCount++
             }
         }
         
-        val total = loadedPerMod.values.sum()
-        if (total > 0) {
-            val modsSummary = loadedPerMod.entries
-                .joinToString(", ") { (modId, count) -> "$modId: $count" }
-            
+        enabled = validCount > 0
+        
+        if (validCount > 0) {
             LoggingManager.config(logger, "metabolism") {
-                "Loaded $total modded consumables from ${loadedPerMod.size} mods ($modsSummary)"
+                "Loaded $validCount modded consumables into registry"
             }
         }
     }
@@ -81,14 +66,14 @@ class ModdedConsumablesRegistry(
      * Find a modded consumable entry by its effect ID.
      * 
      * The search is case-insensitive. Returns null if:
-     * - Modded consumables are disabled
+     * - Registry is empty/disabled
      * - The effect ID is not configured
      * 
      * @param effectId The effect ID to look up (e.g., "FarmingMod:CookedChicken")
      * @return The configured entry, or null if not found
      */
     fun findByEffectId(effectId: String): ModdedConsumableEntry? {
-        if (!config.enabled || effectId.isBlank()) {
+        if (!enabled || effectId.isBlank()) {
             return null
         }
         
@@ -98,9 +83,9 @@ class ModdedConsumablesRegistry(
     /**
      * Check if modded consumables support is enabled.
      * 
-     * @return True if enabled in config
+     * @return True if registry has entries
      */
-    fun isEnabled(): Boolean = config.enabled
+    fun isEnabled(): Boolean = enabled
     
     /**
      * Check if the registry has any entries.
@@ -115,72 +100,30 @@ class ModdedConsumablesRegistry(
     fun getEntryCount(): Int = registry.size
     
     /**
-     * Get the number of loaded entries for a specific mod.
-     * 
-     * @param modId The mod identifier
-     * @return Number of entries loaded from that mod
-     */
-    fun getModEntryCount(modId: String): Int = loadedPerMod[modId] ?: 0
-    
-    /**
-     * Get all loaded mod IDs.
-     * 
-     * @return Set of mod IDs that have at least one loaded entry
-     */
-    fun getLoadedModIds(): Set<String> = loadedPerMod.keys.toSet()
-    
-    /**
      * Clear the registry.
      * Called during config reload.
      */
     fun clear() {
         registry.clear()
-        loadedPerMod.clear()
+        enabled = false
     }
     
     /**
-     * Reload the registry with new config.
+     * Reload the registry with new entries.
      * 
-     * @param newConfig The new configuration to load
+     * @param newEntries The new list of entries to load
      */
-    fun reload(newConfig: ModdedConsumablesConfig) {
+    fun reload(newEntries: List<ModdedConsumableEntry>) {
         clear()
+        loadEntries(newEntries)
         
-        if (newConfig.enabled) {
-            // Load entries from each mod
-            newConfig.mods.forEach { (modId, modConfig) ->
-                if (modConfig.enabled) {
-                    var modLoadedCount = 0
-                    
-                    modConfig.consumables.forEach { entry ->
-                        if (entry.isValid()) {
-                            registry[entry.effectId.lowercase()] = entry
-                            modLoadedCount++
-                        }
-                    }
-                    
-                    if (modLoadedCount > 0) {
-                        loadedPerMod[modId] = modLoadedCount
-                    }
-                }
-            }
-            
-            val total = loadedPerMod.values.sum()
-            if (total > 0) {
-                val modsSummary = loadedPerMod.entries
-                    .joinToString(", ") { (modId, count) -> "$modId: $count" }
-                
-                LoggingManager.config(logger, "metabolism") {
-                    "Reloaded $total modded consumables from ${loadedPerMod.size} mods ($modsSummary)"
-                }
-            } else {
-                LoggingManager.config(logger, "metabolism") {
-                    "Modded consumables enabled but no entries loaded"
-                }
+        if (registry.isNotEmpty()) {
+            LoggingManager.config(logger, "metabolism") {
+                "Reloaded ${registry.size} modded consumables"
             }
         } else {
             LoggingManager.config(logger, "metabolism") {
-                "Modded consumables support is disabled"
+                "Modded consumables registry is empty after reload"
             }
         }
     }
