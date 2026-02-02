@@ -33,33 +33,35 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.4.0** - Professions module 100% complete! All Tier 3 abilities implemented and functional. Admin command UX improvements.
+**Current Status:** **v1.4.2** - Professions module 100% complete! Modded consumables support, all Tier 3 abilities functional, algorithm audit fixes.
 
 ---
 
 ## Recent Updates
 
-**v1.4.0 Changes (PROFESSIONS 100% COMPLETE!):**
-- 🎉 **ALL TIER 3 ABILITIES IMPLEMENTED:**
-  - **Survivalist** (Combat) - Passive -15% metabolism depletion
-  - **Adrenaline Rush** (Combat) - +10% speed for 5s on kill
-  - **Ore Sense** (Mining) - 10% chance bonus ore drop
-  - **Timber!** (Logging) - 25% chance extra log
-  - **Efficient Architect** (Building) - 12% chance block refund
-- ✅ **Admin Command UX:** Instant HUD refresh (no more 2s delay)
-- ✅ **Professions Module:** Now 100% feature-complete!
+**v1.4.2 Changes (CRITICAL FIXES):**
+- 🔥 **CRITICAL FIX:** Restored missing modded consumables implementation files (4 files, 763 lines)
+  - v1.4.0/v1.4.1 had compilation errors - upgrade to v1.4.2 immediately
+- 🛡️ **11 Algorithm Audit Fixes:** Race conditions, data integrity, UX improvements
+  - Fixed admin command vs XP award race condition (coroutine Mutex)
+  - Fixed Adrenaline Rush stale store issue
+  - Added 5-minute auto-save for crash protection (professions + metabolism)
+  - Increased Tier 2 ability bonuses: +35 max hunger/thirst/energy (was +15/+10/+10)
+- 🎯 **UX Improvements:** Instant buff/debuff refresh after food, wider hysteresis gaps
 
 ---
 
 ## Features
 
 ### Metabolism System (Complete)
-- **Three Core Stats** - Hunger, thirst, and energy (0-100 scale)
+- **Three Core Stats** - Hunger, thirst, and energy (0-100 base, up to 135 with abilities)
 - **Activity-Based Depletion** - Stats drain faster when sprinting, swimming, or in combat
-- **Buffs & Debuffs** - Speed penalties at low energy, bonuses at high stats
+- **Buffs & Debuffs** - Speed penalties at low energy, bonuses at high stats (10-point hysteresis)
 - **Food Consumption** - Eating restores stats based on food type
+- **Modded Consumables** - Pre-configured support for 92+ modded food items (T1-T7 tiers)
 - **Global Persistence** - Stats follow players across worlds
 - **Thread-Safe** - Async database operations with proper synchronization
+- **Auto-Save** - 5-minute periodic saves for crash protection
 
 ### Professions System (Complete)
 - **5 Professions** - Combat, Mining, Logging, Building, Gathering
@@ -67,9 +69,10 @@
 - **XP From Activities** - Kill mobs, mine ores, chop logs, place blocks, gather items
 - **Tier 1 Abilities (Level 15)** - +15% XP boost for each profession
 - **Tier 2 Abilities (Level 45)** - Permanent max stat increases
-  - Iron Stomach (Combat) - +15 max hunger
-  - Desert Nomad (Mining) - +10 max thirst
-  - Tireless Woodsman (Logging) - +10 max energy
+  - Iron Stomach (Combat) - +35 max hunger (100 → 135)
+  - Desert Nomad (Mining) - +35 max thirst (100 → 135)
+  - Tireless Woodsman (Logging) - +35 max energy (100 → 135)
+  - Enduring Builder (Building) - +15 max stamina
   - Hearty Gatherer (Gathering) - +4 hunger/thirst per food pickup
 - **Tier 3 Abilities (Level 100)** - Powerful active/passive effects
   - Survivalist (Combat) - -15% metabolism depletion
@@ -80,6 +83,7 @@
 - **Level-Up Notifications** - Chat messages when leveling up
 - **Death Penalty** - Lose XP on death (progressive 10-35% on 2 highest professions)
 - **Global Persistence** - Stats survive server restarts and world switches
+- **Auto-Save** - 5-minute periodic saves for crash protection
 
 ### Announcer System (Complete)
 - **MOTD (Message of the Day)** - Display welcome message on player join
@@ -124,10 +128,11 @@
 | | Buffs/Debuffs | ✅ Complete | Hysteresis-based states |
 | **Professions** | XP Systems | ✅ Complete | All 5 professions award XP |
 | | Tier 1 Abilities | ✅ Complete | +15% XP boosts work |
-| | Tier 2 Abilities | ✅ Complete | Max stat bonuses integrated |
+| | Tier 2 Abilities | ✅ Complete | +35 max stat bonuses (v1.4.1) |
+| | Tier 3 Abilities | ✅ Complete | All 5 abilities functional (v1.4.0) |
 | | Death Penalty | ✅ Complete | Progressive 10-35% XP loss |
 | | Admin Commands | ✅ Complete | `/ll prof set/add/reset/show` |
-| | Tier 3 Abilities | 🚧 Planned | Passive effects (future) |
+| | Modded Consumables | ✅ Complete | 92+ items, T1-T7 tiers (v1.4.0) |
 | **Announcer** | MOTD/Welcome | ✅ Complete | Join messages with placeholders |
 | | Recurring Announcements | ✅ Complete | Interval-based automation |
 | | Broadcast Commands | ✅ Complete | Admin messaging |
@@ -146,9 +151,9 @@
 
 ### Quick Start
 
-1. Download `livinglands-reloaded-1.3.0.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
-2. Place in Hytale server's `plugins/` directory
-3. Start server - configs auto-generated in `LivingLandsReloaded/config/`
+1. Download `livinglands-reloaded-1.4.2.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+2. Place in Hytale global mods directory: `AppData/Roaming/Hytale/UserData/Mods/`
+3. Start server - configs auto-generated in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
 
 ### Build from Source
 
@@ -156,7 +161,7 @@
 git clone https://github.com/MoshPitCodes/living-lands-reloaded.git
 cd living-lands-reloaded
 ./gradlew build
-# JAR: build/libs/livinglands-reloaded-1.3.0.jar
+# JAR: build/libs/livinglands-reloaded-1.4.2.jar
 ```
 
 ---
@@ -166,15 +171,15 @@ cd living-lands-reloaded
 Config files are auto-generated on first run:
 
 ```
-LivingLandsReloaded/
+Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/
 ├── config/
 │   ├── core.yml           # Core settings
 │   ├── metabolism.yml     # Depletion rates
 │   ├── professions.yml    # XP rates and abilities
 │   └── announcer.yml      # Server messages and announcements
 └── data/
-    ├── global/livinglands.db        # Global player stats
-    └── {world-uuid}/livinglands.db  # Per-world data
+    ├── global/livinglands.db        # Global player stats (metabolism, professions)
+    └── {world-uuid}/livinglands.db  # Per-world data (future: claims)
 ```
 
 ### Hot Reload
@@ -220,14 +225,14 @@ src/main/kotlin/com/livinglands/
     ├── metabolism/              # ✅ Complete
     │   ├── MetabolismModule.kt
     │   ├── MetabolismService.kt
-    │   └── MetabolismTickSystem.kt
-    └── professions/             # 🚧 40% complete
-        ├── ProfessionsModule.kt
-        ├── ProfessionsService.kt
-        ├── abilities/
-        │   ├── Ability.kt              # 15 ability classes
-        │   └── AbilityRegistry.kt      # Tier 1 works, Tier 2/3 stubs
-        └── systems/                    # All 5 XP systems work
+    │   ├── MetabolismTickSystem.kt
+    │   └── modded/             # Modded consumables support (v1.4.0)
+    ├── professions/            # ✅ Complete (v1.4.0)
+    │   ├── ProfessionsModule.kt
+    │   ├── ProfessionsService.kt
+    │   ├── abilities/          # All 15 abilities functional
+    │   └── systems/            # All 5 XP systems work
+    └── announcer/              # ✅ Complete (v1.3.0)
 ```
 
 ---
@@ -263,38 +268,32 @@ src/main/kotlin/com/livinglands/
 
 ## Roadmap
 
-### v1.3.0 (Current)
-- ✅ Announcer module complete (MOTD, welcome, recurring, broadcast)
-- ✅ Critical HUD crash fix (build/update pattern separation)
-- ✅ Panel toggle commands fixed
-- ✅ Metabolism system complete
-- ✅ Core infrastructure stable
-- ✅ Professions XP systems complete
-- ✅ Tier 1 & Tier 2 abilities fully integrated
-- ✅ Death penalty system
-- ✅ Admin commands (`/ll prof set/add/reset/show`, `/ll broadcast`)
-- ✅ Thread safety improvements
-- ✅ Performance and memory optimizations
+### v1.4.2 (Current)
+- ✅ **All Core Modules Complete** (Metabolism, Professions, Announcer)
+- ✅ Modded consumables support (92+ items, T1-T7 tiers)
+- ✅ All Tier 1/2/3 profession abilities functional
+- ✅ Algorithm audit fixes (race conditions, data integrity)
+- ✅ Enhanced Tier 2 bonuses (+35 max stats)
+- ✅ Auto-save system (5-minute intervals)
+- ✅ Thread safety improvements (coroutine Mutex)
 
-### Next Sprint (v1.4.0)
-- [ ] Tier 3 ability triggers (passive effects at level 100)
-- [ ] World switch handling for ability persistence
-- [ ] Additional performance optimizations
+### Future Modules
+- [ ] **Claims** (land protection, world-specific)
+- [ ] **Economy** (currency, trading, shops)
+- [ ] **Groups** (clans, parties, shared progression)
+- [ ] **Random Encounters** (dynamic events, world bosses)
 
-### Future
-- [ ] Claims module (land protection)
-- [ ] Economy module (currency/trading)
-- [ ] Groups module (clans/parties)
-
-See [`docs/IMPLEMENTATION_PLAN_DETAILED.md`](docs/IMPLEMENTATION_PLAN_DETAILED.md) for detailed timeline.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for detailed feature plans and timeline.
 
 ---
 
 ## Documentation
 
-- [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) - Architecture deep dive
-- [`docs/IMPLEMENTATION_PLAN_DETAILED.md`](docs/IMPLEMENTATION_PLAN_DETAILED.md) - Development roadmap & timeline
-- [`CHANGELOG.md`](CHANGELOG.md) - Version history
+- [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) - Complete technical architecture
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) - Public roadmap and feature plans
+- [`docs/PROFESSIONS_ABILITIES.md`](docs/PROFESSIONS_ABILITIES.md) - Professions system reference
+- [`docs/LOGGING.md`](docs/LOGGING.md) - Logging system guide
+- [`docs/MODULE_LIFECYCLE.md`](docs/MODULE_LIFECYCLE.md) - Module lifecycle and event handling
 
 ---
 
