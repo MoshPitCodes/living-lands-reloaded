@@ -41,13 +41,18 @@ class ScanConsumablesCommand : ModuleCommand(
     
     private val logger: HytaleLogger = CoreModule.logger
     
+    // Define command arguments
+    private val saveFlag = withFlagArg("save", "Save discovered items to config")
+    private val sectionArg = withOptionalArg("section", "Custom section name", com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes.STRING)
+    
     override fun executeIfModuleEnabled(ctx: CommandContext) {
-        // Parse arguments from input string
-        val inputString = ctx.inputString.orEmpty()
-        val args = parseArguments(inputString)
-        
-        val shouldSave = args.contains("--save")
-        val sectionName = extractSectionName(args) ?: "ManualScan_${LocalDate.now()}"
+        // Get argument values
+        val shouldSave = ctx.provided(saveFlag)
+        val sectionName = if (ctx.provided(sectionArg)) {
+            ctx.get(sectionArg)
+        } else {
+            "ManualScan_${LocalDate.now()}"
+        }
         
         // Load current consumables config
         val consumablesConfig = CoreModule.config.load(MetabolismConsumablesConfig.CONFIG_NAME, MetabolismConsumablesConfig())
@@ -162,8 +167,9 @@ class ScanConsumablesCommand : ModuleCommand(
     /**
      * Save discovered consumables to config file.
      * 
+     * - Groups by namespace/mod
      * - Merges with existing config
-     * - Creates section with given name
+     * - Creates sections per mod (e.g., "Hytale", "CoolMod")
      * - Reloads MetabolismModule registry
      */
     private fun saveToConsumablesConfig(
@@ -173,20 +179,36 @@ class ScanConsumablesCommand : ModuleCommand(
         sectionName: String
     ) {
         try {
-            // Convert discovered items to config entries
-            val entries = discovered.map { item ->
-                ModdedConsumableEntry(
-                    effectId = item.effectId,
-                    category = item.category,
-                    tier = item.tier,
-                    itemId = item.itemId
-                )
+            // Group discovered items by namespace
+            val byNamespace = discovered.groupBy { it.namespace }
+            
+            // Create section name for each namespace
+            val newSections = mutableMapOf<String, List<ModdedConsumableEntry>>()
+            
+            byNamespace.forEach { (namespace, items) ->
+                val entries = items.map { item ->
+                    ModdedConsumableEntry(
+                        effectId = item.effectId,
+                        category = item.category,
+                        tier = item.tier,
+                        itemId = item.itemId
+                    )
+                }
+                
+                // Create section name: "SectionName_Namespace" (e.g., "ManualScan_2026-02-02_Hytale")
+                val namespaceSectionName = if (byNamespace.size > 1) {
+                    "${sectionName}_${namespace}"
+                } else {
+                    sectionName  // Only one namespace, no need to suffix
+                }
+                
+                newSections[namespaceSectionName] = entries
             }
             
             // Create new config with merged entries
             val updatedConfig = existingConfig.copy(
                 enabled = true,  // Auto-enable when items are saved
-                consumables = existingConfig.consumables + (sectionName to entries)
+                consumables = existingConfig.consumables + newSections
             )
             
             // Save to config file
@@ -199,19 +221,27 @@ class ScanConsumablesCommand : ModuleCommand(
                 metabolismModule.rebuildConsumablesRegistry()
             }
             
+            // Success message
+            val totalItems = discovered.size
+            val namespaceCount = byNamespace.size
+            
             MessageFormatter.commandSuccess(
                 ctx, 
-                "Saved ${entries.size} consumables to '${MetabolismConsumablesConfig.CONFIG_NAME}.yml' under section '$sectionName'"
+                "Saved $totalItems consumables from $namespaceCount mod(s) to '${MetabolismConsumablesConfig.CONFIG_NAME}.yml'"
             )
             
-            // Categorize by type for summary
-            val byCategory = entries.groupBy { it.category }
-            val categorySummary = byCategory.entries
+            // Show per-namespace breakdown
+            byNamespace.entries
                 .sortedByDescending { it.value.size }
-                .take(3)
-                .joinToString(", ") { (category, items) -> "$category: ${items.size}" }
-            
-            MessageFormatter.commandInfo(ctx, "Categories: $categorySummary")
+                .forEach { (namespace, items) ->
+                    val byCategory = items.groupBy { it.category }
+                    val categorySummary = byCategory.entries
+                        .sortedByDescending { it.value.size }
+                        .take(3)
+                        .joinToString(", ") { (category, items) -> "$category: ${items.size}" }
+                    
+                    MessageFormatter.commandInfo(ctx, "$namespace: ${items.size} items ($categorySummary)")
+                }
             
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("Failed to save consumables config")

@@ -2,7 +2,7 @@ package com.livinglands.modules.metabolism
 
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.universe.PlayerRef
-import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
+import com.hypixel.hytale.server.core.universe.world.events.StartWorldEvent
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
@@ -173,12 +173,13 @@ class MetabolismModule : AbstractModule(
         // Resolve world-specific configs from global config + overrides
         initializeWorldConfigs()
         
-        // Register AddWorldEvent listener for auto-scan
-        // This triggers auto-scan on first world ready if consumablesConfig is empty
-        registerListenerAny<AddWorldEvent> { event ->
-            handleWorldAdded(event)
+        // Register StartWorldEvent listener for auto-scan
+        // This triggers auto-scan on first world start (ensures Item registry is fully populated)
+        registerListenerAny<StartWorldEvent> { event ->
+            logger.atInfo().log("StartWorldEvent received for world: ${event.world.name}")
+            handleWorldStarted(event)
         }
-        logger.atFine().log("Registered AddWorldEvent listener for auto-scan")
+        logger.atInfo().log("Registered StartWorldEvent listener for auto-scan (config isEmpty: ${consumablesConfig.isEmpty()})")
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
         // so they can be passed to the tick system constructor
@@ -301,6 +302,22 @@ class MetabolismModule : AbstractModule(
         
         // Initialize metabolism for any players already online
         initializeOnlinePlayers()
+        
+        // Trigger auto-scan if config is empty (events might not fire reliably)
+        if (shouldAutoScan() && !autoScanComplete) {
+            logger.atInfo().log("Metabolism module started with empty consumables config - triggering auto-scan...")
+            autoScanComplete = true
+            
+            // Run scan on default world thread
+            val defaultWorld = com.hypixel.hytale.server.core.universe.Universe.get().defaultWorld
+            if (defaultWorld != null) {
+                defaultWorld.execute {
+                    performAutoScan()
+                }
+            } else {
+                logger.atWarning().log("No default world available for auto-scan")
+            }
+        }
     }
     
     // ============ Periodic Auto-Save ============
@@ -763,28 +780,35 @@ class MetabolismModule : AbstractModule(
     // ============ Auto-Scan System ============
     
     /**
-     * Handle AddWorldEvent to trigger auto-scan on first world ready.
+     * Handle StartWorldEvent to trigger auto-scan on first world start.
+     * 
+     * This event fires when a world starts, ensuring:
+     * - Item registry is fully populated with modded items
+     * - All asset packs are loaded and registered
+     * - AssetMap.getAssetPack() works correctly
      * 
      * Only runs once per server start, and only if consumablesConfig is empty.
-     * Scans the Item registry asynchronously on the world thread.
      */
-    private fun handleWorldAdded(event: AddWorldEvent) {
-        // Only run auto-scan once
+    private fun handleWorldStarted(event: StartWorldEvent) {
+        logger.atInfo().log("handleWorldStarted called for '${event.world.name}' (autoScanComplete: $autoScanComplete, shouldAutoScan: ${shouldAutoScan()})")
+        
+        // Only run auto-scan once (on first world)
         if (autoScanComplete) {
+            logger.atInfo().log("Skipping auto-scan: already completed")
             return
         }
         
         // Only run if config is empty (no consumables configured)
         if (!shouldAutoScan()) {
-            logger.atFine().log("Skipping auto-scan: consumables config already populated")
+            logger.atInfo().log("Skipping auto-scan: consumables config already populated (${consumablesConfig.getEntryCount()} entries)")
             autoScanComplete = true
             return
         }
         
-        logger.atInfo().log("First world ready - triggering consumables auto-scan...")
+        logger.atInfo().log("✅ First world started - triggering consumables auto-scan...")
         autoScanComplete = true
         
-        // Run scan asynchronously on world thread (required for Item AssetStore access)
+        // Run scan on the world thread (required for Item AssetStore access)
         event.world.execute {
             performAutoScan()
         }
@@ -801,7 +825,7 @@ class MetabolismModule : AbstractModule(
     /**
      * Perform auto-scan of Item registry for consumables.
      * 
-     * Discovers all consumable items, converts to config entries,
+     * Discovers all consumable items, groups by namespace, converts to config entries,
      * and saves to metabolism_consumables.yml.
      * 
      * **Thread Safety:** Must be called from within world.execute {} block.
@@ -816,23 +840,28 @@ class MetabolismModule : AbstractModule(
                 return
             }
             
-            // Convert discovered items to ModdedConsumableEntry list
-            val entries = discovered.map { item ->
-                ModdedConsumableEntry(
-                    effectId = item.effectId,
-                    category = item.category,
-                    tier = item.tier,
-                    itemId = item.itemId
-                )
+            // Group by namespace and convert to config entries
+            val groupedByNamespace = discovered.groupBy { it.namespace }
+            val newSections = mutableMapOf<String, List<ModdedConsumableEntry>>()
+            
+            groupedByNamespace.forEach { (namespace, items) ->
+                val sectionName = "AutoScan_${LocalDate.now()}_$namespace"
+                val entries = items.map { item ->
+                    ModdedConsumableEntry(
+                        effectId = item.effectId,
+                        category = item.category,
+                        tier = item.tier,
+                        itemId = item.itemId
+                    )
+                }
+                newSections[sectionName] = entries
+                logger.atInfo().log("  Grouped $namespace: ${entries.size} items -> section '$sectionName'")
             }
             
-            // Create section name with current date
-            val sectionName = "AutoDiscovered_${LocalDate.now()}"
-            
-            // Create new config with discovered entries
+            // Create new config with all namespace sections
             val updatedConfig = consumablesConfig.copy(
                 enabled = true,  // Auto-enable when items are discovered
-                consumables = consumablesConfig.consumables + (sectionName to entries)
+                consumables = consumablesConfig.consumables + newSections
             )
             
             // Save to config file
@@ -844,7 +873,7 @@ class MetabolismModule : AbstractModule(
             // Rebuild the consumables registry with new entries
             rebuildConsumablesRegistry()
             
-            logger.atInfo().log("✅ Auto-scan complete: Added ${entries.size} consumables to ${MetabolismConsumablesConfig.CONFIG_NAME}.yml")
+            logger.atInfo().log("✅ Auto-scan complete: Added ${discovered.size} consumables in ${newSections.size} namespace sections to ${MetabolismConsumablesConfig.CONFIG_NAME}.yml")
             
         } catch (e: Exception) {
             logger.atSevere().withCause(e).log("Auto-scan failed")
