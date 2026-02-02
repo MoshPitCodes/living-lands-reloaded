@@ -182,3 +182,32 @@ Built by **MoshPitCodes**.
 ☕ Support Development
 
 Enjoying Living Lands Reloaded? Consider supporting development: [Ko-fi](https://ko-fi.com/moshpitplays)
+
+***
+
+## ✅ Compatible Mods
+
+Living Lands Reloaded has been tested and confirmed compatible with the following mods:
+
+### Quality of Life Mods
+*   **AdvancedItemInfo** (v1.0.5) - Enhanced item tooltips and information display
+*   **BetterMap** (v1.2.7) - Improved minimap and navigation features
+*   **WhereThisAt** (v1.0.6) - Coordinate display and waypoint management
+*   **Simply-Trash** (v1.0.0) - Trash can and item deletion utilities
+
+### Gameplay Enhancement Mods
+*   **BloodMoon** (v1.2.1) - Challenging night events with increased difficulty
+*   **Eldritch Tales** (v0.0.1) - Story and lore expansion content
+*   **Books and Papers** (v1.1.0) - Enhanced reading and writing mechanics
+*   **Vein Mining** (v1.3.7) - Mine entire ore veins at once (works with Living Lands Mining profession!)
+
+### Utility Mods
+*   **Hybrid** (v1.7 - 2026.01.17) - Server-side utility features
+*   **Overstacked** (v2026.1.28) - Increased stack sizes for better inventory management
+
+**Note:** This list represents mods that have been tested in a live server environment alongside Living Lands Reloaded. If you discover compatibility issues with any of these mods, please report them on [GitHub](https://github.com/MoshPitCodes/living-lands-reloaded/issues).
+
+**Reminder:** Living Lands Reloaded is **NOT COMPATIBLE** with:
+- Mods that use CustomUI (conflicts with HUD system)
+- MultipleHUD mod (architectural incompatibility)
+- Mods that manipulate player stats or introduce XP systems (conflicts with Professions)
