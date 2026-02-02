@@ -176,10 +176,9 @@ class MetabolismModule : AbstractModule(
         // Register StartWorldEvent listener for auto-scan
         // This triggers auto-scan on first world start (ensures Item registry is fully populated)
         registerListenerAny<StartWorldEvent> { event ->
-            logger.atInfo().log("StartWorldEvent received for world: ${event.world.name}")
             handleWorldStarted(event)
         }
-        logger.atInfo().log("Registered StartWorldEvent listener for auto-scan (config isEmpty: ${consumablesConfig.isEmpty()})")
+        logger.atFine().log("Registered StartWorldEvent listener for auto-scan")
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
         // so they can be passed to the tick system constructor
@@ -305,7 +304,7 @@ class MetabolismModule : AbstractModule(
         
         // Trigger auto-scan if config is empty (events might not fire reliably)
         if (shouldAutoScan() && !autoScanComplete) {
-            logger.atInfo().log("Metabolism module started with empty consumables config - triggering auto-scan...")
+            logger.atInfo().log("Empty consumables config detected - running auto-scan...")
             autoScanComplete = true
             
             // Run scan on default world thread
@@ -790,22 +789,19 @@ class MetabolismModule : AbstractModule(
      * Only runs once per server start, and only if consumablesConfig is empty.
      */
     private fun handleWorldStarted(event: StartWorldEvent) {
-        logger.atInfo().log("handleWorldStarted called for '${event.world.name}' (autoScanComplete: $autoScanComplete, shouldAutoScan: ${shouldAutoScan()})")
-        
         // Only run auto-scan once (on first world)
         if (autoScanComplete) {
-            logger.atInfo().log("Skipping auto-scan: already completed")
             return
         }
         
         // Only run if config is empty (no consumables configured)
         if (!shouldAutoScan()) {
-            logger.atInfo().log("Skipping auto-scan: consumables config already populated (${consumablesConfig.getEntryCount()} entries)")
+            logger.atFine().log("Consumables config already populated (${consumablesConfig.getEntryCount()} entries) - skipping auto-scan")
             autoScanComplete = true
             return
         }
         
-        logger.atInfo().log("✅ First world started - triggering consumables auto-scan...")
+        logger.atInfo().log("Empty consumables config detected - running auto-scan...")
         autoScanComplete = true
         
         // Run scan on the world thread (required for Item AssetStore access)
@@ -855,7 +851,7 @@ class MetabolismModule : AbstractModule(
                     )
                 }
                 newSections[sectionName] = entries
-                logger.atInfo().log("  Grouped $namespace: ${entries.size} items -> section '$sectionName'")
+                logger.atFine().log("Grouped $namespace: ${entries.size} items -> section '$sectionName'")
             }
             
             // Create new config with all namespace sections

@@ -2,7 +2,6 @@
 
 <p align="center">
   <a href="https://discord.gg/8jgMj9GPsq"><img src="https://img.shields.io/badge/DISCORD-JOIN%20SERVER-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://ko-fi.com/moshpitplays"><img src="https://img.shields.io/badge/KO--FI-SUPPORT-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
   <a href="https://ko-fi.com/moshpitplays"><img src="https://img.shields.io/badge/BUY%20ME%20A%20COFFEE-SUPPORT-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee"></a>
   <a href="https://github.com/MoshPitCodes/living-lands-reloaded"><img src="https://img.shields.io/badge/DOCS-READ%20MORE-4A90E2?style=for-the-badge&logo=github&logoColor=white" alt="Documentation"></a>
 </p>
@@ -59,11 +58,6 @@ Drain is **activity-based** (sprinting/combat/travel), and foods restore differe
 
 No more manual configuration - just install your favorite food/drink mods and Living Lands handles the rest.
 
-*   **Automatic Discovery** - Scans Item registry for all consumable items
-    *   114 consumables with valid effects found across 3 mods
-    *   73 vanilla Hytale items (foods, potions, drinks)
-    *   22 NoCube Bakehouse items (breads, pastries)
-    *   19 ChampionsVandal More Potions items (stamina/regen/resistance)
 *   **Namespace Detection** - Smart grouping by mod for easy management
     *   Uses Hytale's `AssetMap.getAssetPack()` API for accurate detection
     *   Creates organized sections: `AutoScan_2026-02-02_Hytale`, `AutoScan_2026-02-02_NoCube`
