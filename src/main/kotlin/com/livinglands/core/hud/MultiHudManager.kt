@@ -165,6 +165,23 @@ class MultiHudManager(
     }
     
     /**
+     * Update metabolism services for all registered HUDs.
+     * Call this when MetabolismModule starts up or is re-enabled via config hot-reload.
+     * 
+     * This enables metabolism stats, buffs, and debuffs in the HUD.
+     * Matches the pattern used by setProfessionServicesForAll() for consistency.
+     * 
+     * @param buffsSystem The BuffsSystem instance (or null to disable buffs)
+     * @param debuffsSystem The DebuffsSystem instance (or null to disable debuffs)
+     */
+    fun setMetabolismServicesForAll(buffsSystem: BuffsSystem?, debuffsSystem: DebuffsSystem?) {
+        logger.atFine().log("Updating metabolism services for ${playerHuds.size} registered HUDs")
+        playerHuds.values.forEach { hud ->
+            hud.setMetabolismServices(buffsSystem, debuffsSystem)
+        }
+    }
+    
+    /**
      * Clear profession services from all registered HUDs.
      * Call this when ProfessionsModule is disabled via config hot-reload.
      * 
@@ -233,6 +250,49 @@ class MultiHudManager(
         } catch (e: Exception) {
             logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
         }
+    }
+    
+    /**
+     * Handle player world switch.
+     * Updates the playerRefs map with the new PlayerRef from the new world.
+     * 
+     * **Thread Safety:** Must be called from WorldThread
+     * 
+     * **Important:** This method should be called when a player switches worlds to ensure
+     * the HUD system has the correct PlayerRef for the new world. Without this, HUD
+     * operations may fail or interact with stale world references.
+     * 
+     * @param playerId The player's UUID
+     * @param oldWorldUuid The UUID of the world the player is leaving
+     * @param newWorldUuid The UUID of the world the player is entering
+     * @param newPlayer The new Player entity in the new world
+     * @param newPlayerRef The new PlayerRef in the new world
+     */
+    fun onPlayerWorldSwitch(
+        playerId: UUID,
+        oldWorldUuid: UUID,
+        newWorldUuid: UUID,
+        newPlayer: Player,
+        newPlayerRef: PlayerRef
+    ) {
+        logger.atFine().log("Player $playerId switching worlds: $oldWorldUuid -> $newWorldUuid")
+        
+        // Update the playerRefs map with the new world's PlayerRef
+        val oldPair = playerRefs[playerId]
+        if (oldPair != null) {
+            playerRefs[playerId] = Pair(newPlayer, newPlayerRef)
+            logger.atFine().log("Updated PlayerRef for player $playerId to new world $newWorldUuid")
+        } else {
+            logger.atWarning().log(
+                "Player $playerId switched worlds but was not registered in playerRefs map. " +
+                "HUD may not function correctly. Registering now."
+            )
+            playerRefs[playerId] = Pair(newPlayer, newPlayerRef)
+        }
+        
+        // Note: The HUD element itself (LivingLandsHudElement) is world-agnostic and
+        // doesn't need to be recreated. It uses the PlayerRef which is now updated.
+        // Future updates to the HUD will use the new PlayerRef automatically.
     }
     
     /**
