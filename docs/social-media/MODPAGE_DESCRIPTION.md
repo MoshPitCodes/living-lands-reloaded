@@ -47,8 +47,8 @@ Drain is **activity-based** (sprinting/combat/travel), and foods restore differe
 **Zero-configuration modded consumables - just install mods and start your server!**
 
 - ✨ **Auto-Scan System:** Automatically discovers all food/drink/potion items on first startup
-- 🏷️ **Smart Grouping:** Organizes items by mod namespace (Hytale, NoCube, ChampionsVandal)
-- ⚡ **Fast Performance:** ~200ms scan time for 162 consumable items
+- 🏷️ **Smart Grouping:** Organizes items by mod namespace (Hytale, NoCube, HiddenIsme, ChampionsVandal)
+- ⚡ **Fast Performance:** ~200ms scan time for 250 consumable items (201 with valid effects)
 - 🔍 **Manual Scan:** `/ll scan consumables --save` to discover new items after installing mods
 - 📁 **Separate Config:** Clean organization in `metabolism_consumables.yml`
 
@@ -136,7 +136,7 @@ Note: per-world overrides are supported in config; world-specific routing is bei
 
 Living Lands Reloaded has undergone comprehensive algorithm auditing to ensure rock-solid reliability:
 
-*   **Auto-Discovery System (v1.4.3)** - Automatic consumables detection with ~200ms scan time for 162 items
+*   **Auto-Discovery System (v1.4.3)** - Automatic consumables detection with ~200ms scan time for 250 items (201 valid)
 *   **Smart Namespace Grouping (v1.4.3)** - Efficient mod detection using Hytale's AssetMap API
 *   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
 *   **Race Condition Protection** - Coroutine Mutex prevents corruption when admin commands and gameplay events collide
@@ -160,7 +160,7 @@ Players: join a server running Living Lands Reloaded. The HUD appears automatica
 
 Server owners:
 
-1.  Download `livinglands-reloaded-1.4.2.jar` (**v1.4.0/v1.4.1 are broken - use v1.4.2!**)
+1.  Download `livinglands-reloaded-1.4.3.jar`
 2.  Place it in your Hytale global mods folder: `AppData/Roaming/Hytale/UserData/Mods/`
 3.  Start the server
 4.  Configs generate in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
@@ -175,7 +175,7 @@ Server owners:
 
 Built by **MoshPitCodes**.
 
-**Current Version:** 1.4.2 **License:** Apache 2.0 **Source Code:** Available on GitHub
+**Current Version:** 1.4.3 **License:** Apache 2.0 **Source Code:** Available on GitHub
 
 ***
 

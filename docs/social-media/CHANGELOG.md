@@ -8,12 +8,13 @@ Living Lands now **automatically discovers** all consumable items (food, drinks,
 
 #### Auto-Scan System
 - ✅ **Zero-Configuration Setup** - Just install mods and start your server
-- ✅ **Automatic Discovery** - Scans Item registry for all consumable items (114 found across 3 mods)
+- ✅ **Automatic Discovery** - Scans Item registry for all consumable items (201 found across 4 mods)
 - ✅ **Smart Grouping** - Organizes items by mod namespace for easy management
-  - 73 vanilla Hytale items (foods, potions, drinks)
-  - 22 NoCube Bakehouse items (breads, pastries)
-  - 19 ChampionsVandal More Potions items (stamina/regen/resistance potions)
-- ✅ **Fast Performance** - ~200ms scan time for 162 consumable items
+  - 72 vanilla Hytale items (foods, potions, drinks)
+  - 66 NoCube items (bakehouse, tavern, orchard)
+  - 44 HiddenIsme items (harvest delights)
+  - 19 ChampionsVandal items (more potions)
+- ✅ **Fast Performance** - ~200ms scan time for 250 consumable items
 - ✅ **Separate Config** - Organized in `metabolism_consumables.yml` (separate from main config)
 
 #### Manual Scan Command
@@ -46,14 +47,14 @@ consumables:
       category: FRUIT_VEGGIE
       tier: 3
       itemId: Food_Pie_Apple
-    # ... 73 vanilla items
+    # ... 72 vanilla items
     
   AutoScan_2026-02-02_NoCube:
     - effectId: Root_Secondary_Consume_Food_T1
       category: BREAD
       tier: 1
       itemId: NoCube_Food_Brioche
-    # ... 22 bakehouse items
+    # ... 66 NoCube items
 ```
 
 ### Technical Improvements

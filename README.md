@@ -33,21 +33,22 @@
 
 **Living Lands Reloaded** is a modular RPG survival mod for Hytale featuring metabolism tracking and profession leveling. Built with a modern, scalable architecture using Kotlin and SQLite.
 
-**Current Status:** **v1.4.2** - Professions module 100% complete! Modded consumables support, all Tier 3 abilities functional, algorithm audit fixes.
+**Current Status:** **v1.4.3** - Auto-scan consumables! Zero-configuration modded food support with automatic discovery and namespace detection.
 
 ---
 
 ## Recent Updates
 
-**v1.4.2 Changes (CRITICAL FIXES):**
-- 🔥 **CRITICAL FIX:** Restored missing modded consumables implementation files (4 files, 763 lines)
-  - v1.4.0/v1.4.1 had compilation errors - upgrade to v1.4.2 immediately
-- 🛡️ **11 Algorithm Audit Fixes:** Race conditions, data integrity, UX improvements
-  - Fixed admin command vs XP award race condition (coroutine Mutex)
-  - Fixed Adrenaline Rush stale store issue
-  - Added 5-minute auto-save for crash protection (professions + metabolism)
-  - Increased Tier 2 ability bonuses: +35 max hunger/thirst/energy (was +15/+10/+10)
-- 🎯 **UX Improvements:** Instant buff/debuff refresh after food, wider hysteresis gaps
+**v1.4.3 Changes (AUTO-SCAN CONSUMABLES):**
+- 🎉 **NEW: Automatic Consumables Discovery!** - Zero-configuration setup for modded food/drinks
+  - Auto-scans Item registry on first startup (~200ms for 250+ items)
+  - Smart namespace detection using `AssetMap.getAssetPack()` API
+  - Organizes items by mod in separate config file (`metabolism_consumables.yml`)
+- 🔍 **Manual Scan Command:** `/ll scan consumables [--save] [--section <name>]`
+  - Preview discovered items or save to config
+  - Custom section names for organization
+- 🧹 **Logging Cleanup:** Production-ready console output (essential messages only)
+- 📝 **Config Migration:** v5→v6 removes old nested modded consumables structure
 
 ---
 
@@ -58,7 +59,7 @@
 - **Activity-Based Depletion** - Stats drain faster when sprinting, swimming, or in combat
 - **Buffs & Debuffs** - Speed penalties at low energy, bonuses at high stats (10-point hysteresis)
 - **Food Consumption** - Eating restores stats based on food type
-- **Modded Consumables** - Pre-configured support for 92+ modded food items (T1-T7 tiers)
+- **Modded Consumables** - Automatic discovery of all modded food/drinks (T1-T7 tiers, namespace detection)
 - **Global Persistence** - Stats follow players across worlds
 - **Thread-Safe** - Async database operations with proper synchronization
 - **Auto-Save** - 5-minute periodic saves for crash protection
@@ -107,6 +108,7 @@
 **Admin Commands (Operator Only):**
 - `/ll reload [module]` - Hot-reload configuration
 - `/ll broadcast <message>` - Broadcast message to all players
+- `/ll scan consumables [--save] [--section <name>]` - Scan for modded consumables
 - `/ll prof set <player> <profession> <level>` - Set profession level
 - `/ll prof add <player> <profession> <xp>` - Add XP to profession
 - `/ll prof reset <player> [profession]` - Reset profession(s)
@@ -132,7 +134,7 @@
 | | Tier 3 Abilities | ✅ Complete | All 5 abilities functional (v1.4.0) |
 | | Death Penalty | ✅ Complete | Progressive 10-35% XP loss |
 | | Admin Commands | ✅ Complete | `/ll prof set/add/reset/show` |
-| | Modded Consumables | ✅ Complete | 92+ items, T1-T7 tiers (v1.4.0) |
+| | Modded Consumables | ✅ Complete | Auto-scan with namespace detection (v1.4.3) |
 | **Announcer** | MOTD/Welcome | ✅ Complete | Join messages with placeholders |
 | | Recurring Announcements | ✅ Complete | Interval-based automation |
 | | Broadcast Commands | ✅ Complete | Admin messaging |
@@ -151,7 +153,7 @@
 
 ### Quick Start
 
-1. Download `livinglands-reloaded-1.4.2.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
+1. Download `livinglands-reloaded-1.4.3.jar` from [Releases](https://github.com/MoshPitCodes/living-lands-reloaded/releases)
 2. Place in Hytale global mods directory: `AppData/Roaming/Hytale/UserData/Mods/`
 3. Start server - configs auto-generated in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
 
@@ -161,7 +163,7 @@
 git clone https://github.com/MoshPitCodes/living-lands-reloaded.git
 cd living-lands-reloaded
 ./gradlew build
-# JAR: build/libs/livinglands-reloaded-1.4.2.jar
+# JAR: build/libs/livinglands-reloaded-1.4.3.jar
 ```
 
 ---
@@ -173,10 +175,11 @@ Config files are auto-generated on first run:
 ```
 Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/
 ├── config/
-│   ├── core.yml           # Core settings
-│   ├── metabolism.yml     # Depletion rates
-│   ├── professions.yml    # XP rates and abilities
-│   └── announcer.yml      # Server messages and announcements
+│   ├── core.yml                    # Core settings
+│   ├── metabolism.yml              # Depletion rates
+│   ├── metabolism_consumables.yml  # Auto-scanned modded items (v1.4.3)
+│   ├── professions.yml             # XP rates and abilities
+│   └── announcer.yml               # Server messages and announcements
 └── data/
     ├── global/livinglands.db        # Global player stats (metabolism, professions)
     └── {world-uuid}/livinglands.db  # Per-world data (future: claims)
@@ -268,14 +271,14 @@ src/main/kotlin/com/livinglands/
 
 ## Roadmap
 
-### v1.4.2 (Current)
+### v1.4.3 (Current)
+- ✅ **Auto-Scan Consumables** - Zero-configuration modded food support
+- ✅ **Automatic Discovery** - Scans Item registry on first startup (~200ms)
+- ✅ **Namespace Detection** - Smart grouping by mod using AssetMap API
+- ✅ **Manual Scan Command** - `/ll scan consumables [--save] [--section <name>]`
+- ✅ **Separate Config** - `metabolism_consumables.yml` (organized by mod)
+- ✅ **Logging Cleanup** - Production-ready console output
 - ✅ **All Core Modules Complete** (Metabolism, Professions, Announcer)
-- ✅ Modded consumables support (92+ items, T1-T7 tiers)
-- ✅ All Tier 1/2/3 profession abilities functional
-- ✅ Algorithm audit fixes (race conditions, data integrity)
-- ✅ Enhanced Tier 2 bonuses (+35 max stats)
-- ✅ Auto-save system (5-minute intervals)
-- ✅ Thread safety improvements (coroutine Mutex)
 
 ### Future Modules
 - [ ] **Claims** (land protection, world-specific)
