@@ -16,7 +16,8 @@ import java.util.UUID
  * - v2: Balanced depletion rates for better gameplay (1440s/1080s/2400s)
  * - v3: Restructured debuffs to 3-stage system
  * - v4: Added per-world configuration overrides
- * - v5: Added modded consumables support
+ * - v5: Added modded consumables support (moved to separate config in v6)
+ * - v6: Modded consumables moved to separate metabolism_consumables.yml with auto-scan
  */
 data class MetabolismConfig(
     /**
@@ -95,33 +96,7 @@ data class MetabolismConfig(
      *       enabled: false  # Disable hunger completely
      * ```
      */
-    val worldOverrides: Map<String, MetabolismWorldOverride> = emptyMap(),
-    
-    /**
-     * Modded consumables support.
-     * Configure custom food/drink/potion items from other mods with
-     * tier-based restoration values.
-     * 
-     * **Pre-configured Examples Available:**
-     * Run `/ll metabolism genconfig` to generate a metabolism.yml with
-     * 92 pre-configured items from popular mods:
-     * - Hidden's Harvest Delights (44 items)
-     * - NoCube's Bakehouse (48 items)
-     * 
-     * Or manually configure:
-     * ```yaml
-     * moddedConsumables:
-     *   enabled: true
-     *   warnIfMissing: true
-     *   foods:
-     *     - effectId: "FarmingMod:CookedChicken"
-     *       category: "MEAT"
-     *       tier: null  # auto-detect
-     * ```
-     * 
-     * See ModdedConsumablesConfig.getDefaultExampleConfig() for full list.
-     */
-    val moddedConsumables: ModdedConsumablesConfig = ModdedConsumablesConfig.getDefaultExampleConfig()
+    val worldOverrides: Map<String, MetabolismWorldOverride> = emptyMap()
 ) : VersionedConfig {
     
     /** No-arg constructor for Jackson deserialization */
@@ -159,7 +134,7 @@ data class MetabolismConfig(
     
     companion object {
         /** Current config version */
-        const val CURRENT_VERSION = 5
+        const val CURRENT_VERSION = 6
         
         /** Config module ID for migration registry */
         const val MODULE_ID = "metabolism"
@@ -291,6 +266,21 @@ data class MetabolismConfig(
                             }
                         }
                         this["configVersion"] = 5
+                    }
+                }
+            ),
+            
+            // v5 -> v6: Move modded consumables to separate config file
+            ConfigMigration(
+                fromVersion = 5,
+                toVersion = 6,
+                description = "Remove moddedConsumables field (moved to separate metabolism_consumables.yml with auto-scan)",
+                migrate = { old ->
+                    old.toMutableMap().apply {
+                        // Remove moddedConsumables field - now handled by separate config file
+                        // (MetabolismModule will auto-scan on startup to populate new config)
+                        remove("moddedConsumables")
+                        this["configVersion"] = 6
                     }
                 }
             )

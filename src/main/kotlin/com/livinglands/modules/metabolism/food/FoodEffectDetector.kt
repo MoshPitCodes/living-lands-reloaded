@@ -317,8 +317,8 @@ class FoodEffectDetector(
                 // Use category from modded config
                 val foodType = mapCategoryToFoodType(moddedEntry.category)
                 
-                // Use tier from config, or auto-detect if null
-                val tier = moddedEntry.tier ?: ItemTierDetector.detectTier(effectId)
+                // Use tier from config (already validated, non-null with default of 1)
+                val tier = moddedEntry.tier
                 
                 return FoodDetection(effectId, foodType, tier)
             }

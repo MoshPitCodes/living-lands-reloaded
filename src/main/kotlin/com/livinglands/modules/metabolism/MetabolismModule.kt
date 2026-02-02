@@ -2,14 +2,19 @@ package com.livinglands.modules.metabolism
 
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.universe.PlayerRef
+import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.modules.metabolism.commands.TestMetabolismCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
+import com.livinglands.modules.metabolism.config.MetabolismConsumablesConfig
+import com.livinglands.modules.metabolism.config.ModdedConsumableEntry
 import com.livinglands.modules.metabolism.buffs.BuffsSystem
 import com.livinglands.modules.metabolism.buffs.DebuffsSystem
+import com.livinglands.modules.metabolism.food.ConsumablesScanner
+import com.livinglands.modules.metabolism.food.DiscoveredConsumable
 import com.livinglands.modules.metabolism.food.FoodConsumptionProcessor
 import com.livinglands.modules.metabolism.food.FoodDetectionTickSystem
 import com.livinglands.modules.metabolism.food.FoodEffectDetector
@@ -28,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -55,6 +61,12 @@ class MetabolismModule : AbstractModule(
     
     /** Configuration loaded from metabolism.yml */
     private lateinit var metabolismConfig: MetabolismConfig
+    
+    /** Configuration for modded consumables from metabolism_consumables.yml */
+    private lateinit var consumablesConfig: MetabolismConsumablesConfig
+    
+    /** Track if auto-scan has completed (only run once per server start) */
+    private var autoScanComplete = false
     
     /** Global metabolism repository (server-wide) */
     private lateinit var metabolismRepository: MetabolismRepository
@@ -138,6 +150,10 @@ class MetabolismModule : AbstractModule(
         )
         logger.atFine().log("Loaded metabolism config: enabled=${metabolismConfig.enabled}, version=${metabolismConfig.configVersion}")
         
+        // Load consumables config from separate file
+        consumablesConfig = CoreModule.config.load(MetabolismConsumablesConfig.CONFIG_NAME, MetabolismConsumablesConfig())
+        logger.atFine().log("Loaded consumables config: enabled=${consumablesConfig.enabled}, entries=${consumablesConfig.getEntryCount()}")
+        
         // Validate world overrides
         val knownWorldNames = CoreModule.worlds.getAllWorldNames()
         MetabolismConfigValidator.validateOverrides(metabolismConfig, knownWorldNames, logger)
@@ -156,6 +172,13 @@ class MetabolismModule : AbstractModule(
         
         // Resolve world-specific configs from global config + overrides
         initializeWorldConfigs()
+        
+        // Register AddWorldEvent listener for auto-scan
+        // This triggers auto-scan on first world ready if consumablesConfig is empty
+        registerListenerAny<AddWorldEvent> { event ->
+            handleWorldAdded(event)
+        }
+        logger.atFine().log("Registered AddWorldEvent listener for auto-scan")
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
         // so they can be passed to the tick system constructor
@@ -257,6 +280,10 @@ class MetabolismModule : AbstractModule(
             com.livinglands.modules.metabolism.commands.HudToggleCommand.ToggleType.DEBUFFS
         ))
         logger.atFine().log("Registered HUD toggle commands: /ll stats, /ll buffs, /ll debuffs")
+        
+        // Register scan command for discovering consumables
+        CoreModule.mainCommand.registerSubCommand(com.livinglands.core.commands.ScanCommand())
+        logger.atFine().log("Registered /ll scan command")
         
         // Register config reload callback
         CoreModule.config.onReload("metabolism") {
@@ -601,20 +628,19 @@ class MetabolismModule : AbstractModule(
         }
         logger.atFine().log("Metabolism configs re-resolved for $worldsResolved worlds")
         
-        // Reload modded consumables registry
-        reloadModdedConsumables(newConfig)
+        // Reload consumables config from separate file
+        reloadConsumablesConfig()
     }
     
     /**
-     * Reload modded consumables system with new config.
+     * Reload consumables config from separate file.
      * Called during config hot-reload.
-     * 
-     * @param newConfig The new metabolism configuration
      */
-    private fun reloadModdedConsumables(newConfig: MetabolismConfig) {
-        val moddedConfig = newConfig.moddedConsumables
+    private fun reloadConsumablesConfig() {
+        // Load fresh consumables config
+        consumablesConfig = CoreModule.config.load(MetabolismConsumablesConfig.CONFIG_NAME, MetabolismConsumablesConfig())
         
-        if (!moddedConfig.enabled) {
+        if (!consumablesConfig.enabled) {
             // Disable modded consumables
             moddedConsumablesRegistry?.clear()
             moddedItemValidator?.clearCache()
@@ -622,12 +648,15 @@ class MetabolismModule : AbstractModule(
             return
         }
         
+        // Get all entries from new config
+        val allEntries = consumablesConfig.getAllEntries()
+        
         // Reload existing registry or create new one
         if (moddedConsumablesRegistry != null) {
-            moddedConsumablesRegistry?.reload(moddedConfig)
+            moddedConsumablesRegistry?.reload(allEntries)
         } else {
             moddedConsumablesRegistry = com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry(
-                moddedConfig,
+                allEntries,
                 logger
             )
         }
@@ -640,9 +669,8 @@ class MetabolismModule : AbstractModule(
         }
         
         // Validate entries
-        val allEntries = moddedConfig.getAllEntries()
         if (allEntries.isNotEmpty()) {
-            validateModdedEntries(moddedConfig)
+            validateModdedEntries(consumablesConfig)
         }
         
         val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
@@ -675,26 +703,24 @@ class MetabolismModule : AbstractModule(
      * Invalid entries are logged as warnings but don't prevent the system from working.
      */
     private fun initializeModdedConsumables() {
-        val moddedConfig = metabolismConfig.moddedConsumables
-        
-        if (!moddedConfig.enabled) {
+        if (!consumablesConfig.enabled) {
             logger.atFine().log("Modded consumables support is disabled")
             moddedConsumablesRegistry = null
             moddedItemValidator = null
             return
         }
         
-        // Create registry and validator
+        // Create registry from flat entry list and validator
+        val allEntries = consumablesConfig.getAllEntries()
         moddedConsumablesRegistry = com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry(
-            moddedConfig,
+            allEntries,
             logger
         )
         moddedItemValidator = com.livinglands.modules.metabolism.food.modded.ModdedItemValidator(logger)
         
         // Validate all configured entries
-        val allEntries = moddedConfig.getAllEntries()
         if (allEntries.isNotEmpty()) {
-            validateModdedEntries(moddedConfig)
+            validateModdedEntries(consumablesConfig)
         }
         
         val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
@@ -711,9 +737,9 @@ class MetabolismModule : AbstractModule(
      * Logs warnings for invalid or missing items but doesn't fail.
      * This allows graceful degradation when mods are removed.
      * 
-     * @param config The modded consumables configuration
+     * @param config The consumables configuration
      */
-    private fun validateModdedEntries(config: com.livinglands.modules.metabolism.config.ModdedConsumablesConfig) {
+    private fun validateModdedEntries(config: MetabolismConsumablesConfig) {
         val validator = moddedItemValidator ?: return
         
         var validCount = 0
@@ -732,6 +758,138 @@ class MetabolismModule : AbstractModule(
         } else {
             logger.atFine().log("Modded consumables validation: all $validCount entries valid")
         }
+    }
+    
+    // ============ Auto-Scan System ============
+    
+    /**
+     * Handle AddWorldEvent to trigger auto-scan on first world ready.
+     * 
+     * Only runs once per server start, and only if consumablesConfig is empty.
+     * Scans the Item registry asynchronously on the world thread.
+     */
+    private fun handleWorldAdded(event: AddWorldEvent) {
+        // Only run auto-scan once
+        if (autoScanComplete) {
+            return
+        }
+        
+        // Only run if config is empty (no consumables configured)
+        if (!shouldAutoScan()) {
+            logger.atFine().log("Skipping auto-scan: consumables config already populated")
+            autoScanComplete = true
+            return
+        }
+        
+        logger.atInfo().log("First world ready - triggering consumables auto-scan...")
+        autoScanComplete = true
+        
+        // Run scan asynchronously on world thread (required for Item AssetStore access)
+        event.world.execute {
+            performAutoScan()
+        }
+    }
+    
+    /**
+     * Check if auto-scan should run.
+     * Returns true if consumablesConfig is empty (no entries configured).
+     */
+    private fun shouldAutoScan(): Boolean {
+        return consumablesConfig.isEmpty()
+    }
+    
+    /**
+     * Perform auto-scan of Item registry for consumables.
+     * 
+     * Discovers all consumable items, converts to config entries,
+     * and saves to metabolism_consumables.yml.
+     * 
+     * **Thread Safety:** Must be called from within world.execute {} block.
+     */
+    private fun performAutoScan() {
+        try {
+            // Scan with empty exclude set (discover all)
+            val discovered = ConsumablesScanner.scanItemRegistry(emptySet(), logger)
+            
+            if (discovered.isEmpty()) {
+                logger.atInfo().log("Auto-scan complete: No consumables discovered")
+                return
+            }
+            
+            // Convert discovered items to ModdedConsumableEntry list
+            val entries = discovered.map { item ->
+                ModdedConsumableEntry(
+                    effectId = item.effectId,
+                    category = item.category,
+                    tier = item.tier,
+                    itemId = item.itemId
+                )
+            }
+            
+            // Create section name with current date
+            val sectionName = "AutoDiscovered_${LocalDate.now()}"
+            
+            // Create new config with discovered entries
+            val updatedConfig = consumablesConfig.copy(
+                enabled = true,  // Auto-enable when items are discovered
+                consumables = consumablesConfig.consumables + (sectionName to entries)
+            )
+            
+            // Save to config file
+            CoreModule.config.save(MetabolismConsumablesConfig.CONFIG_NAME, updatedConfig)
+            
+            // Update local reference
+            consumablesConfig = updatedConfig
+            
+            // Rebuild the consumables registry with new entries
+            rebuildConsumablesRegistry()
+            
+            logger.atInfo().log("✅ Auto-scan complete: Added ${entries.size} consumables to ${MetabolismConsumablesConfig.CONFIG_NAME}.yml")
+            
+        } catch (e: Exception) {
+            logger.atSevere().withCause(e).log("Auto-scan failed")
+        }
+    }
+    
+    /**
+     * Rebuild the modded consumables registry after config changes.
+     * 
+     * This is called after auto-scan or manual scan saves new entries.
+     * Re-creates the registry with the updated entry list.
+     */
+    fun rebuildConsumablesRegistry() {
+        if (!consumablesConfig.enabled) {
+            moddedConsumablesRegistry?.clear()
+            return
+        }
+        
+        val allEntries = consumablesConfig.getAllEntries()
+        
+        // Rebuild registry with new entries
+        if (moddedConsumablesRegistry != null) {
+            moddedConsumablesRegistry?.reload(allEntries)
+        } else {
+            moddedConsumablesRegistry = com.livinglands.modules.metabolism.food.modded.ModdedConsumablesRegistry(
+                allEntries,
+                logger
+            )
+        }
+        
+        logger.atFine().log("Rebuilt consumables registry with ${allEntries.size} entries")
+    }
+    
+    /**
+     * Get the current consumables configuration.
+     * Used by ScanConsumablesCommand to access configured entries.
+     */
+    fun getConsumablesConfig(): MetabolismConsumablesConfig = consumablesConfig
+    
+    /**
+     * Update the consumables configuration.
+     * Used by ScanConsumablesCommand after saving new entries.
+     */
+    fun updateConsumablesConfig(newConfig: MetabolismConsumablesConfig) {
+        consumablesConfig = newConfig
     }
     
     /**
