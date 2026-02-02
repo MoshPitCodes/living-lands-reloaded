@@ -400,22 +400,31 @@ class LivingLandsHudElement(
         builder.set("#ProfessionsPanel.Visible", professionsPanelVisible.get())
         
         // Always populate data if needed (even when hidden, so it's ready when shown)
-        if (professionsPanelNeedsRefresh && professionsService != null) {
-            populateProfessionsData(builder)
-            professionsPanelNeedsRefresh = false
+        if (professionsPanelNeedsRefresh) {
+            val service = professionsService
+            val registry = abilityRegistry
+            if (service != null && registry != null) {
+                populateProfessionsData(builder, service, registry)
+                professionsPanelNeedsRefresh = false
+            }
         }
     }
     
     /**
      * Populate all profession data into the UI.
      */
-    private fun populateProfessionsData(builder: UICommandBuilder) {
-        val service = professionsService ?: run {
-            logger.atFine().log("populateProfessionsData: professionsService is null")
-            return
-        }
-        val registry = abilityRegistry
-        
+    /**
+     * Populate all profession data into the UI.
+     * 
+     * @param builder UI command builder
+     * @param service Professions service (non-null, passed atomically to avoid race conditions)
+     * @param registry Ability registry (non-null, passed atomically to avoid race conditions)
+     */
+    private fun populateProfessionsData(
+        builder: UICommandBuilder,
+        service: ProfessionsService,
+        registry: AbilityRegistry?
+    ) {
         logger.atFine().log("populateProfessionsData: Starting population for player $playerId")
         
         var totalXp = 0L
@@ -493,9 +502,14 @@ class LivingLandsHudElement(
         }
         
         // If opening, populate data now
-        if (newState && professionsService != null) {
-            populateProfessionsData(builder)
-            professionsPanelNeedsRefresh = false
+        // Capture service references atomically to avoid race condition
+        if (newState) {
+            val service = professionsService
+            val registry = abilityRegistry
+            if (service != null && registry != null) {
+                populateProfessionsData(builder, service, registry)
+                professionsPanelNeedsRefresh = false
+            }
         }
         
         update(false, builder)
@@ -523,21 +537,28 @@ class LivingLandsHudElement(
         builder.set("#ProgressPanel.Visible", progressPanelVisible.get())
         
         // Always populate data if needed (even when hidden, so it's ready when shown)
-        if (progressPanelNeedsRefresh && professionsService != null) {
-            populateProgressData(builder)
-            progressPanelNeedsRefresh = false
+        if (progressPanelNeedsRefresh) {
+            val service = professionsService
+            if (service != null) {
+                populateProgressData(builder, service)
+                progressPanelNeedsRefresh = false
+            }
         }
     }
     
     /**
      * Populate progress panel with profession data.
      */
-    private fun populateProgressData(builder: UICommandBuilder) {
-        val service = professionsService ?: run {
-            logger.atFine().log("populateProgressData: professionsService is null")
-            return
-        }
-        
+    /**
+     * Populate progress panel data into the UI.
+     * 
+     * @param builder UI command builder
+     * @param service Professions service (non-null, passed atomically to avoid race conditions)
+     */
+    private fun populateProgressData(
+        builder: UICommandBuilder,
+        service: ProfessionsService
+    ) {
         logger.atFine().log("populateProgressData: Starting population for player $playerId")
         
         var populatedCount = 0
@@ -598,9 +619,13 @@ class LivingLandsHudElement(
         }
         
         // If opening, populate data now
-        if (newState && professionsService != null) {
-            populateProgressData(builder)
-            progressPanelNeedsRefresh = false
+        // Capture service reference atomically to avoid race condition
+        if (newState) {
+            val service = professionsService
+            if (service != null) {
+                populateProgressData(builder, service)
+                progressPanelNeedsRefresh = false
+            }
         }
         
         update(false, builder)
@@ -624,10 +649,14 @@ class LivingLandsHudElement(
      * Call this to refresh the panel content.
      */
     fun updateProfessionsPanel() {
-        if (!professionsPanelVisible.get() || professionsService == null) return
+        if (!professionsPanelVisible.get()) return
+        
+        // Capture services atomically
+        val service = professionsService ?: return
+        val registry = abilityRegistry ?: return
         
         val builder = UICommandBuilder()
-        populateProfessionsData(builder)
+        populateProfessionsData(builder, service, registry)
         professionsPanelNeedsRefresh = false
         update(false, builder)
     }
@@ -637,10 +666,13 @@ class LivingLandsHudElement(
      * Call this to refresh the panel content.
      */
     fun updateProgressPanel() {
-        if (!progressPanelVisible.get() || professionsService == null) return
+        if (!progressPanelVisible.get()) return
+        
+        // Capture service atomically
+        val service = professionsService ?: return
         
         val builder = UICommandBuilder()
-        populateProgressData(builder)
+        populateProgressData(builder, service)
         progressPanelNeedsRefresh = false
         update(false, builder)
     }
@@ -734,12 +766,16 @@ class LivingLandsHudElement(
         if (professionsPanelVisible.get() || progressPanelVisible.get()) {
             val builder = UICommandBuilder()
             
-            if (professionsPanelVisible.get() && professionsService != null) {
-                populateProfessionsData(builder)
+            // Capture services atomically
+            val service = professionsService
+            val registry = abilityRegistry
+            
+            if (professionsPanelVisible.get() && service != null && registry != null) {
+                populateProfessionsData(builder, service, registry)
             }
             
-            if (progressPanelVisible.get() && professionsService != null) {
-                populateProgressData(builder)
+            if (progressPanelVisible.get() && service != null) {
+                populateProgressData(builder, service)
             }
             
             update(false, builder)
