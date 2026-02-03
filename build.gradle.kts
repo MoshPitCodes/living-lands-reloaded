@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     // Hytale Server API (compile only - provided at runtime)
-    compileOnly(files("libs/Server/HytaleServer.jar"))
+    compileOnly(files("libs/hytale-server/HytaleServer.jar"))
     
     // Kotlin standard library
     implementation(kotlin("stdlib"))
