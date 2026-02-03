@@ -9,7 +9,9 @@ import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.event.events.ecs.InteractivelyPickupItemEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
@@ -156,7 +158,7 @@ class GatheringXpSystem(
         if (currentLevel >= 45 && abilityEffectService.hasHeartyGatherer(playerUuid)) {
             // Check if the picked up item is food
             if (isFoodItem(event)) {
-                val metabolismService = CoreModule.services.get<MetabolismService>()
+                val metabolismService = safeService<MetabolismService>("metabolism")
                 if (metabolismService != null) {
                     metabolismService.restoreStats(
                         playerUuid, 
@@ -164,7 +166,7 @@ class GatheringXpSystem(
                         thirst = HeartyGathererAbility.thirstRestore
                     )
                     
-                    logger.atFine().log("Hearty Gatherer restored +${HeartyGathererAbility.hungerRestore.toInt()} hunger/thirst for player $playerUuid")
+                    LoggingManager.debug(logger, "professions") { "Hearty Gatherer restored +${HeartyGathererAbility.hungerRestore.toInt()} hunger/thirst for player $playerUuid" }
                 }
             }
         }

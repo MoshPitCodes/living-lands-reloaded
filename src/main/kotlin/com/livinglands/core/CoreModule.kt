@@ -350,14 +350,14 @@ object CoreModule {
      * Get the number of registered modules.
      */
     fun getModuleCount(): Int = modules.size
-    
-    /**
-     * Setup all registered modules in dependency order.
-     * Uses Kahn's algorithm for topological sort.
-     * 
-     * @param context The module context with plugin references
-     */
-    suspend fun setupModules(context: ModuleContext) {
+     
+     /**
+      * Setup all registered modules in dependency order.
+      * Uses Kahn's algorithm for topological sort.
+      * 
+      * @param context The module context with plugin references
+      */
+     suspend fun setupModules(context: ModuleContext) {
         if (modules.isEmpty()) {
             logger.atFine().log("No modules to setup")
             return

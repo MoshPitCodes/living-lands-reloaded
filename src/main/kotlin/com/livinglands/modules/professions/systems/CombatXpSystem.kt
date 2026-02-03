@@ -10,8 +10,10 @@ import com.hypixel.hytale.server.core.modules.entity.damage.event.KillFeedEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.Universe
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
 import com.livinglands.core.SpeedManager
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
@@ -182,11 +184,11 @@ class CombatXpSystem(
      * @param store Entity store for ECS access
      */
     private fun applyAdrenalineRush(playerRef: PlayerRef, playerId: UUID, store: Store<EntityStore>) {
-        val speedManager = CoreModule.services.get<SpeedManager>()
-        if (speedManager == null) {
-            logger.atWarning().log("Cannot apply Adrenaline Rush - SpeedManager not available")
-            return
-        }
+         val speedManager = safeService<SpeedManager>("metabolism")
+         if (speedManager == null) {
+             LoggingManager.warn(logger, "professions") { "Cannot apply Adrenaline Rush - SpeedManager not available" }
+             return
+         }
         
         // Cancel existing effect if active (refresh duration)
         activeAdrenalineRush[playerId]?.cancel()
@@ -230,8 +232,8 @@ class CombatXpSystem(
      * @param store Entity store for ECS access
      */
     private fun removeAdrenalineRush(playerRef: PlayerRef, playerId: UUID, store: Store<EntityStore>) {
-        val speedManager = CoreModule.services.get<SpeedManager>()
-        if (speedManager == null) return
+         val speedManager = safeService<SpeedManager>("metabolism")
+         if (speedManager == null) return
         
         // Remove the speed multiplier
         speedManager.removeMultiplier(playerId, ADRENALINE_RUSH_CATEGORY)
@@ -270,7 +272,7 @@ class CombatXpSystem(
         activeAdrenalineRush.remove(playerId)
         
         // Also remove the speed multiplier if SpeedManager is available
-        CoreModule.services.get<SpeedManager>()?.removeMultiplier(playerId, ADRENALINE_RUSH_CATEGORY)
+         safeService<SpeedManager>("metabolism")?.removeMultiplier(playerId, ADRENALINE_RUSH_CATEGORY)
     }
     
     /**

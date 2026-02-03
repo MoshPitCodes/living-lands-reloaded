@@ -5,7 +5,10 @@ import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.Modifier
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier
+import com.livinglands.api.safeModule
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.core.toCachedString
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.data.Profession
@@ -57,10 +60,10 @@ class AbilityEffectService(
      */
     fun applyTier2Ability(playerId: UUID, profession: Profession) {
         val playerIdStr = playerId.toString()
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Tier 2 ability - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Tier 2 ability - MetabolismService not available" }
             return
         }
         
@@ -336,9 +339,9 @@ class AbilityEffectService(
             return
         }
         
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Survivalist - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Survivalist - MetabolismService not available" }
             return
         }
         
@@ -350,7 +353,7 @@ class AbilityEffectService(
         )
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Applied Survivalist (-15% depletion) to player $playerId")
+        LoggingManager.debug(logger, "professions") { "Applied Survivalist (-15% depletion) to player $playerId" }
     }
     
     // ============ Re-application on World Switch ============
@@ -378,14 +381,14 @@ class AbilityEffectService(
         // This ensures that when level drops below 45, the max stats revert to 100.
         // Without this, the old buffed values (110, 115, etc.) persist even after
         // the player no longer qualifies for the ability.
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         if (metabolismService != null) {
             metabolismService.resetMaxStats(playerId)
             
             // Also remove Survivalist depletion modifier (will be re-applied if still qualified)
             metabolismService.removeDepletionModifier(playerId, "professions:survivalist")
             
-            logger.atFine().log("Reset max stats and modifiers to base values for $playerId before re-applying abilities")
+            LoggingManager.debug(logger, "professions") { "Reset max stats and modifiers to base values for $playerId before re-applying abilities" }
         }
         
         // Remove Enduring Builder stamina modifier (will be re-applied if still qualified)
@@ -451,7 +454,7 @@ class AbilityEffectService(
      */
     fun removeAllAbilities(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         
         if (metabolismService != null) {
             // Reset max stats to defaults

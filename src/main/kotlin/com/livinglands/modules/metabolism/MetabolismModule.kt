@@ -953,17 +953,8 @@ class MetabolismModule : AbstractModule(
         
         try {
             // Get ProfessionsService and AbilityRegistry if they're registered
-            val professionsService = try {
-                CoreModule.services.get<com.livinglands.modules.professions.ProfessionsService>()
-            } catch (e: Exception) {
-                null
-            }
-            
-            val abilityRegistry = try {
-                CoreModule.services.get<com.livinglands.modules.professions.abilities.AbilityRegistry>()
-            } catch (e: Exception) {
-                null
-            }
+             val professionsService = safeService<com.livinglands.modules.professions.ProfessionsService>("professions")
+             val abilityRegistry = safeService<com.livinglands.modules.professions.abilities.AbilityRegistry>("professions")
             
             // Register the unified HUD with MultiHudManager
             logger.atFine().log("Registering unified HUD via MultiHudManager on world thread...")

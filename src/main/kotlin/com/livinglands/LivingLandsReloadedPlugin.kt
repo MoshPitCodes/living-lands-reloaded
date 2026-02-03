@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
 import com.hypixel.hytale.server.core.universe.world.events.RemoveWorldEvent
 import com.livinglands.api.ModuleContext
+import com.livinglands.api.safeService
 
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
@@ -323,9 +324,9 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         }
         
         // Send world config info to player (if metabolism module is loaded)
-        try {
-            val metabolismService = CoreModule.services.get<com.livinglands.modules.metabolism.MetabolismService>()
-            if (metabolismService != null) {
+         try {
+             val metabolismService = safeService<com.livinglands.modules.metabolism.MetabolismService>("metabolism")
+             if (metabolismService != null) {
                 val worldConfig = metabolismService.getConfigForWorld(worldContext)
                 
                 // Check if world has custom config

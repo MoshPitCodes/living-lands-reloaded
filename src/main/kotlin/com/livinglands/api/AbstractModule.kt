@@ -209,9 +209,9 @@ abstract class AbstractModule(
       * Helper to get an optional dependency module.
       * Returns null if the module is not found.
       */
-     protected inline fun <reified T : Module> optionalModule(moduleId: String): T? {
-         return CoreModule.getModule(moduleId)
-     }
+      protected inline fun <reified T : Module> optionalModule(moduleId: String): T? {
+          return CoreModule.getModule<T>(moduleId)
+      }
      
      /**
       * Safe dependency resolution for optional modules.
@@ -527,5 +527,71 @@ abstract class AbstractModule(
      */
     override suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {
         // Default: no-op - subclasses can override
+    }
+}
+
+/**
+ * Safe service access for non-AbstractModule classes.
+ * 
+ * Returns null if the service is not found or the module is not operational.
+ * This is the recommended way to access cross-module services from utility classes.
+ * 
+ * @param T The service type
+ * @param moduleId The module ID that provides this service
+ * @return The service instance, or null if unavailable
+ * 
+ * Example:
+ * ```kotlin
+ * val metabolismService = safeService<MetabolismService>("metabolism")
+ * if (metabolismService != null) {
+ *     metabolismService.restoreEnergy(playerId, amount)
+ * } else {
+ *     LoggingManager.debug(logger, "module") { "Metabolism unavailable" }
+ * }
+ * ```
+ */
+inline fun <reified T : Any> safeService(moduleId: String): T? {
+    return try {
+        // Check if the module providing this service is operational
+        val allModules = CoreModule.getAllModules()
+        val module = allModules.find { it.id == moduleId }
+        if (module?.state?.isOperational() == true) {
+            CoreModule.services.get<T>()
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
+ * Safe module access for non-AbstractModule classes.
+ * 
+ * Returns null if the module is not found or not in a valid state.
+ * Checks both existence and operational state before returning.
+ * 
+ * @param T The module type
+ * @param moduleId The module ID
+ * @return The module instance, or null if unavailable
+ * 
+ * Example:
+ * ```kotlin
+ * val metabolismModule = safeModule<MetabolismModule>("metabolism")
+ * if (metabolismModule?.state?.isOperational() == true) {
+ *     metabolismModule.doSomething()
+ * }
+ * ```
+ */
+inline fun <reified T : Module> safeModule(moduleId: String): T? {
+    return try {
+        val module = CoreModule.getModule<T>(moduleId)  // This is generic and will handle type casting
+        if (module?.state?.isOperational() == true) {
+            module
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
     }
 }

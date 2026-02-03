@@ -2,6 +2,7 @@ package com.livinglands.modules.metabolism.commands
 
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
 import com.livinglands.modules.metabolism.MetabolismService
@@ -53,10 +54,10 @@ class TestMetabolismCommand : CommandBase(
         }
         
         // Get MetabolismService
-        val metabolismService = CoreModule.services.get<MetabolismService>() ?: run {
-            MessageFormatter.commandError(ctx, "MetabolismService not found - module not loaded?")
-            return
-        }
+         val metabolismService = safeService<MetabolismService>("metabolism") ?: run {
+             MessageFormatter.commandError(ctx, "MetabolismService not found - module not loaded?")
+             return
+         }
         
         val subcommand = args[0].lowercase()
         
