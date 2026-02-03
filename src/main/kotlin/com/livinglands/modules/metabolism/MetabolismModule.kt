@@ -568,32 +568,8 @@ class MetabolismModule : AbstractModule(
     }
     
     override suspend fun onShutdown() {
-        logger.atFine().log("Metabolism module shutting down...")
-        
-        // First, cancel the persistence scope to prevent new saves from starting
-        // and wait for any in-flight saves to complete (with timeout)
-        try {
-            logger.atFine().log("Waiting for pending persistence operations...")
-            
-            // Get the supervisor job to wait on it
-            val supervisorJob = persistenceScope.coroutineContext[Job]
-            
-            // Cancel the scope (signals no new work should start)
-            persistenceScope.cancel("Module shutting down")
-            
-            // Wait for any in-flight coroutines to complete (with 5 second timeout)
-            if (supervisorJob != null) {
-                withTimeout(5000) {
-                    supervisorJob.join()
-                }
-                logger.atFine().log("All pending persistence operations completed")
-            }
-        } catch (e: CancellationException) {
-            // Expected when timeout occurs or scope is cancelled
-            logger.atFine().log("Persistence scope cancelled (some saves may have been interrupted)")
-        } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Error waiting for persistence operations")
-        }
+        // Wait for pending persistence operations (with 5 second timeout)
+        shutdownScopeWithTimeout(persistenceScope, "persistence", 5000)
         
         // Save all remaining players' metabolism data to global database (fallback for any not saved on disconnect)
         try {
@@ -608,8 +584,6 @@ class MetabolismModule : AbstractModule(
         
         // Unregister config reload callback
         CoreModule.config.removeReloadCallback("metabolism")
-        
-        logger.atFine().log("Metabolism module shutdown complete")
     }
     
     override fun onConfigReload() {

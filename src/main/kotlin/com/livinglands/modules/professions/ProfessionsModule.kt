@@ -221,30 +221,8 @@ class ProfessionsModule : AbstractModule(
     }
     
     override suspend fun onShutdown() {
-        logger.atFine().log("Professions module shutting down...")
-        
-        // Cancel moduleScope first to stop new operations
-        moduleScope.cancel()
-        
-        // Wait for any pending save operations to complete (with timeout)
-        val maxWaitMs = 5000L
-        val startTime = System.currentTimeMillis()
-        val pendingCount = pendingSaves.get()
-        
-        if (pendingCount > 0) {
-            logger.atFine().log("Waiting for $pendingCount pending save operation(s) to complete...")
-            
-            while (pendingSaves.get() > 0 && System.currentTimeMillis() - startTime < maxWaitMs) {
-                delay(100)
-            }
-            
-            val remaining = pendingSaves.get()
-            if (remaining > 0) {
-                logger.atWarning().log("Shutdown timeout with $remaining pending saves - some player data may be lost")
-            } else {
-                logger.atFine().log("All pending saves completed successfully")
-            }
-        }
+        // Wait for pending save operations (with 5 second timeout)
+        shutdownScopeWithTimeout(moduleScope, "module operations", 5000)
         
         // Save all remaining cached players (bulk save)
         val cachedPlayerCount = professionsService.getCacheSize()
@@ -262,10 +240,8 @@ class ProfessionsModule : AbstractModule(
             abilityEffectService.clearCache()
         }
         
-        // Now cancel saveScope (all critical saves should be done)
-        saveScope.cancel()
-        
-        logger.atFine().log("Professions module shutdown complete")
+        // Cleanup second scope (all critical saves should be done)
+        shutdownScopeWithTimeout(saveScope, "persistence", 5000)
     }
     
     // ============ Config Reload ============
