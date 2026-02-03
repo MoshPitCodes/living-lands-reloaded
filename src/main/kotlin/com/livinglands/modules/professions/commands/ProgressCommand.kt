@@ -53,41 +53,41 @@ class ProgressCommand : ModuleCommand(
         
          val playerId = session.playerId
          
-         // Ensure HUD is registered (may not be if command called before onPlayerJoin completes)
-         val hudElement = CoreModule.hudManager.getHud(playerId)
+         // Try to get HUD element (may not be initialized if command called immediately after join)
+         var hudElement = CoreModule.hudManager.getHud(playerId)
+         
          if (hudElement == null) {
-             // HUD not registered yet - try to register it now
+             // HUD not registered yet - request metabolism module to lazy-initialize it
              val metabolismModule = CoreModule.getModule<MetabolismModule>("metabolism")
              if (metabolismModule != null && metabolismModule.state.isOperational()) {
                  try {
+                     // Ensure HUD is registered (this is a suspend function that we need to block on)
                      val hudRegistered = runBlocking {
                          metabolismModule.ensureHudRegistered(playerId)
                      }
                      if (!hudRegistered) {
-                         MessageFormatter.commandError(ctx, "Failed to initialize HUD. Please rejoin the server.")
+                         MessageFormatter.commandError(ctx, "Unable to load HUD - player or world not found")
+                         return
+                     }
+                     // Now try to get the HUD element again
+                     hudElement = CoreModule.hudManager.getHud(playerId)
+                     if (hudElement == null) {
+                         MessageFormatter.commandError(ctx, "HUD initialization failed - please try again")
                          return
                      }
                  } catch (e: Exception) {
-                     logger.atWarning().withCause(e).log("Error registering HUD for /ll progress")
-                     MessageFormatter.commandError(ctx, "HUD initialization failed. Please rejoin the server.")
+                     logger.atWarning().withCause(e).log("Error initializing HUD for /ll progress: ${e.message}")
+                     MessageFormatter.commandError(ctx, "HUD initialization error - please rejoin the server")
                      return
                  }
              } else {
-                 MessageFormatter.commandError(ctx, "Metabolism module not available. HUD cannot be initialized.")
+                 MessageFormatter.commandError(ctx, "Metabolism module not available - HUD cannot be initialized")
                  return
              }
          }
          
-         // Get the unified HUD element (should be available now)
-         val hudElement2 = CoreModule.hudManager.getHud(playerId)
-         if (hudElement2 == null) {
-             MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
-             return
-         }
-         
          // Toggle the progress panel
-         // The toggle method handles visibility and data population
-         val newState = hudElement2.toggleProgressPanel()
+         val newState = hudElement.toggleProgressPanel()
         
         // Send feedback to player
         val message = if (newState) {

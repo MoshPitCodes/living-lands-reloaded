@@ -5,6 +5,8 @@ import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
+import com.livinglands.modules.metabolism.MetabolismModule
+import kotlinx.coroutines.runBlocking
 
 /**
  * Toggle HUD element visibility.
@@ -54,11 +56,29 @@ class HudToggleCommand(
         val playerId = session.playerId
         
         // Get unified HUD element from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud(playerId)
+        var hudElement = CoreModule.hudManager.getHud(playerId)
         
         if (hudElement == null) {
-            MessageFormatter.commandError(ctx, "HUD not loaded yet. Please wait a moment and try again.")
-            return
+            // HUD not registered yet - try to lazy-initialize it
+            try {
+                val metabolismModule = CoreModule.getModule<MetabolismModule>("metabolism")
+                if (metabolismModule != null && metabolismModule.state.isOperational()) {
+                    // Ensure HUD is registered
+                    val hudRegistered = runBlocking {
+                        metabolismModule.ensureHudRegistered(playerId)
+                    }
+                    if (hudRegistered) {
+                        hudElement = CoreModule.hudManager.getHud(playerId)
+                    }
+                }
+            } catch (e: Exception) {
+                // If lazy init fails, continue with error
+            }
+            
+            if (hudElement == null) {
+                MessageFormatter.commandError(ctx, "HUD not available. Please wait a moment and rejoin if this persists.")
+                return
+            }
         }
         
         // Toggle the appropriate element

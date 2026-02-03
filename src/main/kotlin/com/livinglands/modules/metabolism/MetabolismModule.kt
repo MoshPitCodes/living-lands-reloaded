@@ -974,7 +974,7 @@ class MetabolismModule : AbstractModule(
      * @param playerId The player UUID
      * @return true if HUD is now available, false if player/world not found
      */
-    suspend fun ensureHudRegistered(playerId: UUID): Boolean {
+    public suspend fun ensureHudRegistered(playerId: UUID): Boolean {
         // Quick check - if HUD already registered, we're done
         val existingHud = CoreModule.hudManager.getHud(playerId)
         if (existingHud != null) {
