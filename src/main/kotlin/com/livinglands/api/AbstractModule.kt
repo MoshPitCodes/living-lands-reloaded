@@ -9,6 +9,12 @@ import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
 import com.livinglands.core.logging.LoggingManager
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withTimeout
 
 /**
  * Base implementation for modules with common functionality.
@@ -427,12 +433,69 @@ abstract class AbstractModule(
          context.commandRegistry.registerCommand(command)
      }
     
-    /**
-     * Log a debug message using LoggingManager.
-     */
-    protected fun debug(message: String) {
-        LoggingManager.debug(logger, id) { message }
-    }
+     /**
+      * Log a debug message using LoggingManager.
+      */
+     protected fun debug(message: String) {
+         LoggingManager.debug(logger, id) { message }
+     }
+     
+     // ============ Coroutine Lifecycle Helpers ============
+     
+     /**
+      * Safely shutdown a coroutine scope during module shutdown.
+      * 
+      * This helper ensures:
+      * 1. The scope is cancelled (no new work starts)
+      * 2. Existing coroutines are given time to finish (respects timeout)
+      * 3. Cancellation is logged appropriately
+      * 4. Exceptions are logged but don't propagate
+      * 
+      * Usage in onShutdown():
+      * ```kotlin
+      * override suspend fun onShutdown() {
+      *     // Wait for pending persistence operations with 5 second timeout
+      *     shutdownScopeWithTimeout(persistenceScope, "persistence", 5000)
+      *     
+      *     // Do synchronous cleanup if needed
+      *     logger.atFine().log("Cleaning up resources...")
+      * }
+      * ```
+      * 
+      * @param scope The coroutine scope to shutdown
+      * @param name A human-readable name for logging ("persistence", "background tasks", etc.)
+      * @param timeoutMs How long to wait for coroutines to complete (default 5000ms)
+      */
+     protected suspend fun shutdownScopeWithTimeout(
+         scope: CoroutineScope,
+         name: String,
+         timeoutMs: Long = 5000L
+     ) {
+         try {
+             logger.atFine().log("Waiting for $name scope to complete (timeout: ${timeoutMs}ms)...")
+             
+             val job = scope.coroutineContext[Job]
+             scope.cancel("Module shutting down")
+             
+             if (job != null) {
+                 try {
+                     withTimeout(timeoutMs) {
+                         job.join()
+                     }
+                     logger.atFine().log("All $name scope coroutines completed")
+                 } catch (e: TimeoutCancellationException) {
+                     logger.atWarning().log(
+                         "$name scope did not complete within ${timeoutMs}ms - " +
+                         "some operations may not have finished. Check logs for incomplete saves."
+                     )
+                 }
+             }
+         } catch (e: CancellationException) {
+             logger.atFine().log("$name scope cancelled")
+         } catch (e: Exception) {
+             logger.atWarning().withCause(e).log("Error shutting down $name scope")
+         }
+     }
     
     // ============ Player Lifecycle Hooks ============
     
