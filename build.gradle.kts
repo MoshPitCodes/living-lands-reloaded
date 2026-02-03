@@ -35,9 +35,9 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0")
     
     // Testing dependencies
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
+     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
 }
 
 java {
@@ -104,4 +104,89 @@ tasks {
     build {
         dependsOn(shadowJar)
     }
+}
+
+// Custom task to check for unsafe service access patterns
+tasks.register("checkUnsafeServiceAccess") {
+    doLast {
+        val sourceDir = file("src/main/kotlin")
+        val issues = mutableListOf<String>()
+        val coreServices = setOf(
+            "ConfigManager",
+            "WorldRegistry",
+            "PlayerRegistry",
+            "HudManager",
+            "EventRegistry",
+            "GlobalPlayerDataRepository",
+            "SpeedManager"
+        )
+        
+        sourceDir.walkTopDown().forEach { file ->
+            if (file.extension == "kt" && file.isFile) {
+                // Skip core module - it can use direct access
+                if (file.path.contains("src/main/kotlin/com/livinglands/core")) {
+                    return@forEach
+                }
+                
+                // Skip API module implementation files (AbstractModule contains the safe helpers)
+                if (file.path.contains("src/main/kotlin/com/livinglands/api")) {
+                    return@forEach
+                }
+                
+                // Skip test files
+                if (file.path.contains("Test") || file.name.endsWith("Doc.kt")) {
+                    return@forEach
+                }
+                
+                val content = file.readText()
+                val lines = content.split("\n")
+                
+                lines.forEachIndexed { index, line ->
+                    // Look for unsafe pattern: CoreModule.services.get<
+                    if (line.contains("CoreModule.services.get<")) {
+                        // Extract service type
+                        val regex = """CoreModule\.services\.get<([^>]+)>""".toRegex()
+                        val match = regex.find(line)
+                        if (match != null) {
+                            val serviceType = match.groupValues[1]
+                            
+                            // Check if it's a core service (allowed)
+                            if (coreServices.any { serviceType.endsWith(it) }) {
+                                return@forEachIndexed
+                            }
+                            
+                            // Check if it's in safe pattern context (try-catch)
+                            if (line.contains("as?") || line.contains("?: run") || line.trim().startsWith("//")) {
+                                return@forEachIndexed
+                            }
+                            
+                            // Flag as issue
+                            val relativePath = file.relativeTo(project.rootDir).path
+                            issues.add(
+                                "$relativePath:${index + 1}: " +
+                                "Unsafe service access: CoreModule.services.get<$serviceType>() " +
+                                "should use safeService<$serviceType>(\"moduleName\") instead."
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (issues.isNotEmpty()) {
+            println("\n⚠️  WARNING: Unsafe Service Access Patterns Found (${issues.size}):")
+            println("=" .repeat(80))
+            issues.forEach { println("  $it") }
+            println("=" .repeat(80))
+            println("\nFix: Replace CoreModule.services.get<T>() with safeService<T>(\"moduleName\")")
+            println("Reference: AGENTS.md - Safe Dependency Resolution\n")
+        } else {
+            println("✅ No unsafe service access patterns found")
+        }
+    }
+}
+
+// Run safety checks during build
+tasks.named("build") {
+    dependsOn("checkUnsafeServiceAccess")
 }
