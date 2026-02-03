@@ -53,16 +53,17 @@ abstract class AbstractModule(
     @PublishedApi
     internal val resourceTracker = ModuleResourceTracker(id)
     
-    /**
-     * Setup phase - wraps onSetup() with state management and error handling.
-     * This is final - subclasses should override onSetup() instead.
-     */
-    final override suspend fun setup(context: ModuleContext) {
-        this.context = context
-        try {
-            onSetup()
-            state = ModuleState.SETUP
-            logger.atFine().log("Module '$id' setup complete")
+     /**
+      * Setup phase - wraps onSetup() with state management and error handling.
+      * This is final - subclasses should override onSetup() instead.
+      */
+     final override suspend fun setup(context: ModuleContext) {
+         this.context = context
+         // Transition to SETUP state BEFORE calling onSetup() so registration helpers can validate
+         state = ModuleState.SETUP
+         try {
+             onSetup()
+             logger.atFine().log("Module '$id' setup complete")
         } catch (e: Exception) {
             state = ModuleState.ERROR
             logger.atSevere().withCause(e).log("Failed to setup module $id")
