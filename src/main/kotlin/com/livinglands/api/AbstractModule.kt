@@ -43,6 +43,9 @@ abstract class AbstractModule(
     override var state: ModuleState = ModuleState.DISABLED
         protected set
     
+    /** Resource tracker for cleanup reporting */
+    private val resourceTracker = ModuleResourceTracker(id)
+    
     /**
      * Setup phase - wraps onSetup() with state management and error handling.
      * This is final - subclasses should override onSetup() instead.
@@ -127,28 +130,43 @@ abstract class AbstractModule(
         }
     }
     
-    /**
-     * Shutdown phase - wraps onShutdown() with state management.
-     * This is final - subclasses should override onShutdown() instead.
-     * Note: Does not rethrow exceptions to allow other modules to shutdown.
-     */
-    final override suspend fun shutdown() {
-        // Allow shutdown from STARTED or ERROR states
-        if (state != ModuleState.STARTED && state != ModuleState.ERROR) {
-            logger.atFine().log("Module '$id' not started or in error, skipping shutdown")
-            return
-        }
-        
-        try {
-            onShutdown()
-            state = ModuleState.STOPPED
-            logger.atFine().log("Module '$id' shutdown complete")
-        } catch (e: Exception) {
-            // Don't rethrow - allow other modules to continue shutdown
-            state = ModuleState.ERROR
-            logger.atSevere().withCause(e).log("Failed to shutdown module $id")
-        }
-    }
+     /**
+      * Shutdown phase - wraps onShutdown() with state management.
+      * This is final - subclasses should override onShutdown() instead.
+      * Note: Does not rethrow exceptions to allow other modules to shutdown.
+      */
+     final override suspend fun shutdown() {
+         // Allow shutdown from STARTED or ERROR states
+         if (state != ModuleState.STARTED && state != ModuleState.ERROR) {
+             logger.atFine().log("Module '$id' not started or in error, skipping shutdown")
+             return
+         }
+         
+         try {
+             onShutdown()
+             state = ModuleState.STOPPED
+             logger.atFine().log("Module '$id' shutdown complete")
+             
+             // Report cleanup information
+             val report = resourceTracker.getCleanupReport()
+             if (report.warnings.isNotEmpty()) {
+                 logger.atWarning().log(report.formatSummary())
+            }
+         } catch (e: Exception) {
+             // Don't rethrow - allow other modules to continue shutdown
+             state = ModuleState.ERROR
+             logger.atSevere().withCause(e).log("Failed to shutdown module $id")
+             
+             // Still report cleanup information for error case
+             val report = resourceTracker.getCleanupReport()
+             if (report.warnings.isNotEmpty()) {
+                 logger.atWarning().log("Cleanup warnings during error shutdown for module '$id':")
+                 report.warnings.forEach { warning ->
+                     logger.atWarning().log("  - $warning")
+                 }
+             }
+         }
+     }
     
     /**
      * Override to perform setup logic.
@@ -305,6 +323,7 @@ abstract class AbstractModule(
              "Cannot register listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
              "Listeners must be registered during onSetup()."
          }
+         resourceTracker.trackEventListener(E::class.simpleName ?: E::class.java.simpleName)
          context.eventRegistry.register(E::class.java) { event ->
              try {
                  // Only handle event if module is in operational state
@@ -337,6 +356,7 @@ abstract class AbstractModule(
              "Cannot register global listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
              "Listeners must be registered during onSetup()."
          }
+         resourceTracker.trackEventListener("(global) ${E::class.simpleName ?: E::class.java.simpleName}")
          context.eventRegistry.registerGlobal(E::class.java as Class<IBaseEvent<Any>>) { event ->
              try {
                  // Only handle event if module is in operational state
@@ -384,6 +404,7 @@ abstract class AbstractModule(
              "Cannot register system - module '$id' is in $state state, not SETUP. " +
              "Systems must be registered during onSetup()."
          }
+         resourceTracker.trackSystem(system::class.simpleName ?: system::class.java.simpleName)
          context.entityStoreRegistry.registerSystem(system)
      }
     
@@ -402,6 +423,7 @@ abstract class AbstractModule(
              "Cannot register command '${command.name}' - module '$id' is in $state state, not SETUP. " +
              "Commands must be registered during onSetup()."
          }
+         resourceTracker.trackCommand(command.name)
          context.commandRegistry.registerCommand(command)
      }
     
