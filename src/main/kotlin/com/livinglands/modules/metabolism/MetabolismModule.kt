@@ -998,6 +998,63 @@ class MetabolismModule : AbstractModule(
     }
     
     /**
+     * Ensure HUD is registered for a player (lazy initialization).
+     * 
+     * This method is called by commands that need HUD to be available.
+     * If HUD isn't registered yet (due to race condition on player join),
+     * this will trigger registration synchronously on the world thread.
+     * 
+     * Safe to call multiple times - if HUD already exists, returns immediately.
+     * 
+     * @param playerId The player UUID
+     * @return true if HUD is now available, false if player/world not found
+     */
+    suspend fun ensureHudRegistered(playerId: UUID): Boolean {
+        // Quick check - if HUD already registered, we're done
+        val existingHud = CoreModule.hudManager.getHud(playerId)
+        if (existingHud != null) {
+            return true
+        }
+        
+        // HUD not registered - try to register it now
+        try {
+            val session = CoreModule.players.getSession(playerId)
+            if (session == null) {
+                logger.atFine().log("Cannot register HUD for $playerId - player session not found")
+                return false
+            }
+            
+            // Check if we have playerRef cached (from onPlayerJoin)
+            val cachedRefs = playerRefs[playerId]
+            if (cachedRefs == null) {
+                logger.atFine().log("Cannot register HUD for $playerId - player refs not cached yet")
+                return false
+            }
+            val (player, playerRef) = cachedRefs
+            
+            // Execute on world thread to safely access player data and register HUD
+            var hudRegistered = false
+            session.world.execute {
+                try {
+                    val currentPlayer = session.store.getComponent(session.entityRef, Player.getComponentType())
+                    if (currentPlayer != null) {
+                        registerHudForPlayer(currentPlayer, playerRef, playerId)
+                        hudRegistered = true
+                    } else {
+                        logger.atFine().log("Cannot register HUD for $playerId - player component not found")
+                    }
+                } catch (e: Exception) {
+                    logger.atWarning().withCause(e).log("Failed to lazily register HUD for $playerId")
+                }
+            }
+            return hudRegistered
+        } catch (e: Exception) {
+            logger.atWarning().withCause(e).log("Error ensuring HUD registration for $playerId")
+            return false
+        }
+    }
+    
+    /**
      * Cleanup player refs map entry only (without HUD cleanup).
      * Used when we don't have a PlayerRef available.
      */

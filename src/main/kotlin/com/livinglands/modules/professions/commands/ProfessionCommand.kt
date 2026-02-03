@@ -5,6 +5,8 @@ import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
 import com.livinglands.core.commands.ModuleCommand
+import com.livinglands.modules.metabolism.MetabolismModule
+import kotlinx.coroutines.runBlocking
 
 /**
  * Command to toggle the professions panel.
@@ -48,18 +50,42 @@ class ProfessionCommand : ModuleCommand(
         }
         
         val playerId = session.playerId
+         
+         // Ensure HUD is registered (may not be if command called before onPlayerJoin completes)
+         val hudElement = CoreModule.hudManager.getHud(playerId)
+         if (hudElement == null) {
+             // HUD not registered yet - try to register it now
+             val metabolismModule = CoreModule.getModule<MetabolismModule>("metabolism")
+             if (metabolismModule != null && metabolismModule.state.isOperational()) {
+                 try {
+                     val hudRegistered = runBlocking {
+                         metabolismModule.ensureHudRegistered(playerId)
+                     }
+                     if (!hudRegistered) {
+                         MessageFormatter.commandError(ctx, "Failed to initialize HUD. Please rejoin the server.")
+                         return
+                     }
+                 } catch (e: Exception) {
+                     logger.atWarning().withCause(e).log("Error registering HUD for /ll professions")
+                     MessageFormatter.commandError(ctx, "HUD initialization failed. Please rejoin the server.")
+                     return
+                 }
+             } else {
+                 MessageFormatter.commandError(ctx, "Metabolism module not available. HUD cannot be initialized.")
+                 return
+             }
+         }
+         
+         // Get the unified HUD element (should be available now)
+         val hudElement2 = CoreModule.hudManager.getHud(playerId)
+         if (hudElement2 == null) {
+             MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
+             return
+         }
         
-        // Get the unified HUD element for this player
-        val hudElement = CoreModule.hudManager.getHud(playerId)
-        
-        if (hudElement == null) {
-            MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
-            return
-        }
-        
-        // Toggle the professions panel
-        // The toggle method handles visibility and data population
-        val newState = hudElement.toggleProfessionsPanel()
+         // Toggle the professions panel
+         // The toggle method handles visibility and data population
+         val newState = hudElement2.toggleProfessionsPanel()
         
         // Send feedback to player
         val message = if (newState) {

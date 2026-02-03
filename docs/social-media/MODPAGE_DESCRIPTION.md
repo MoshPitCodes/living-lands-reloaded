@@ -8,236 +8,125 @@
 
 ---
 
-Living Lands Reloaded makes survival feel personal.
+## IMPORTANT (Compatibility)
 
-Every trip has a cost, every fight drains you, and every run home becomes a decision. As you play, your craft turns into identity: you grow into a fighter, miner, builder, logger, or gatherer, unlocking lasting perks along the way.
+Living Lands Reloaded is **NOT COMPATIBLE** with:
 
-***
+- Mods using CustomUI (HUD/UI conflicts)
+- MultipleHUD
+- Mods that manipulate player stats or add separate XP systems
 
-***
+Living Lands Reloaded makes survival feel personal: travel, combat, and work drain your needs, while professions turn your playstyle into long-term perks.
 
-**🚨 IMPORTANT 🚨**
+## Player Experience
 
-**This mod is __NOT COMPATIBLE__ with other mods that have a CustomUI.**
+### RPG Survival Needs
 
-**This mod is __NOT COMPATIBLE__ with MultipleHUD mod.**
+- HUD-tracked needs: **Hunger**, **Thirst**, **Energy**
+- Activity-based drain (travel, combat, effort)
+- Clear consequences and rewards (low needs hurt, high energy feels great)
 
-*   Until Hypixel has figured out how UIs should work in the game, I will not invest any time into this.
+### Professions That Reward Normal Play
 
-**This mod is __NOT COMPATIBLE__ with mods that manipulate player stats or introduce XP systems.**
+- Earn XP by playing: Combat, Mining, Logging, Building, Gathering
+- Tier 1 (Lv 15): XP bonus
+- Tier 2 (Lv 45): big survival boosts
+- Tier 3 (Lv 100): powerful perks (mobility/combat triggers, resource bonuses, building efficiency)
 
-*   These introduce conflicting mechanics with individual implementations that are not meant to work together.
+Death penalty: XP loss on your **2 highest professions** (10% base, +3% per death, capped at 35%) with decay/mercy.
 
-***
+### Modded Consumables (v1.4.3)
 
-***
+- Auto-discovers food/drinks/potions from installed mods on first startup
+- Groups items by mod namespace for easy management
+- Re-scan after adding mods: `/ll scan consumables --save`
 
-## 🧭 RPG Survival: Needs That Create Stakes
+Performance: ~200ms auto-scan for ~250 consumables (201 detected with valid effects).
 
-Three stats tracked and shown on the HUD:
+## Admin Experience
 
-*   **Hunger** - food pressure (includes damage at low hunger)
-*   **Thirst** - travel pressure (stamina pressure at low thirst)
-*   **Energy** - effort pressure (speed debuffs at low energy, speed buff at high energy)
+- Drop-in setup: install, boot once, configs generate automatically
+- Hot reload: `/ll reload [module]`
+- Optional per-world metabolism overrides
+- Announcements: MOTD, welcome messages, recurring announcements, operator broadcast
 
-Drain is **activity-based** (sprinting/combat/travel), and foods restore different needs.
+## Commands (Quick Reference)
 
-**🎉 v1.4.3 - AUTOMATIC CONSUMABLES DISCOVERY! 🎉**
+Players:
 
-**Zero-configuration modded consumables - just install mods and start your server!**
+- `/ll stats`
+- `/ll buffs`, `/ll debuffs`
+- `/ll professions`, `/ll progress`
 
-- ✨ **Auto-Scan System:** Automatically discovers all food/drink/potion items on first startup
-- 🏷️ **Smart Grouping:** Organizes items by mod namespace (Hytale, NoCube, HiddenIsme, ChampionsVandal)
-- ⚡ **Fast Performance:** ~200ms scan time for 250 consumable items (201 with valid effects)
-- 🔍 **Manual Scan:** `/ll scan consumables --save` to discover new items after installing mods
-- 📁 **Separate Config:** Clean organization in `metabolism_consumables.yml`
+Admins:
 
-### 🍖 Modded Consumables Support (v1.4.3 - AUTO-DISCOVERY!)
+- `/ll reload [module]`
+- `/ll broadcast <message>`
+- `/ll prof set/add/reset/show`
+- `/ll scan consumables [--save] [--section <name>]`
 
-**NEW IN v1.4.3:** Living Lands automatically discovers and configures consumables from installed mods!
+## Stability & Performance
 
-No more manual configuration - just install your favorite food/drink mods and Living Lands handles the rest.
+- Auto-save every 5 minutes to reduce data loss risk
+- Fast startup consumables scan (see metric above)
+- Responsive HUD updates (changes show immediately)
 
-*   **Namespace Detection** - Smart grouping by mod for easy management
-    *   Uses Hytale's `AssetMap.getAssetPack()` API for accurate detection
-    *   Creates organized sections: `AutoScan_2026-02-02_Hytale`, `AutoScan_2026-02-02_NoCube`
-*   **Extended Tier System** - Support for T1-T7 items (vanilla was T1-T3)
-    *   T6 Exquisite Feast: 53 hunger (69 with MEAT multiplier!)
-    *   T7 Legendary Feast: 65 hunger (84.5 with MEAT multiplier!)
-*   **Manual Scan Command** - Need to discover new items after installing more mods?
-    *   `/ll scan consumables` - Preview discovered items
-    *   `/ll scan consumables --save` - Save to config with namespace grouping
-*   **Hot-Reload Support** - Edit config, run `/ll reload`, changes apply instantly
+## Compatibility (Important)
 
-***
+Not compatible with:
 
-## 🏅 Professions: Your Character Sheet In Motion
+- Mods using CustomUI (HUD/UI conflicts)
+- MultipleHUD
+- Mods that manipulate player stats or add separate XP systems
 
-Gain XP from normal play:
+If you hit a compatibility issue, report it on GitHub.
 
-*   **Combat** (kills), **Mining** (ores), **Logging** (logs), **Building** (placing blocks), **Gathering** (item pickups)
+## Compatible Mods (Tested)
 
-Abilities unlock at:
+This is a non-exhaustive list of mods confirmed compatible in live server testing.
 
-*   **Level 15 (Tier 1):** +15% XP in that profession
-*   **Level 45 (Tier 2):** **MASSIVE survival boosts!** Combat +35 max hunger (135 total), Mining +35 max thirst (135 total), Logging +35 max energy (135 total), Building +15 max stamina, Gathering +4 hunger/thirst on food pickup ✅
-*   **Level 100 (Tier 3):** ✨ **ALL FUNCTIONAL IN 1.4.0!** ✨
-    *   **Survivalist (Combat):** -15% metabolism depletion
-    *   **Adrenaline Rush (Combat):** +10% speed for 5 seconds on kill
-    *   **Ore Sense (Mining):** 10% chance bonus ore drop
-    *   **Timber! (Logging):** 25% chance extra log
-    *   **Efficient Architect (Building):** 12% chance block refund
+Quality of life:
 
-Death penalty: progressive XP loss on your **2 highest professions** (base **10%**, +**3%** per death, capped at **35%**), with decay and mercy.
+- AdvancedItemInfo (v1.0.5)
+- BetterMap (v1.2.7)
+- WhereThisAt (v1.0.6)
+- Simply-Trash (v1.0.0)
+- BetterWardrobes (v1.0.2)
 
-***
+Gameplay / utility:
 
-## 🛠️ Built For Server Owners (Not Just Players)
+- BloodMoon (v1.2.1)
+- Eldritch Tales (v0.0.1)
+- Books and Papers (v1.1.0)
+- Vein Mining (v1.3.7)
+- Hybrid (v1.7 - 2026.01.17)
+- Overstacked (v2026.1.28)
 
-*   **Drop-in setup** - install the jar, boot the server, configs generate automatically
-*   **Hot reload** - `/ll reload [module]`
-*   **Per-world metabolism rules** - optional world overrides for metabolism config
-*   **Configurable** - XP rates, drain rates, penalties, announcements
+Content expansion (highlights):
 
-***
+- Hidden's Harvest Delights (v0.0.3)
+- NoCube Bakehouse/Culinary/Tavern/Orchard/Cultivation (v0.0.2)
+- More Potions (v2.0.0)
+- Aures Horses (v01.02.2026 - Evil Update)
+- Aures Livestock (v01.02.2026)
+- NoCube Undead Warriors (v0.0.3)
+- Skeleton Banging Shield (v0.2)
+- NoCube Bags/Resource Bags (v0.0.2)
+- Outlanders Armor Pack (v1.2)
+- Thorium Chests (v1.0.0)
+- Thorium Furnaces (v1.0.2)
+- Artisan's Palette (v1.0.1)
+- Violet's Furnishings (v1.0.1)
+- Violet's Wardrobe
 
-## 📢 Server Announcements
+## Installation
 
-*   **MOTD** + **welcome messages** (first-time vs returning)
-*   **Recurring announcements** (configurable intervals)
-*   **Admin broadcast** (`/ll broadcast <message>`)
-*   Placeholders: `{player_name}`, `{server_name}`, `{join_count}`
-*   Color codes: `&a`, `&6`, etc.
-
-Note: per-world overrides are supported in config; world-specific routing is being finished.
-
-***
-
-## ⌨️ Commands
-
-**Player Commands:**
-
-*   `/ll stats` - toggle metabolism HUD panel
-*   `/ll buffs` - toggle buffs display
-*   `/ll debuffs` - toggle debuffs display
-*   `/ll professions` - toggle professions panel
-*   `/ll progress` - toggle compact professions progress panel
-
-**Admin Commands:**
-
-*   `/ll reload [module]` - reload configuration files (operator only)
-*   `/ll broadcast <message>` - broadcast message to all players (operator only)
-*   `/ll prof set/add/reset/show` - manage player professions (operator only)
-*   `/ll scan consumables [--save] [--section <name>]` - discover consumable items (operator only)
-
-***
-
-## 🛡️ Stability & Performance (v1.4.3)
-
-Living Lands Reloaded has undergone comprehensive algorithm auditing to ensure rock-solid reliability:
-
-*   **Auto-Discovery System (v1.4.3)** - Automatic consumables detection with ~200ms scan time for 250 items (201 valid)
-*   **Smart Namespace Grouping (v1.4.3)** - Efficient mod detection using Hytale's AssetMap API
-*   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
-*   **Race Condition Protection** - Coroutine Mutex prevents corruption when admin commands and gameplay events collide
-*   **Memory Leak Prevention** - Guaranteed cleanup on player disconnect, even when errors occur
-*   **Database Verification** - All writes verified with row count checks and failure warnings
-*   **Instant Feedback** - Buffs/debuffs and HUD update the moment you eat food (no delay)
-*   **Wider Hysteresis Gaps** - 10-point gaps eliminate debuff flickering
-
-## 🗺️ What's Coming Next
-
-**Next Updates:**
-
-*   **Land Claims** (planned) - protect builds, trust friends, per-world management
-*   **Advanced mechanics** (planned) - high-stat buffs, seasonal variation, custom food effects, poison and dangerous consumables
-
-***
-
-## 📦 Installation
-
-Players: join a server running Living Lands Reloaded. The HUD appears automatically.
+Players: join a server running Living Lands Reloaded (HUD appears automatically).
 
 Server owners:
 
-1.  Download `livinglands-reloaded-1.4.3.jar`
-2.  Place it in your Hytale global mods folder: `AppData/Roaming/Hytale/UserData/Mods/`
-3.  Start the server
-4.  Configs generate in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
-
-***
-
-## 💬 Community
-
-*   Bugs and issues: [GitHub](https://github.com/MoshPitCodes/living-lands-reloaded)
-*   Suggestions and discussion: [Discord](https://discord.gg/8jgMj9GPsq)
-*   If you like the mod: reviews help more than you think
+1) Download `livinglands-reloaded-1.4.3.jar`
+2) Place it in `AppData/Roaming/Hytale/UserData/Mods/`
+3) Start the server (configs generate under `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`)
 
 Built by **MoshPitCodes**.
-
-**Current Version:** 1.4.3 **License:** Apache 2.0 **Source Code:** Available on GitHub
-
-***
-
-☕ Support Development
-
-Enjoying Living Lands Reloaded? Consider supporting development: [Ko-fi](https://ko-fi.com/moshpitplays)
-
-***
-
-## ✅ Compatible Mods
-
-Living Lands Reloaded has been tested and confirmed compatible with the following mods:
-
-### Quality of Life Mods
-*   **AdvancedItemInfo** (v1.0.5) - Enhanced item tooltips and information display
-*   **BetterMap** (v1.2.7) - Improved minimap and navigation features
-*   **WhereThisAt** (v1.0.6) - Coordinate display and waypoint management
-*   **Simply-Trash** (v1.0.0) - Trash can and item deletion utilities
-*   **BetterWardrobes** (v1.0.2) - Enhanced wardrobe management system
-
-### Gameplay Enhancement Mods
-*   **BloodMoon** (v1.2.1) - Challenging night events with increased difficulty
-*   **Eldritch Tales** (v0.0.1) - Story and lore expansion content
-*   **Books and Papers** (v1.1.0) - Enhanced reading and writing mechanics
-*   **Vein Mining** (v1.3.7) - Mine entire ore veins at once (works with Living Lands Mining profession!)
-
-### Utility Mods
-*   **Hybrid** (v1.7 - 2026.01.17) - Server-side utility features
-*   **Overstacked** (v2026.1.28) - Increased stack sizes for better inventory management
-
-### Content Expansion Mods
-
-#### Food & Consumables (Works seamlessly with Living Lands auto-scan!)
-*   **Hidden's Harvest Delights** (v0.0.3) - Expanded food variety and recipes
-*   **NoCube Bakehouse** (v0.0.2) - Bakery items and bread varieties
-*   **NoCube Culinary** (v0.0.2) - Cooking expansion with new recipes
-*   **NoCube Tavern** (v0.0.2) - Tavern-themed food and drinks
-*   **NoCube Orchard** (v0.0.2) - Fruit trees and orchard mechanics
-*   **NoCube Cultivation** (v0.0.2) - Advanced farming mechanics
-*   **More Potions** (v2.0.0) - Additional potion types and effects
-
-#### Creatures & NPCs
-*   **Aures Horses** (v01.02.2026 - Evil Update) - Horse variants and mechanics
-*   **Aures Livestock** (v01.02.2026) - Farm animal expansion
-*   **NoCube Undead Warriors** (v0.0.3) - Undead enemy types
-*   **Skeleton Banging Shield** (v0.2) - Enhanced skeleton AI
-
-#### Items & Equipment
-*   **NoCube Bags** (v0.0.2) - Inventory expansion bags
-*   **NoCube Resource Bags** (v0.0.2) - Resource-specific storage bags
-*   **Outlanders Armor Pack** (v1.2) - Additional armor sets
-*   **Thorium Chests** (v1.0.0) - Enhanced chest storage
-*   **Thorium Furnaces** (v1.0.2) - Advanced smelting options
-
-#### Decoration & Building
-*   **Artisan's Palette** (v1.0.1) - Decorative building blocks
-*   **Violet's Furnishings** - Furniture and decorative items
-*   **Violet's Wardrobe** - Clothing and cosmetic items
-
-**Note:** This list represents mods that have been tested in a live server environment alongside Living Lands Reloaded. If you discover compatibility issues with any of these mods, please report them on [GitHub](https://github.com/MoshPitCodes/living-lands-reloaded/issues).
-
-**Reminder:** Living Lands Reloaded is **NOT COMPATIBLE** with:
-- Mods that use CustomUI (conflicts with HUD system)
-- MultipleHUD mod (architectural incompatibility)
-- Mods that manipulate player stats or introduce XP systems (conflicts with Professions)
