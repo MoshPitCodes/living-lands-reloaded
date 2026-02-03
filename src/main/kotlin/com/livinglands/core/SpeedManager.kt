@@ -5,6 +5,7 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager
+import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -172,7 +173,8 @@ class SpeedManager(private val logger: HytaleLogger) {
             // CRITICAL: Sync movement settings to the client!
             // Without this call, the speed change only exists server-side and
             // the player won't see or feel any difference in movement speed.
-            val packetHandler = player.getPlayerConnection()
+            val playerRef = store.getComponent(entityRef, PlayerRef.getComponentType())
+            val packetHandler = playerRef?.getPacketHandler()
             if (packetHandler != null) {
                 movementManager.update(packetHandler)
             }
@@ -212,7 +214,8 @@ class SpeedManager(private val logger: HytaleLogger) {
             settings.baseSpeed = originalSpeed
             
             // CRITICAL: Sync movement settings to the client!
-            val packetHandler = player.getPlayerConnection()
+            val playerRef = store.getComponent(entityRef, PlayerRef.getComponentType())
+            val packetHandler = playerRef?.getPacketHandler()
             if (packetHandler != null) {
                 movementManager.update(packetHandler)
             }
