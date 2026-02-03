@@ -179,76 +179,231 @@ abstract class AbstractModule(
             ?: throw IllegalStateException("Required module '$moduleId' not found for module '$id'")
     }
     
-    /**
-     * Helper to get an optional dependency module.
-     * Returns null if the module is not found.
-     */
-    protected inline fun <reified T : Module> optionalModule(moduleId: String): T? {
-        return CoreModule.getModule(moduleId)
-    }
+     /**
+      * Helper to get an optional dependency module.
+      * Returns null if the module is not found.
+      */
+     protected inline fun <reified T : Module> optionalModule(moduleId: String): T? {
+         return CoreModule.getModule(moduleId)
+     }
+     
+     /**
+      * Safe dependency resolution for optional modules.
+      * 
+      * Returns the module only if it exists AND is in operational state (STARTED).
+      * Returns null if:
+      * - The module is not registered
+      * - The module is not in STARTED state (setup, disabled, error, etc.)
+      * 
+      * Use this when your module has optional dependencies on other modules.
+      * Logs warnings for diagnostic purposes.
+      * 
+      * Example:
+      * ```kotlin
+      * val metabolismModule = safeModule<MetabolismModule>("metabolism")
+      * if (metabolismModule != null) {
+      *     // Use metabolism module features
+      *     val service = metabolismModule.metabolismService
+      * } else {
+      *     logger.atFine().log("Metabolism module not available - running in degraded mode")
+      * }
+      * ```
+      * 
+      * @param moduleId The ID of the module to look up
+      * @return The module if found and operational, null otherwise
+      */
+     protected inline fun <reified T : Module> safeModule(moduleId: String): T? {
+         val module = CoreModule.getModule<T>(moduleId)
+         
+         return when {
+             module == null -> {
+                 LoggingManager.debug(logger, id) {
+                     "Optional dependency module '$moduleId' is not registered"
+                 }
+                 null
+             }
+             !module.state.isOperational() -> {
+                 LoggingManager.debug(logger, id) {
+                     "Optional dependency module '$moduleId' is not operational (state: ${module.state})"
+                 }
+                 null
+             }
+             else -> module
+         }
+     }
+     
+     /**
+      * Safe service resolution with module state checking.
+      * 
+      * Returns the service only if:
+      * - The providing module exists
+      * - The providing module is in operational state (STARTED)
+      * - The service is registered with CoreModule.services
+      * 
+      * Returns null if any condition fails. Logs warnings for diagnostic purposes.
+      * 
+      * Use this for services provided by optional modules.
+      * 
+      * Example:
+      * ```kotlin
+      * val professionsService = safeService<ProfessionsService>("professions")
+      * if (professionsService != null) {
+      *     val xp = professionsService.getPlayerXp(playerId, profession)
+      * } else {
+      *     logger.atFine().log("Professions module not available")
+      * }
+      * ```
+      * 
+      * @param moduleId The ID of the module that provides this service
+      * @return The service if the module is operational and service is registered, null otherwise
+      */
+     protected inline fun <reified T : Any> safeService(moduleId: String): T? {
+         // First check if the module is operational
+         val module = CoreModule.getModule<Module>(moduleId)
+         
+         if (module == null) {
+             LoggingManager.debug(logger, id) {
+                 "Service module '$moduleId' is not registered"
+             }
+             return null
+         }
+         
+         if (!module.state.isOperational()) {
+             LoggingManager.debug(logger, id) {
+                 "Service module '$moduleId' is not operational (state: ${module.state})"
+             }
+             return null
+         }
+         
+         // Try to get the service
+         return try {
+             CoreModule.services.get<T>()
+         } catch (e: Exception) {
+             LoggingManager.debug(logger, id) {
+                 "Service from module '$moduleId' not found: ${e.message}"
+             }
+             null
+         }
+     }
     
-    /**
-     * Helper to register an event listener for events with any key type.
-     * Events are automatically registered with the plugin's event registry.
-     * 
-     * @param handler The event handler function
-     */
-    protected inline fun <reified E : IBaseEvent<*>> registerListenerAny(noinline handler: (E) -> Unit) {
-        context.eventRegistry.register(E::class.java) { event ->
-            try {
-                handler(event)
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
-            }
-        }
-    }
+     /**
+      * Helper to register an event listener for events with any key type.
+      * Events are automatically registered with the plugin's event registry.
+      * 
+      * NOTE: Must be called during setup phase (onSetup()). Calling from onStart()
+      * or later will throw an error as the module has already moved past SETUP state.
+      * 
+      * WARNING: Since Hytale's EventRegistry does not provide an unregister API,
+      * event listeners cannot be unregistered. This listener will persist for the
+      * lifetime of the server, even if the module is disabled or removed.
+      * 
+      * @param handler The event handler function
+      * @throws IllegalStateException if called outside setup phase
+      */
+     protected inline fun <reified E : IBaseEvent<*>> registerListenerAny(noinline handler: (E) -> Unit) {
+         require(state == ModuleState.SETUP) {
+             "Cannot register listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
+             "Listeners must be registered during onSetup()."
+         }
+         context.eventRegistry.register(E::class.java) { event ->
+             try {
+                 // Only handle event if module is in operational state
+                 if (state == ModuleState.STARTED) {
+                     handler(event)
+                 }
+             } catch (e: Exception) {
+                 logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
+             }
+         }
+     }
     
-    /**
-     * Helper to register a GLOBAL event listener for events with any key type.
-     * Use this for events like PlayerReadyEvent that need registerGlobal().
-     * 
-     * @param handler The event handler function
-     */
-    @Suppress("UNCHECKED_CAST")
-    protected inline fun <reified E : Any> registerListenerGlobal(noinline handler: (E) -> Unit) {
-        context.eventRegistry.registerGlobal(E::class.java as Class<IBaseEvent<Any>>) { event ->
-            try {
-                handler(event as E)
-            } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
-            }
-        }
-    }
+     /**
+      * Helper to register a GLOBAL event listener for events with any key type.
+      * Use this for events like PlayerReadyEvent that need registerGlobal().
+      * 
+      * NOTE: Must be called during setup phase (onSetup()). Calling from onStart()
+      * or later will throw an error as the module has already moved past SETUP state.
+      * 
+      * WARNING: Since Hytale's EventRegistry does not provide an unregister API,
+      * event listeners cannot be unregistered. This listener will persist for the
+      * lifetime of the server, even if the module is disabled or removed.
+      * 
+      * @param handler The event handler function
+      * @throws IllegalStateException if called outside setup phase
+      */
+     @Suppress("UNCHECKED_CAST")
+     protected inline fun <reified E : Any> registerListenerGlobal(noinline handler: (E) -> Unit) {
+         require(state == ModuleState.SETUP) {
+             "Cannot register global listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
+             "Listeners must be registered during onSetup()."
+         }
+         context.eventRegistry.registerGlobal(E::class.java as Class<IBaseEvent<Any>>) { event ->
+             try {
+                 // Only handle event if module is in operational state
+                 if (state == ModuleState.STARTED) {
+                     handler(event as E)
+                 }
+             } catch (e: Exception) {
+                 logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
+             }
+         }
+     }
     
-    /**
-     * Helper to register an event listener for events with Void key type.
-     * Events are automatically registered with the plugin's event registry.
-     * 
-     * @param handler The event handler function
-     */
-    protected inline fun <reified E : IBaseEvent<Void>> registerListener(noinline handler: (E) -> Unit) {
-        registerListenerAny(handler)
-    }
+     /**
+      * Helper to register an event listener for events with Void key type.
+      * Events are automatically registered with the plugin's event registry.
+      * 
+      * NOTE: Must be called during setup phase (onSetup()). This is a convenience
+      * wrapper around registerListenerAny() which enforces the same constraint.
+      * 
+      * @param handler The event handler function
+      * @throws IllegalStateException if called outside setup phase
+      */
+     protected inline fun <reified E : IBaseEvent<Void>> registerListener(noinline handler: (E) -> Unit) {
+         registerListenerAny(handler)
+     }
     
-    /**
-     * Helper to register an ECS system.
-     * Systems are registered with the entity store registry.
-     * 
-     * @param system The ECS system to register
-     */
-    protected fun registerSystem(system: ISystem<EntityStore>) {
-        context.entityStoreRegistry.registerSystem(system)
-    }
+     /**
+      * Helper to register an ECS system.
+      * Systems are registered with the entity store registry.
+      * 
+      * NOTE: Must be called during setup phase (onSetup()). Calling from onStart()
+      * or later will throw an error as the module has already moved past SETUP state.
+      * 
+      * WARNING: Since Hytale's EntityStoreRegistry does not provide an unregister API,
+      * ECS systems cannot be unregistered. This system will continue to tick for the
+      * lifetime of the server, even if the module is disabled or removed. The system
+      * should check the module's state within its tick() method if it needs to be
+      * conditionally disabled.
+      * 
+      * @param system The ECS system to register
+      * @throws IllegalStateException if called outside setup phase
+      */
+     protected fun registerSystem(system: ISystem<EntityStore>) {
+         require(state == ModuleState.SETUP) {
+             "Cannot register system - module '$id' is in $state state, not SETUP. " +
+             "Systems must be registered during onSetup()."
+         }
+         context.entityStoreRegistry.registerSystem(system)
+     }
     
-    /**
-     * Helper to register a command.
-     * Commands are registered with the plugin's command registry.
-     * 
-     * @param command The command to register
-     */
-    protected fun registerCommand(command: AbstractCommand) {
-        context.commandRegistry.registerCommand(command)
-    }
+     /**
+      * Helper to register a command.
+      * Commands are registered with the plugin's command registry.
+      * 
+      * NOTE: Must be called during setup phase (onSetup()). Calling from onStart()
+      * or later will throw an error as the module has already moved past SETUP state.
+      * 
+      * @param command The command to register
+      * @throws IllegalStateException if called outside setup phase
+      */
+     protected fun registerCommand(command: AbstractCommand) {
+         require(state == ModuleState.SETUP) {
+             "Cannot register command '${command.name}' - module '$id' is in $state state, not SETUP. " +
+             "Commands must be registered during onSetup()."
+         }
+         context.commandRegistry.registerCommand(command)
+     }
     
     /**
      * Log a debug message using LoggingManager.
