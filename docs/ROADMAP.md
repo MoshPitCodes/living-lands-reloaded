@@ -1,7 +1,7 @@
 # Living Lands Reloaded - Product Roadmap
 
 **Current Version:** v1.4.3  
-**Status:** Production Ready (MVP Complete + Auto-Scan Consumables + Tested)  
+**Status:** Production Ready (MVP Complete + All Abilities + Modded Consumables)  
 **Last Updated:** 2026-02-03
 
 ---
@@ -23,7 +23,7 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 | **Professions System** | 100% | ✅ Complete |
 | **Announcer Module** | 100% | ✅ Complete |
 | **Modded Consumables (Phase 12)** | 100% | ✅ Complete |
-| **Polish & Testing (v1.4.3)** | 100% | ✅ Complete (Single-Player Tested) |
+| **Polish & Testing** | 100% | ✅ Single-Player Tested |
 | **Future Modules** | 0% | 📋 Planned (Design Phase) |
 
 ---
@@ -42,56 +42,47 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ## ✅ Completed Features (v1.4.3)
 
-### Auto-Scan Consumables & HUD Improvements (v1.4.3)
+### Auto-Scan Consumables & HUD Enhancements (v1.4.3)
 
-**Status:** ✅ **Complete & Tested**  
+**Status:** ✅ **Complete**  
 **Version:** 1.4.3  
-**Completion Date:** 2026-02-03  
+**Completion Date:** 2026-02-02  
 **Completion:** 100%
 
-**Mission:** Automatic consumables discovery with zero configuration and comprehensive HUD code quality improvements.
+**Mission:** Automatic consumables discovery with smart namespace detection and HUD code quality improvements
 
-**Auto-Scan Consumables:**
-- ✅ **Automatic Discovery** - Zero-config modded food/drink/potion support
-- ✅ **Smart Namespace Grouping** - Organizes items by mod (Hytale, NoCube, HiddenIsme, etc.)
-- ✅ **Fast Performance** - ~200ms scan time for 250+ consumables
-- ✅ **Manual Scan Command** - `/ll scan consumables --save` for new mods
-- ✅ **Separate Config File** - Clean organization in `metabolism_consumables.yml`
+**Features:**
+- ✅ **Auto-Scan on Startup** - Discovers all consumables from installed mods automatically
+- ✅ **Smart Namespace Detection** - Identifies vanilla vs modded items intelligently
+- ✅ **Separate Config File** - `metabolism_consumables.yml` for better organization
+- ✅ **Manual Scan Command** - `/ll scan consumables` with preview and save modes
+- ✅ **Registry System** - O(1) lookup with ConcurrentHashMap for fast detection
+- ✅ **Food System Integration** - Registry integrated into FoodEffectDetector and FoodConsumptionProcessor
+- ✅ **Item Validation** - Checks if configured items exist in game registry
+- ✅ **Tier Detection** - Automatic tier detection from effect IDs
 
-**HUD Code Quality Improvements:**
-- ✅ **DRY Fix** - Extracted `updateStatusDisplay()` method (eliminated duplicate code)
-- ✅ **World Switch Handler** - Added `onPlayerWorldSwitch()` for PlayerRef updates
-- ✅ **Metabolism Services Setter** - Added `setMetabolismServicesForAll()` for config hot-reload
-- ✅ **Configurable Limits** - MAX_BUFFS/MAX_DEBUFFS now configurable in `core.yml`
-- ✅ **Performance Optimization** - StringBuilder improvements in `buildTextProgressBar()`
-- ✅ **Race Condition Fixes** - Atomic service capture prevents TOCTOU issues
-- ✅ **Memory Leak Prevention** - Guaranteed cleanup with finally blocks
+**HUD Improvements:**
+- ✅ **Code Quality** - DRY fixes, extracted duplicate code patterns
+- ✅ **World Switch Handler** - Updates PlayerRef map when players change worlds
+- ✅ **Configurable Limits** - MAX_BUFFS/MAX_DEBUFFS now configurable via `core.yml`
+- ✅ **StringBuilder Optimization** - Reduced allocations in progress bar rendering
+- ✅ **Service Setters** - Added `setMetabolismServicesForAll()` for config hot-reload
 
-**Testing Status:**
-- ✅ **Single-Player Testing** - Verified on live server with 29 compatible mods
-- ✅ **Auto-Scan Verification** - 201 consumables discovered across 4 mod namespaces
-- ✅ **HUD Stability** - No crashes, memory leaks, or race conditions
-- ✅ **Config Hot-Reload** - Works correctly with metabolism module enable/disable
-- ⏳ **Multi-Player Testing** - Pending (LLR-87 - 50+ concurrent players)
-
-**Compatible Mods (29 tested):**
-- Quality of Life: AdvancedItemInfo, BetterMap, WhereThisAt, Simply-Trash, BetterWardrobes
-- Gameplay: BloodMoon, Eldritch Tales, Books and Papers, Vein Mining
-- Utility: Hybrid, Overstacked
-- Food & Consumables: 7 mods (Hidden's Harvest, NoCube series, More Potions)
-- Creatures & NPCs: 4 mods (Aures series, NoCube Undead, Skeleton Shield)
-- Items & Equipment: 5 mods (NoCube Bags, Outlanders Armor, Thorium series)
-- Decoration: 3 mods (Artisan's Palette, Violet's series)
+**Testing:**
+- ✅ **Production Scan** - Discovered 201 consumables from 4 namespaces in ~200ms
+- ✅ **Compatible Mods Verified** - Tested with 29 mods across 6 categories
+- ✅ **Single-Player Tested** - All systems working correctly on live server
+- ✅ **No Crashes** - HUD stable with race condition and memory leak fixes
 
 **Impact:**
-- ✅ Zero-configuration mod compatibility for food/drink/potions
-- ✅ Cleaner, more maintainable HUD codebase
-- ✅ Production-ready stability for single-player and small servers
-- ✅ Server admins can confidently build mod packs
+- Zero manual configuration needed for modded foods
+- Install mods and restart - consumables auto-detected
+- Server admins can fine-tune via manual scan
+- Better organization with separate consumables config
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.3
 
 ---
-
-## ✅ Completed Features (v1.4.2)
 
 ### Critical Hotfix (v1.4.2)
 
@@ -892,23 +883,25 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 **Note:** v1.4.1 completed all core functionality - v1.5.0 focuses on testing infrastructure and quality of life improvements.
 
-**Planned Features:**
-- [ ] **Modded Consumables Scan Command** - `/ll metabolism scan` for runtime detection (10-15 hours)
-  - Preview mode (no changes): Lists unrecognized food effects
-  - Save mode (`--save` flag): Adds new items to config with backup
-  - Category inference from effect IDs
-  - Performance target: < 500ms scan time
-  - **Linear:** LLR-124
+**Completed in v1.4.3:**
+- [x] **Modded Consumables Auto-Scan** - Automatic discovery on startup ✅ **DONE**
+  - Auto-scan on first startup with empty config
+  - Manual scan command: `/ll scan consumables` (preview and save modes)
+  - Smart namespace detection (vanilla vs modded)
+  - Separate config file: `metabolism_consumables.yml`
+  - O(1) registry lookup for fast detection
+  - **Linear:** LLR-118, LLR-119, LLR-120, LLR-121, LLR-122, LLR-124 ✅ **ALL COMPLETE**
+
+**Remaining Work:**
 - [ ] Multi-player stress testing (50+ players) - 3-5 days
 - [ ] Unit test infrastructure (JUnit5 + Mockito) - 2-3 days
 - [ ] Performance benchmarks (JMH) - 2-3 days
 - [ ] Documentation improvements - 1 day
 
-**Total Estimated Effort:** 16-25 days  
+**Total Remaining Effort:** 10-15 days  
 **Target Date:** Not yet scheduled (awaiting test environment)
 
 **Linear Issues:**
-- LLR-124: Modded Consumables Scan Command
 - LLR-87: Multi-Player Stress Testing (Backlog)
 - LLR-86: Unit Test Infrastructure (Backlog)
 - LLR-85: JMH Benchmark Suite (Backlog)
@@ -1044,6 +1037,7 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [x] **Tier 3 Ability Stubs** - ~~4/5 Tier 3 abilities are stubs (no trigger logic)~~ ✅ COMPLETE v1.4.0 - **Linear: LLR-113**
 - [x] **Admin Command HUD Refresh** - ~~Instant HUD updates after admin commands~~ ✅ COMPLETE v1.4.0 - **Linear: LLR-116**
 - [x] **Tier 2 Stamina API Stub** - ~~Enduring Builder needs stamina API research~~ ✅ COMPLETE v1.4.1 - **Linear: LLR-114**
+- [x] **Modded Consumables Support** - ~~Auto-scan and registry system~~ ✅ COMPLETE v1.4.3 - **Linear: LLR-118-124**
 - [ ] **Unit Tests** - No automated tests exist (manual only) - **Linear: LLR-86**
 - [ ] **JMH Benchmarks** - Performance claims not quantitatively measured - **Linear: LLR-85**
 - [ ] **Multi-Player Testing** - 50+ player stress testing not performed - **Linear: LLR-87**
