@@ -468,22 +468,40 @@ object CoreModule {
         logger.atFine().log("All modules shutdown complete")
     }
     
-    /**
-     * Notify all modules of a config reload.
-     * Called when any config file is reloaded.
-     */
-    private fun notifyModulesConfigReload() {
-        for (module in modules.values) {
-            // Notify modules that are SETUP or STARTED (but not ERROR/DISABLED)
-            if (module.state == ModuleState.SETUP || module.state == ModuleState.STARTED) {
-                try {
-                    module.onConfigReload()
-                } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Module '${module.id}' config reload failed")
-                }
-            }
-        }
-    }
+     /**
+      * Notify all modules of a config reload.
+      * Called when any config file is reloaded.
+      * 
+      * Only notifies modules in operational state (STARTED).
+      * Modules in DISABLED_BY_CONFIG, ERROR, SETUP, or DISABLED are skipped.
+      * 
+      * If config reload fails, the module is left in its current state to avoid
+      * partial updates. Check logs for details if onConfigReload() throws.
+      */
+     private fun notifyModulesConfigReload() {
+         for (module in modules.values) {
+             // Only notify modules in operational state
+             if (!module.state.isOperational()) {
+                 LoggingManager.debug(logger, "core") {
+                     "Skipping config reload for module '${module.id}' in ${module.state} state"
+                 }
+                 continue
+             }
+             
+             try {
+                 LoggingManager.debug(logger, "core") {
+                     "Reloading config for module '${module.id}'"
+                 }
+                 module.onConfigReload()
+             } catch (e: Exception) {
+                 // Warn about failure but don't mark as ERROR (module was already STARTED)
+                 // This allows graceful recovery if next reload succeeds
+                 logger.atWarning().withCause(e).log(
+                     "Module '${module.id}' failed to reload config - module may be in inconsistent state"
+                 )
+             }
+         }
+     }
     
     // ============ Player Lifecycle Notifications ============
     
