@@ -166,47 +166,108 @@ class MyAsyncCommand : AsyncModuleCommand(
 
 ## Hot-Reload Support
 
-Modules can be enabled/disabled at runtime via configuration hot-reload:
+Modules can be enabled/disabled at runtime via configuration hot-reload.
 
-### Implementing Hot-Reload
+### Implementing Hot-Reload (P2-144 Standardized Pattern)
+
+**Standard Pattern:** Override `onConfigReload()` instead of registering callbacks.
 
 ```kotlin
-override suspend fun onSetup() {
-    // Register config reload callback
-    CoreModule.config.onReload(MyModuleConfig.MODULE_ID) {
-        handleConfigReload()
-    }
-}
-
-private fun handleConfigReload() {
-    val oldEnabled = myConfig.enabled
-    
+override fun onConfigReload() {
     // Reload configuration
-    myConfig = CoreModule.config.load(MyModuleConfig.MODULE_ID, MyModuleConfig())
+    val newConfig = CoreModule.config.load(MyModuleConfig.MODULE_ID, MyModuleConfig())
+    val oldEnabled = myConfig.enabled
+    myConfig = newConfig
     
+    // Update service configuration
+    myService.updateConfig(newConfig)
+    
+    // Handle enable/disable transitions
     when {
-        !oldEnabled && myConfig.enabled -> {
+        !oldEnabled && newConfig.enabled -> {
             // Module re-enabled
-            logger.atFine().log("Module enabled via config reload")
+            LoggingManager.info(logger, "mymodule") { "Config reloaded and enabled" }
             markStarted()
             // Re-initialize runtime state as needed
         }
         
-        oldEnabled && !myConfig.enabled -> {
+        oldEnabled && !newConfig.enabled -> {
             // Module disabled
-            logger.atFine().log("Module disabled via config reload")
+            LoggingManager.info(logger, "mymodule") { "Config reloaded and disabled" }
             markDisabledByConfig()
             // Clean up runtime state as needed
+        }
+        
+        else -> {
+            // Configuration updated but enabled state unchanged
+            LoggingManager.info(logger, "mymodule") { "Config reloaded" }
         }
     }
 }
 ```
+
+**Key Points:**
+- **NO callback registration needed** in `onSetup()` - CoreModule automatically calls `onConfigReload()` 
+- Lifecycle hook is consistent with `onSetup()`, `onStart()`, `onShutdown()`
+- Use `LoggingManager` for all logging (P2-143 standardized pattern)
+- No need to unregister callbacks on shutdown
+
+### Standardized Shutdown Patterns (P1-140)
+
+All modules should use the `shutdownScopeWithTimeout()` helper for consistent shutdown behavior:
+
+```kotlin
+override suspend fun onShutdown() {
+    // Wait for pending operations with timeout (standardized pattern)
+    shutdownScopeWithTimeout(persistenceScope, "persistence", 5000)
+    
+    // Do synchronous cleanup
+    myService.clearCache()
+    LoggingManager.info(logger, "mymodule") { "Shutdown complete" }
+}
+```
+
+**Benefits:**
+- Consistent timeout behavior (5 seconds default)
+- Prevents data loss from interrupted async operations
+- Eliminates code duplication across modules
+- Helper already exists in AbstractModule
 
 ### Limitations
 
 - **ECS Systems**: Cannot be dynamically registered/unregistered. A server restart is recommended for full enable/disable.
 - **Player State**: Players online during state change may need to rejoin for full effect.
 - **Dependencies**: If Module A depends on Module B, disabling Module B may affect Module A.
+
+## Dependency Validation (P2-142)
+
+Module dependencies are automatically validated at startup before `setupModules()` is called:
+
+```kotlin
+class MyModule : AbstractModule(
+    id = "mymodule",
+    dependencies = setOf("metabolism", "other-module")  // Required dependencies
+) {
+    // ...
+}
+```
+
+**Validation Behavior:**
+- ✅ All declared dependencies must be registered in CoreModule
+- ❌ Missing dependencies abort startup with clear error message
+- Only enabled modules are validated
+- Runs before any module setup code
+
+**Error Example:**
+```
+SEVERE: Cannot start modules - missing dependencies detected:
+  - professions → metabolism (missing)
+  - claims → world-management (missing)
+
+Fix: Ensure all required modules are registered before setupModules() is called.
+```
+
+This prevents confusing runtime NPE errors and makes missing module setup obvious immediately.
 
 ## Player Lifecycle Hooks
 
