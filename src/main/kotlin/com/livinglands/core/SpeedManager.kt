@@ -3,6 +3,7 @@ package com.livinglands.core
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager
 import com.hypixel.hytale.server.core.universe.PlayerRef
@@ -182,14 +183,9 @@ class SpeedManager(private val logger: HytaleLogger) {
             // Track last applied multiplier
             lastAppliedMultipliers[playerId] = combinedMultiplier
             
-            logger.atFine().log(
-                "Applied speed to player $playerId: " +
-                "original=${"%.2f".format(originalSpeed)}, " +
-                "multiplier=${"%.2f".format(combinedMultiplier)}, " +
-                "new=${"%.2f".format(newSpeed)}"
-            )
+            LoggingManager.debug(logger, "core") { "Applied speed to player $playerId: original=${"%.2f".format(originalSpeed)}, multiplier=${"%.2f".format(combinedMultiplier)}, new=${"%.2f".format(newSpeed)}" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to apply speed for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "core") { "Failed to apply speed for player $playerId: ${e.message}" }
         }
     }
     
@@ -224,9 +220,9 @@ class SpeedManager(private val logger: HytaleLogger) {
             multipliers.remove(playerId)
             lastAppliedMultipliers.remove(playerId)
             
-            logger.atFine().log("Restored original speed for player $playerId: $originalSpeed")
+            LoggingManager.debug(logger, "core") { "Restored original speed for player $playerId: $originalSpeed" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to restore speed for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "core") { "Failed to restore speed for player $playerId: ${e.message}" }
         }
     }
     

@@ -6,6 +6,7 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.component.query.Query
 import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.event.events.ecs.PlaceBlockEvent
 import com.hypixel.hytale.server.core.inventory.ItemStack
@@ -122,7 +123,7 @@ class BuildingXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            LoggingManager.debug(logger, "professions") { "Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})" }
         }
         
         // Notify HUD elements (panel + notification)
@@ -135,12 +136,12 @@ class BuildingXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atFine().log("Player ${playerUuid} leveled up Building: ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Player ${playerUuid} leveled up Building: ${result.oldLevel} → ${result.newLevel}" }
         }
         
         // Debug logging (only if XP is significant enough)
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
-            logger.atFine().log("Awarded $xpAmount Building XP to player ${playerUuid} ($blockId)")
+            LoggingManager.debug(logger, "professions") { "Awarded $xpAmount Building XP to player ${playerUuid} ($blockId)" }
         }
         
         // ========== Tier 3 Ability: Efficient Architect ==========
@@ -150,7 +151,7 @@ class BuildingXpSystem(
                 applyEfficientArchitect(playerRef, playerUuid, blockId, store)
             }
         } catch (e: Exception) {
-            logger.atWarning().log("Error applying Efficient Architect for player $playerUuid: ${e.message}")
+            LoggingManager.warn(logger, "professions") { "Error applying Efficient Architect for player $playerUuid: ${e.message}" }
         }
     }
     
@@ -299,12 +300,12 @@ class BuildingXpSystem(
         // Get world for thread-safe inventory access
         val worldUuid = playerRef.worldUuid
         if (worldUuid == null) {
-            logger.atFine().log("Efficient Architect: World UUID not available for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Efficient Architect: World UUID not available for player $playerId" }
             return
         }
         val world = Universe.get().getWorld(worldUuid)
         if (world == null) {
-            logger.atFine().log("Efficient Architect: World not found for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Efficient Architect: World not found for player $playerId" }
             return
         }
         
@@ -319,13 +320,13 @@ class BuildingXpSystem(
                 // Get Player component to access inventory
                 val player = store.getComponent(entityRef, Player.getComponentType())
                 if (player == null) {
-                    logger.atFine().log("Efficient Architect: Player component not found for $playerId")
+                    LoggingManager.debug(logger, "professions") { "Efficient Architect: Player component not found for $playerId" }
                     return@execute
                 }
                 
                 val inventory = player.inventory
                 if (inventory == null) {
-                    logger.atFine().log("Efficient Architect: Inventory not found for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Efficient Architect: Inventory not found for player $playerId" }
                     return@execute
                 }
                 
@@ -337,15 +338,15 @@ class BuildingXpSystem(
                 val transaction = container.addItemStack(refundItem)
                 
                 if (transaction.succeeded()) {
-                    logger.atFine().log("Efficient Architect triggered! Refunded $blockId to player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Efficient Architect triggered! Refunded $blockId to player $playerId" }
                     
                     // Send inventory update to client
                     player.sendInventory()
                 } else {
-                    logger.atFine().log("Efficient Architect: Could not refund item to inventory (full?) for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Efficient Architect: Could not refund item to inventory (full?) for player $playerId" }
                 }
             } catch (e: Exception) {
-                logger.atWarning().log("Error in Efficient Architect for player $playerId: ${e.message}")
+                LoggingManager.warn(logger, "professions") { "Error in Efficient Architect for player $playerId: ${e.message}" }
             }
         }
     }

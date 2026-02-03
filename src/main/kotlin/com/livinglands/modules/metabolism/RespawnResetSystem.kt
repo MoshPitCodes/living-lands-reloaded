@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.component.ArchetypeChunk
 import com.hypixel.hytale.component.CommandBuffer
 import com.hypixel.hytale.component.Ref
@@ -115,7 +116,7 @@ class RespawnResetSystem(
      * This ensures no WorldThread blocking during ECS tick.
      */
     private fun handleRespawn(playerId: UUID, entityRef: Ref<EntityStore>, store: Store<EntityStore>) {
-        logger.atFine().log("Player respawned: $playerId - resetting metabolism")
+        LoggingManager.debug(logger, "metabolism") { "Player respawned: $playerId - resetting metabolism" }
         
         try {
             // 1. Immediate in-memory reset (synchronous, no blocking)
@@ -123,7 +124,7 @@ class RespawnResetSystem(
             val resetSuccess = metabolismService.resetStatsInMemory(playerId)
             
             if (!resetSuccess) {
-                logger.atWarning().log("Player $playerId not in cache during respawn reset - skipping")
+                LoggingManager.warn(logger, "metabolism") { "Player $playerId not in cache during respawn reset - skipping" }
                 return
             }
             
@@ -135,10 +136,10 @@ class RespawnResetSystem(
                     if (state != null) {
                         val stats = state.toImmutableStats()
                         metabolismRepository.updateStats(stats)
-                        logger.atFine().log("Persisted respawn reset for player $playerId")
+                        LoggingManager.debug(logger, "metabolism") { "Persisted respawn reset for player $playerId" }
                     }
                 } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Failed to persist respawn reset for $playerId")
+                    LoggingManager.warn(logger, "metabolism") { "Failed to persist respawn reset for $playerId" }
                 }
             }
             
@@ -152,11 +153,10 @@ class RespawnResetSystem(
             // 5. Force HUD update immediately (synchronous)
             metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
             
-            logger.atFine().log("Metabolism reset complete for player $playerId (persisting async)")
+            LoggingManager.debug(logger, "metabolism") { "Metabolism reset complete for player $playerId (persisting async)" }
             
         } catch (e: Exception) {
-            logger.atSevere().withCause(e)
-                .log("Failed to reset metabolism on respawn for $playerId")
+            LoggingManager.error(logger, "metabolism", e) { "Failed to reset metabolism on respawn for $playerId" }
         }
     }
     

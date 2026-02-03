@@ -133,7 +133,7 @@ class CombatXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            LoggingManager.debug(logger, "professions") { "Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})" }
         }
         
         // Notify HUD elements (panel + notification)
@@ -146,12 +146,12 @@ class CombatXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atFine().log("Player ${playerUuid} leveled up Combat: ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Player ${playerUuid} leveled up Combat: ${result.oldLevel} → ${result.newLevel}" }
         }
         
         // Debug logging
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
-            logger.atFine().log("Awarded $xpAmount Combat XP to player ${playerUuid} (kill)")
+            LoggingManager.debug(logger, "professions") { "Awarded $xpAmount Combat XP to player ${playerUuid} (kill)" }
         }
         
         // ========== Tier 3 Ability: Adrenaline Rush ==========
@@ -161,7 +161,7 @@ class CombatXpSystem(
                 applyAdrenalineRush(playerRef, playerUuid, store)
             }
         } catch (e: Exception) {
-            logger.atWarning().log("Error applying Adrenaline Rush for player $playerUuid: ${e.message}")
+            LoggingManager.warn(logger, "professions") { "Error applying Adrenaline Rush for player $playerUuid: ${e.message}" }
         }
     }
     
@@ -206,10 +206,10 @@ class CombatXpSystem(
                     val session = CoreModule.players.getSession(playerId)
                     if (session != null && session.entityRef.isValid) {
                         speedManager.applySpeed(playerId, session.entityRef, session.store)
-                        logger.atFine().log("Applied Adrenaline Rush (+10% speed) to player $playerId")
+                        LoggingManager.debug(logger, "professions") { "Applied Adrenaline Rush (+10% speed) to player $playerId" }
                     }
                 } catch (e: Exception) {
-                    logger.atWarning().log("Error applying Adrenaline Rush speed for player $playerId: ${e.message}")
+                    LoggingManager.warn(logger, "professions") { "Error applying Adrenaline Rush speed for player $playerId: ${e.message}" }
                 }
             }
         }
@@ -251,10 +251,10 @@ class CombatXpSystem(
                     val session = CoreModule.players.getSession(playerId)
                     if (session != null && session.entityRef.isValid) {
                         speedManager.applySpeed(playerId, session.entityRef, session.store)
-                        logger.atFine().log("Removed Adrenaline Rush effect from player $playerId")
+                        LoggingManager.debug(logger, "professions") { "Removed Adrenaline Rush effect from player $playerId" }
                     }
                 } catch (e: Exception) {
-                    logger.atFine().log("Error removing Adrenaline Rush speed for player $playerId: ${e.message}")
+                    LoggingManager.debug(logger, "professions") { "Error removing Adrenaline Rush speed for player $playerId: ${e.message}" }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.food
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.livinglands.core.CoreModule
@@ -120,14 +121,7 @@ class FoodConsumptionProcessor(
         
         // Log food consumption at INFO level (useful for server monitoring)
         val source = if (customMults != null) "custom" else "default"
-        logger.atFine().log(
-            "Food consumed [$source]: ${detection.effectId} " +
-            "(type=${detection.foodType}, tier=${detection.tier}) -> " +
-            "Calculated: H+%.2f, T+%.2f, E+%.2f | Actual: H+%.2f, T+%.2f, E+%.2f".format(
-                hungerRestore, thirstRestore, energyRestore,
-                hungerActual, thirstActual, energyActual
-            )
-        )
+        LoggingManager.debug(logger, "metabolism") { "Food consumed [$source]: ${detection.effectId} (type=${detection.foodType}, tier=${detection.tier}) -> Calculated: H+%.2f, T+%.2f, E+%.2f | Actual: H+%.2f, T+%.2f, E+%.2f".format(hungerRestore, thirstRestore, energyRestore, hungerActual, thirstActual, energyActual) }
         
         // Only send chat message for ACTUAL food consumption, not for buff effects
         // Buff effects (Meat_Buff, HealthRegen_Buff, etc.) are applied BY the food
@@ -219,7 +213,7 @@ class FoodConsumptionProcessor(
                     energyRestore
                 )
             } catch (e: Exception) {
-                logger.atFine().log("Failed to send food consumption message to player $playerId: ${e.message}")
+                LoggingManager.debug(logger, "metabolism") { "Failed to send food consumption message to player $playerId: ${e.message}" }
             }
         }
     }

@@ -99,7 +99,7 @@ object CoreModule {
      */
     fun initialize(plugin: LivingLandsReloadedPlugin) {
         if (initialized) {
-            plugin.logger.atWarning().log("CoreModule already initialized, skipping")
+            LoggingManager.warn(logger, "core") { "CoreModule already initialized, skipping" }
             return
         }
         
@@ -110,14 +110,14 @@ object CoreModule {
         this.dataDir = plugin.dataDirectory.resolve("data").toFile()
         if (!dataDir.exists()) {
             dataDir.mkdirs()
-            logger.atFine().log("Created data directory: ${dataDir.absolutePath}")
+            LoggingManager.debug(logger, "core") { "Created data directory: ${dataDir.absolutePath}" }
         }
         
         // Setup config directory structure
         this.configDir = plugin.dataDirectory.resolve("config").toFile()
         if (!configDir.exists()) {
             configDir.mkdirs()
-            logger.atFine().log("Created config directory: ${configDir.absolutePath}")
+            LoggingManager.debug(logger, "core") { "Created config directory: ${configDir.absolutePath}" }
         }
         
         // Initialize configuration manager first
@@ -148,7 +148,7 @@ object CoreModule {
             // Update HUD configuration
             hudManager.updateHudConfig(coreConfig.hud.maxBuffs, coreConfig.hud.maxDebuffs)
             
-            logger.atFine().log("Core config reloaded: logLevel=${coreConfig.logging.globalLevel}, version=${coreConfig.configVersion}")
+            LoggingManager.debug(logger, "core") { "Core config reloaded: logLevel=${coreConfig.logging.globalLevel}, version=${coreConfig.configVersion}" }
             
             // Notify all modules of config reload
             notifyModulesConfigReload()
@@ -181,8 +181,8 @@ object CoreModule {
         applyLoggingConfig(coreConfig)
         
         initialized = true
-        logger.atFine().log("CoreModule initialized (logLevel=${coreConfig.logging.globalLevel})")
-        logger.atFine().log(com.livinglands.core.logging.LoggingManager.getConfigurationSummary())
+        LoggingManager.debug(logger, "core") { "CoreModule initialized (logLevel=${coreConfig.logging.globalLevel})" }
+        LoggingManager.debug(logger, "core") { com.livinglands.core.logging.LoggingManager.getConfigurationSummary() }
     }
     
     /**
@@ -206,7 +206,7 @@ object CoreModule {
             try {
                 context.cleanup()
             } catch (e: Exception) {
-                logger.atFine().log("Error cleaning up world ${context.worldId}: ${e.message}")
+                LoggingManager.debug(logger, "core") { "Error cleaning up world ${context.worldId}: ${e.message}" }
             }
         }
         
@@ -214,7 +214,7 @@ object CoreModule {
         try {
             globalPersistence.close()
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Error closing global database")
+            LoggingManager.warn(logger, "core") { "Error closing global database" }
         }
         
         // Clear config manager
@@ -229,7 +229,7 @@ object CoreModule {
         services.clear()
         
         initialized = false
-        logger.atFine().log("CoreModule shutdown complete")
+        LoggingManager.debug(logger, "core") { "CoreModule shutdown complete" }
     }
     
     /**
@@ -306,11 +306,11 @@ object CoreModule {
             if (level != null) {
                 LoggingManager.setModuleLevel(moduleId, level)
             } else {
-                logger.atWarning().log("Invalid log level '$levelString' for module '$moduleId', ignoring")
+                LoggingManager.warn(logger, "core") { "Invalid log level '$levelString' for module '$moduleId', ignoring" }
             }
         }
         
-        logger.atFine().log("Logging configuration applied: global=$globalLevel, overrides=${config.logging.moduleOverrides.size}")
+        LoggingManager.debug(logger, "core") { "Logging configuration applied: global=$globalLevel, overrides=${config.logging.moduleOverrides.size}" }
     }
     
     // ============ Module Registration & Lifecycle ============
@@ -323,11 +323,11 @@ object CoreModule {
      */
     fun registerModule(module: Module) {
         if (modules.containsKey(module.id)) {
-            logger.atWarning().log("Module '${module.id}' already registered, skipping")
+            LoggingManager.warn(logger, "core") { "Module '${module.id}' already registered, skipping" }
             return
         }
         modules[module.id] = module
-        logger.atFine().log("Registered module: ${module.id} v${module.version}")
+        LoggingManager.debug(logger, "core") { "Registered module: ${module.id} v${module.version}" }
     }
     
     /**
@@ -359,7 +359,7 @@ object CoreModule {
       */
      suspend fun setupModules(context: ModuleContext) {
         if (modules.isEmpty()) {
-            logger.atFine().log("No modules to setup")
+            LoggingManager.debug(logger, "core") { "No modules to setup" }
             return
         }
         
@@ -369,7 +369,7 @@ object CoreModule {
         // Resolve dependency order
         val sorted = resolveDependencyOrder()
         if (sorted.isEmpty() && modules.isNotEmpty()) {
-            logger.atSevere().log("Failed to resolve module dependencies - possible circular dependency")
+            LoggingManager.error(logger, "core") { "Failed to resolve module dependencies - possible circular dependency" }
             return
         }
         
@@ -377,7 +377,7 @@ object CoreModule {
         moduleOrder.clear()
         moduleOrder.addAll(sorted)
         
-        logger.atFine().log("Setting up ${moduleOrder.size} modules in order: ${moduleOrder.joinToString(" -> ")}")
+        LoggingManager.debug(logger, "core") { "Setting up ${moduleOrder.size} modules in order: ${moduleOrder.joinToString(" -> ")}" }
         
         // Setup each module in order (respecting enabledModules config)
         for (moduleId in moduleOrder) {
@@ -385,14 +385,14 @@ object CoreModule {
             
             // Check if module is enabled in config
             if (!coreConfig.isModuleEnabled(moduleId)) {
-                logger.atInfo().log("Module '$moduleId' is disabled in config, skipping setup")
+                LoggingManager.info(logger, "core") { "Module '$moduleId' is disabled in config, skipping setup" }
                 continue
             }
             
             try {
                 module.setup(context)
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Module '$moduleId' failed during setup")
+                LoggingManager.error(logger, "core", e) { "Module '$moduleId' failed during setup" }
                 // Module is already marked as ERROR by AbstractModule
                 // Continue with other modules - don't crash the whole system
             }
@@ -400,7 +400,7 @@ object CoreModule {
         
         val setupCount = modules.values.count { it.state == ModuleState.SETUP }
         val errorCount = modules.values.count { it.state == ModuleState.ERROR }
-        logger.atFine().log("Module setup complete: $setupCount succeeded, $errorCount failed")
+        LoggingManager.debug(logger, "core") { "Module setup complete: $setupCount succeeded, $errorCount failed" }
     }
     
     /**
@@ -409,38 +409,38 @@ object CoreModule {
      */
     suspend fun startModules() {
         if (moduleOrder.isEmpty()) {
-            logger.atFine().log("No modules to start")
+            LoggingManager.debug(logger, "core") { "No modules to start" }
             return
         }
         
-        logger.atFine().log("Starting ${moduleOrder.size} modules...")
+        LoggingManager.debug(logger, "core") { "Starting ${moduleOrder.size} modules..." }
         
         for (moduleId in moduleOrder) {
             val module = modules[moduleId] ?: continue
             
             // Skip modules that are disabled in config
             if (!coreConfig.isModuleEnabled(moduleId)) {
-                logger.atFine().log("Module '$moduleId' is disabled, skipping start")
+                LoggingManager.debug(logger, "core") { "Module '$moduleId' is disabled, skipping start" }
                 continue
             }
             
             // Skip modules that failed setup
             if (module.state == ModuleState.ERROR) {
-                logger.atWarning().log("Skipping module '$moduleId' - in ERROR state")
+                LoggingManager.warn(logger, "core") { "Skipping module '$moduleId' - in ERROR state" }
                 continue
             }
             
             try {
                 module.start()
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Module '$moduleId' failed during start")
+                LoggingManager.error(logger, "core", e) { "Module '$moduleId' failed during start" }
                 // Continue with other modules
             }
         }
         
         val startedCount = modules.values.count { it.state == ModuleState.STARTED }
         val errorCount = modules.values.count { it.state == ModuleState.ERROR }
-        logger.atFine().log("Module start complete: $startedCount running, $errorCount failed")
+        LoggingManager.debug(logger, "core") { "Module start complete: $startedCount running, $errorCount failed" }
     }
     
     /**
@@ -449,13 +449,13 @@ object CoreModule {
      */
     suspend fun shutdownModules() {
         if (moduleOrder.isEmpty()) {
-            logger.atFine().log("No modules to shutdown")
+            LoggingManager.debug(logger, "core") { "No modules to shutdown" }
             return
         }
         
         // Shutdown in reverse order so dependents shutdown before dependencies
         val reverseOrder = moduleOrder.reversed()
-        logger.atFine().log("Shutting down ${reverseOrder.size} modules...")
+        LoggingManager.debug(logger, "core") { "Shutting down ${reverseOrder.size} modules..." }
         
         for (moduleId in reverseOrder) {
             val module = modules[moduleId] ?: continue
@@ -464,11 +464,11 @@ object CoreModule {
                 module.shutdown()
             } catch (e: Exception) {
                 // Error already logged by AbstractModule, but log again at module level
-                logger.atWarning().withCause(e).log("Module '$moduleId' shutdown error")
+                LoggingManager.warn(logger, "core") { "Module '$moduleId' shutdown error" }
             }
         }
         
-        logger.atFine().log("All modules shutdown complete")
+        LoggingManager.debug(logger, "core") { "All modules shutdown complete" }
     }
     
      /**
@@ -499,9 +499,7 @@ object CoreModule {
              } catch (e: Exception) {
                  // Warn about failure but don't mark as ERROR (module was already STARTED)
                  // This allows graceful recovery if next reload succeeds
-                 logger.atWarning().withCause(e).log(
-                     "Module '${module.id}' failed to reload config - module may be in inconsistent state"
-                 )
+                 LoggingManager.warn(logger, "core") { "Module '${module.id}' failed to reload config - module may be in inconsistent state" }
              }
          }
      }
@@ -526,8 +524,7 @@ object CoreModule {
                 try {
                     module.onPlayerJoin(playerId, session)
                 } catch (e: Exception) {
-                    logger.atSevere().withCause(e)
-                        .log("Module '${module.id}' failed onPlayerJoin for $playerId")
+                    LoggingManager.error(logger, "core", e) { "Module '${module.id}' failed onPlayerJoin for $playerId" }
                 }
             }
         }
@@ -552,8 +549,7 @@ object CoreModule {
                 try {
                     module.onPlayerDisconnect(playerId, session)
                 } catch (e: Exception) {
-                    logger.atSevere().withCause(e)
-                        .log("Module '${module.id}' failed onPlayerDisconnect for $playerId")
+                    LoggingManager.error(logger, "core", e) { "Module '${module.id}' failed onPlayerDisconnect for $playerId" }
                 }
             }
         }
@@ -589,14 +585,8 @@ object CoreModule {
         
         // If any dependencies are missing, abort startup
         if (missingDeps.isNotEmpty()) {
-            logger.atSevere().log(
-                "Cannot start modules - missing dependencies detected:\n" +
-                missingDeps.joinToString("\n")
-            )
-            logger.atSevere().log(
-                "Fix: Ensure all required modules are registered before setupModules() is called.\n" +
-                "Check that dependencies exist in your module registration code."
-            )
+            LoggingManager.error(logger, "core") { "Cannot start modules - missing dependencies detected:\n${missingDeps.joinToString("\n")}" }
+            LoggingManager.error(logger, "core") { "Fix: Ensure all required modules are registered before setupModules() is called.\nCheck that dependencies exist in your module registration code." }
             throw IllegalStateException("Missing module dependencies - startup aborted")
         }
     }
@@ -653,7 +643,7 @@ object CoreModule {
         // Check for circular dependencies
         if (result.size != modules.size) {
             val missing = modules.keys - result.toSet()
-            logger.atSevere().log("Circular dependency detected! Modules involved: $missing")
+            LoggingManager.error(logger, "core") { "Circular dependency detected! Modules involved: $missing" }
             return emptyList()
         }
         

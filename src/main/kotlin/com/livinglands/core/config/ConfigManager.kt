@@ -1,5 +1,6 @@
 package com.livinglands.core.config
 
+import com.livinglands.core.logging.LoggingManager
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -84,7 +85,7 @@ class ConfigManager(
             registerKotlinModule()
         }
         
-        logger.atFine().log("ConfigManager initialized at: $configPath")
+        LoggingManager.debug(logger, "core") { "ConfigManager initialized at: $configPath" }
     }
     
     /**
@@ -114,17 +115,17 @@ class ConfigManager(
                     // Empty file, use and save default
                     save(moduleId, default)
                     configs[moduleId] = default
-                    logger.atFine().log("Config '$moduleId' was empty, created default")
+                    LoggingManager.debug(logger, "core") { "Config '$moduleId' was empty, created default" }
                     default
                 } else {
                     val loaded = mapper.readValue(content, type.java)
                     configs[moduleId] = loaded
-                    logger.atFine().log("Loaded config '$moduleId'")
+                    LoggingManager.debug(logger, "core") { "Loaded config '$moduleId'" }
                     loaded
                 }
             } catch (e: Exception) {
                 // Failed to load, use default and save it
-                logger.atWarning().log("Failed to parse config '$moduleId': ${e.message}. Using defaults.")
+                LoggingManager.warn(logger, "core") { "Failed to parse config '$moduleId': ${e.message}. Using defaults." }
                 save(moduleId, default)
                 configs[moduleId] = default
                 default
@@ -133,7 +134,7 @@ class ConfigManager(
             // Create default config
             save(moduleId, default)
             configs[moduleId] = default
-            logger.atFine().log("Created default config '$moduleId'")
+            LoggingManager.debug(logger, "core") { "Created default config '$moduleId'" }
             default
         }
     }
@@ -177,7 +178,7 @@ class ConfigManager(
         if (!Files.exists(configFile)) {
             save(moduleId, default)
             configs[moduleId] = default
-            logger.atFine().log("Created default config '$moduleId' (v$targetVersion)")
+            LoggingManager.debug(logger, "core") { "Created default config '$moduleId' (v$targetVersion)" }
             return default
         }
         
@@ -185,7 +186,7 @@ class ConfigManager(
         val content = try {
             Files.readString(configFile)
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to read config '$moduleId': ${e.message}. Using defaults.")
+            LoggingManager.warn(logger, "core") { "Failed to read config '$moduleId': ${e.message}. Using defaults." }
             save(moduleId, default)
             configs[moduleId] = default
             return default
@@ -194,7 +195,7 @@ class ConfigManager(
         if (content.isBlank()) {
             save(moduleId, default)
             configs[moduleId] = default
-            logger.atFine().log("Config '$moduleId' was empty, created default (v$targetVersion)")
+            LoggingManager.debug(logger, "core") { "Config '$moduleId' was empty, created default (v$targetVersion)" }
             return default
         }
         
@@ -203,7 +204,7 @@ class ConfigManager(
         val rawData = try {
             rawMapper.readValue(content, Map::class.java) as Map<String, Any>
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to parse config '$moduleId' as map: ${e.message}. Using defaults.")
+            LoggingManager.warn(logger, "core") { "Failed to parse config '$moduleId' as map: ${e.message}. Using defaults." }
             createBackup(moduleId, "parse-error")
             save(moduleId, default)
             configs[moduleId] = default
@@ -218,10 +219,10 @@ class ConfigManager(
             return try {
                 val loaded = mapper.readValue(content, type.java)
                 configs[moduleId] = loaded
-                logger.atFine().log("Loaded config '$moduleId' (v$currentVersion)")
+                LoggingManager.debug(logger, "core") { "Loaded config '$moduleId' (v$currentVersion)" }
                 loaded
             } catch (e: Exception) {
-                logger.atWarning().log("Failed to deserialize config '$moduleId': ${e.message}. Using defaults.")
+                LoggingManager.warn(logger, "core") { "Failed to deserialize config '$moduleId': ${e.message}. Using defaults." }
                 createBackup(moduleId, "deserialize-error")
                 save(moduleId, default)
                 configs[moduleId] = default
@@ -230,14 +231,11 @@ class ConfigManager(
         }
         
         // Migration needed
-        logger.atFine().log("Config '$moduleId' needs migration: v$currentVersion -> v$targetVersion")
+        LoggingManager.debug(logger, "core") { "Config '$moduleId' needs migration: v$currentVersion -> v$targetVersion" }
         
         // Check if migration path exists
         if (!migrations.hasMigrationPath(moduleId, currentVersion, targetVersion)) {
-            logger.atWarning().log(
-                "No migration path for '$moduleId' from v$currentVersion to v$targetVersion. " +
-                "Using defaults. Old config backed up."
-            )
+            LoggingManager.warn(logger, "core") { "No migration path for '$moduleId' from v$currentVersion to v$targetVersion. Using defaults. Old config backed up." }
             createBackup(moduleId, "no-migration-path")
             save(moduleId, default)
             configs[moduleId] = default
@@ -251,14 +249,14 @@ class ConfigManager(
         val migratedData = try {
             migrations.applyMigrations(moduleId, rawData, currentVersion, targetVersion)
         } catch (e: Exception) {
-            logger.atSevere().log("Migration failed for '$moduleId': ${e.message}. Using defaults.")
+            LoggingManager.error(logger, "core") { "Migration failed for '$moduleId': ${e.message}. Using defaults." }
             save(moduleId, default)
             configs[moduleId] = default
             return default
         }
         
         if (migratedData == null) {
-            logger.atSevere().log("Migration returned null for '$moduleId'. Using defaults.")
+            LoggingManager.error(logger, "core") { "Migration returned null for '$moduleId'. Using defaults." }
             save(moduleId, default)
             configs[moduleId] = default
             return default
@@ -268,7 +266,7 @@ class ConfigManager(
         val migrated = try {
             mapper.convertValue(migratedData, type.java)
         } catch (e: Exception) {
-            logger.atSevere().log("Failed to deserialize migrated config '$moduleId': ${e.message}. Using defaults.")
+            LoggingManager.error(logger, "core") { "Failed to deserialize migrated config '$moduleId': ${e.message}. Using defaults." }
             save(moduleId, default)
             configs[moduleId] = default
             return default
@@ -276,10 +274,7 @@ class ConfigManager(
         
         // Validate migrated config version
         if (migrated.configVersion != targetVersion) {
-            logger.atWarning().log(
-                "Migrated config '$moduleId' has wrong version: ${migrated.configVersion} (expected $targetVersion). " +
-                "Saving to update version field."
-            )
+            LoggingManager.warn(logger, "core") { "Migrated config '$moduleId' has wrong version: ${migrated.configVersion} (expected $targetVersion). Saving to update version field." }
         }
         
         // Save migrated config
@@ -289,9 +284,9 @@ class ConfigManager(
         // Log migration details
         val migrationPath = migrations.getMigrationPath(moduleId, currentVersion, targetVersion)
         migrationPath.forEach { migration ->
-            logger.atFine().log("  Applied: ${migration.description}")
+            LoggingManager.debug(logger, "core") { "  Applied: ${migration.description}" }
         }
-        logger.atFine().log("Config '$moduleId' migrated successfully: v$currentVersion -> v$targetVersion")
+        LoggingManager.debug(logger, "core") { "Config '$moduleId' migrated successfully: v$currentVersion -> v$targetVersion" }
         
         return migrated
     }
@@ -315,10 +310,10 @@ class ConfigManager(
         
         return try {
             Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING)
-            logger.atFine().log("Created backup: $backupName")
+            LoggingManager.debug(logger, "core") { "Created backup: $backupName" }
             backupFile
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to create backup for '$moduleId': ${e.message}")
+            LoggingManager.warn(logger, "core") { "Failed to create backup for '$moduleId': ${e.message}" }
             null
         }
     }
@@ -332,7 +327,7 @@ class ConfigManager(
      */
     fun registerMigrations(moduleId: String, moduleMigrations: List<ConfigMigration>) {
         migrations.registerAll(moduleId, moduleMigrations)
-        logger.atFine().log("Registered ${moduleMigrations.size} migrations for '$moduleId'")
+        LoggingManager.debug(logger, "core") { "Registered ${moduleMigrations.size} migrations for '$moduleId'" }
     }
     
     /**
@@ -346,9 +341,9 @@ class ConfigManager(
         try {
             mapper.writeValue(configFile.toFile(), config)
             configs[moduleId] = config
-            logger.atFine().log("Saved config '$moduleId'")
+            LoggingManager.debug(logger, "core") { "Saved config '$moduleId'" }
         } catch (e: Exception) {
-            logger.atSevere().log("Failed to save config '$moduleId': ${e.message}")
+            LoggingManager.error(logger, "core") { "Failed to save config '$moduleId': ${e.message}" }
         }
     }
     
@@ -397,7 +392,7 @@ class ConfigManager(
             if (configTypes.containsKey(moduleId)) {
                 listOf(moduleId)
             } else {
-                logger.atWarning().log("Cannot reload config '$moduleId': not registered")
+                LoggingManager.warn(logger, "core") { "Cannot reload config '$moduleId': not registered" }
                 return emptyList()
             }
         } else {
@@ -417,14 +412,14 @@ class ConfigManager(
                         if (loaded != null) {
                             configs[id] = loaded
                             reloaded.add(id)
-                            logger.atFine().log("Reloaded config '$id'")
+                            LoggingManager.debug(logger, "core") { "Reloaded config '$id'" }
                         }
                     }
                 } catch (e: Exception) {
-                    logger.atWarning().log("Failed to reload config '$id': ${e.message}")
+                    LoggingManager.warn(logger, "core") { "Failed to reload config '$id': ${e.message}" }
                 }
             } else {
-                logger.atWarning().log("Config file not found for '$id': $configFile")
+                LoggingManager.warn(logger, "core") { "Config file not found for '$id': $configFile" }
             }
         }
         
@@ -434,7 +429,7 @@ class ConfigManager(
                 try {
                     callback()
                 } catch (e: Exception) {
-                    logger.atWarning().log("Error in reload callback for '$id': ${e.message}")
+                    LoggingManager.warn(logger, "core") { "Error in reload callback for '$id': ${e.message}" }
                 }
             }
         }
@@ -467,6 +462,6 @@ class ConfigManager(
         configs.clear()
         configTypes.clear()
         reloadCallbacks.clear()
-        logger.atFine().log("ConfigManager cleared")
+        LoggingManager.debug(logger, "core") { "ConfigManager cleared" }
     }
 }

@@ -1,5 +1,6 @@
 package com.livinglands.modules.professions.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.livinglands.core.CoreModule
@@ -76,7 +77,7 @@ class ProgressCommand : ModuleCommand(
                          return
                      }
                  } catch (e: Exception) {
-                     logger.atWarning().withCause(e).log("Error initializing HUD for /ll progress: ${e.message}")
+                     LoggingManager.warn(logger, "professions") { "Error initializing HUD for /ll progress: ${e.message}" }
                      MessageFormatter.commandError(ctx, "HUD initialization error - please rejoin the server")
                      return
                  }

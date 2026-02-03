@@ -130,7 +130,7 @@ class GatheringXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            LoggingManager.debug(logger, "professions") { "Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})" }
         }
         
         // Notify HUD elements (panel + notification)
@@ -146,12 +146,12 @@ class GatheringXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atFine().log("Player ${playerUuid} leveled up Gathering: ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Player ${playerUuid} leveled up Gathering: ${result.oldLevel} → ${result.newLevel}" }
         }
         
         // Debug logging
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
-            logger.atFine().log("Awarded $xpAmount Gathering XP to player ${playerUuid} (item pickup)")
+            LoggingManager.debug(logger, "professions") { "Awarded $xpAmount Gathering XP to player ${playerUuid} (item pickup)" }
         }
         
         // Hearty Gatherer (Tier 2) - +4 hunger/thirst on FOOD item pickup
@@ -190,7 +190,7 @@ class GatheringXpSystem(
             // Check against common food patterns
             return foodPatterns.any { pattern -> itemId.contains(pattern) }
         } catch (e: Exception) {
-            logger.atFine().log("Could not determine if item is food: ${e.message}")
+            LoggingManager.debug(logger, "professions") { "Could not determine if item is food: ${e.message}" }
             return false
         }
     }

@@ -1,5 +1,6 @@
 package com.livinglands.modules.professions.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.livinglands.core.CoreModule
@@ -66,7 +67,7 @@ class ProfessionCommand : ModuleCommand(
                          return
                      }
                  } catch (e: Exception) {
-                     logger.atWarning().withCause(e).log("Error registering HUD for /ll professions")
+                     LoggingManager.warn(logger, "professions") { "Error registering HUD for /ll professions" }
                      MessageFormatter.commandError(ctx, "HUD initialization failed. Please rejoin the server.")
                      return
                  }

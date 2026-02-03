@@ -6,6 +6,7 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.component.query.Query
 import com.hypixel.hytale.component.system.EntityEventSystem
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent
 import com.hypixel.hytale.server.core.inventory.ItemStack
@@ -125,7 +126,7 @@ class MiningXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            LoggingManager.debug(logger, "professions") { "Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})" }
         }
         
         // Notify HUD elements (panel + notification)
@@ -138,12 +139,12 @@ class MiningXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atFine().log("Player ${playerUuid} leveled up Mining: ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Player ${playerUuid} leveled up Mining: ${result.oldLevel} → ${result.newLevel}" }
         }
         
         // Debug logging
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
-            logger.atFine().log("Awarded $xpAmount Mining XP to player ${playerUuid} ($blockId)")
+            LoggingManager.debug(logger, "professions") { "Awarded $xpAmount Mining XP to player ${playerUuid} ($blockId)" }
         }
         
         // ========== Tier 3 Ability: Ore Sense ==========
@@ -153,7 +154,7 @@ class MiningXpSystem(
                 applyOreSense(playerRef, playerUuid, blockId, store)
             }
         } catch (e: Exception) {
-            logger.atWarning().log("Error applying Ore Sense for player $playerUuid: ${e.message}")
+            LoggingManager.warn(logger, "professions") { "Error applying Ore Sense for player $playerUuid: ${e.message}" }
         }
     }
     
@@ -218,12 +219,12 @@ class MiningXpSystem(
         // Get world for thread-safe inventory access
         val worldUuid = playerRef.worldUuid
         if (worldUuid == null) {
-            logger.atFine().log("Ore Sense: World UUID not available for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Ore Sense: World UUID not available for player $playerId" }
             return
         }
         val world = Universe.get().getWorld(worldUuid)
         if (world == null) {
-            logger.atFine().log("Ore Sense: World not found for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Ore Sense: World not found for player $playerId" }
             return
         }
         
@@ -238,13 +239,13 @@ class MiningXpSystem(
                 // Get Player component to access inventory
                 val player = store.getComponent(entityRef, Player.getComponentType())
                 if (player == null) {
-                    logger.atFine().log("Ore Sense: Player component not found for $playerId")
+                    LoggingManager.debug(logger, "professions") { "Ore Sense: Player component not found for $playerId" }
                     return@execute
                 }
                 
                 val inventory = player.inventory
                 if (inventory == null) {
-                    logger.atFine().log("Ore Sense: Inventory not found for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Ore Sense: Inventory not found for player $playerId" }
                     return@execute
                 }
                 
@@ -262,15 +263,15 @@ class MiningXpSystem(
                 val transaction = container.addItemStack(bonusItem)
                 
                 if (transaction.succeeded()) {
-                    logger.atFine().log("Ore Sense triggered! Added bonus $itemId to player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Ore Sense triggered! Added bonus $itemId to player $playerId" }
                     
                     // Send inventory update to client
                     player.sendInventory()
                 } else {
-                    logger.atFine().log("Ore Sense: Could not add bonus item to inventory (full?) for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Ore Sense: Could not add bonus item to inventory (full?) for player $playerId" }
                 }
             } catch (e: Exception) {
-                logger.atWarning().log("Error in Ore Sense for player $playerId: ${e.message}")
+                LoggingManager.warn(logger, "professions") { "Error in Ore Sense for player $playerId: ${e.message}" }
             }
         }
     }

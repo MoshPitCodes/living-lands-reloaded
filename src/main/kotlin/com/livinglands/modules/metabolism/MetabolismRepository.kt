@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.persistence.GlobalPersistenceService
 import com.livinglands.core.persistence.Repository
@@ -77,7 +78,7 @@ class MetabolismRepository(
             }
             
             persistence.setModuleSchemaVersion(MODULE_ID, SCHEMA_VERSION)
-            logger.atFine().log("Metabolism schema initialized (version $SCHEMA_VERSION)")
+            LoggingManager.debug(logger, "metabolism") { "Metabolism schema initialized (version $SCHEMA_VERSION)" }
         }
     }
     
@@ -89,17 +90,17 @@ class MetabolismRepository(
      */
     suspend fun ensureStats(playerId: String): MetabolismStats {
         return persistence.execute { conn ->
-            logger.atFine().log("ensureStats() called for player: $playerId")
+            LoggingManager.debug(logger, "metabolism") { "ensureStats() called for player: $playerId" }
             val existing = findByIdInternal(conn, playerId)
             
             if (existing != null) {
-                logger.atFine().log("✅ LOADED existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}")
+                LoggingManager.debug(logger, "metabolism") { "✅ LOADED existing metabolism stats for $playerId: H=${existing.hunger}, T=${existing.thirst}, E=${existing.energy}" }
                 existing
             } else {
                 // Create default stats
                 val stats = MetabolismStats.createDefault(playerId)
                 insertInternal(conn, stats)
-                logger.atFine().log("✅ CREATED default metabolism stats for player: $playerId (H=100, T=100, E=100)")
+                LoggingManager.debug(logger, "metabolism") { "✅ CREATED default metabolism stats for player: $playerId (H=100, T=100, E=100)" }
                 stats
             }
         }
@@ -192,9 +193,9 @@ class MetabolismRepository(
                 val rowsAffected = stmt.executeUpdate()
                 
                 if (rowsAffected == 0) {
-                    logger.atWarning().log("DB WRITE FAILED: 0 rows affected when saving metabolism_stats for player ${stats.playerId}")
+                    LoggingManager.warn(logger, "metabolism") { "DB WRITE FAILED: 0 rows affected when saving metabolism_stats for player ${stats.playerId}" }
                 } else {
-                    logger.atFine().log("SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+                    LoggingManager.debug(logger, "metabolism") { "SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}" }
                 }
             }
         }
@@ -226,9 +227,9 @@ class MetabolismRepository(
                 stmt.setString(1, id)
                 val deleted = stmt.executeUpdate()
                 if (deleted > 0) {
-                    logger.atFine().log("Deleted metabolism stats for player: $id")
+                    LoggingManager.debug(logger, "metabolism") { "Deleted metabolism stats for player: $id" }
                 } else {
-                    logger.atWarning().log("DB DELETE: 0 rows affected when deleting metabolism_stats for player $id (may not exist)")
+                    LoggingManager.warn(logger, "metabolism") { "DB DELETE: 0 rows affected when deleting metabolism_stats for player $id (may not exist)" }
                 }
             }
         }
@@ -307,7 +308,7 @@ class MetabolismRepository(
             }
         }
         
-        logger.atFine().log("Bulk saved ${statsList.size} metabolism stats records")
+        LoggingManager.debug(logger, "metabolism") { "Bulk saved ${statsList.size} metabolism stats records" }
     }
     
     // ============ HUD Preferences Methods ============
@@ -363,11 +364,11 @@ class MetabolismRepository(
                 val rowsAffected = stmt.executeUpdate()
                 
                 if (rowsAffected == 0) {
-                    logger.atWarning().log("DB WRITE FAILED: 0 rows affected when saving HUD preferences for player $playerId")
+                    LoggingManager.warn(logger, "metabolism") { "DB WRITE FAILED: 0 rows affected when saving HUD preferences for player $playerId" }
                 }
             }
         }
         
-        logger.atFine().log("Saved HUD preferences for player $playerId")
+        LoggingManager.debug(logger, "metabolism") { "Saved HUD preferences for player $playerId" }
     }
 }

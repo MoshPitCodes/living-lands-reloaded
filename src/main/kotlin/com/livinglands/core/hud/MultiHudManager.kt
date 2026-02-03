@@ -1,5 +1,6 @@
 package com.livinglands.core.hud
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.universe.PlayerRef
@@ -95,8 +96,8 @@ class MultiHudManager(
         professionsService: ProfessionsService? = null,
         abilityRegistry: AbilityRegistry? = null
     ) {
-        logger.atFine().log("=== MultiHudManager.registerHud() called ===")
-        logger.atFine().log("Player UUID: $playerId")
+        LoggingManager.debug(logger, "core") { "=== MultiHudManager.registerHud() called ===" }
+        LoggingManager.debug(logger, "core") { "Player UUID: $playerId" }
         
         // Store refs for cleanup
         playerRefs[playerId] = Pair(player, playerRef)
@@ -126,12 +127,12 @@ class MultiHudManager(
             // (every 2 seconds). We don't populate immediately because the client
             // needs time to process the append() command and create the UI elements.
             
-            logger.atFine().log("Registered unified HUD for player $playerId (initial data will populate on next tick)")
+            LoggingManager.debug(logger, "core") { "Registered unified HUD for player $playerId (initial data will populate on next tick)" }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to register unified HUD for player $playerId")
+            LoggingManager.error(logger, "core", e) { "Failed to register unified HUD for player $playerId" }
         }
         
-        logger.atFine().log("=== MultiHudManager.registerHud() complete ===")
+        LoggingManager.debug(logger, "core") { "=== MultiHudManager.registerHud() complete ===" }
     }
     
     /**
@@ -162,7 +163,7 @@ class MultiHudManager(
      * @param registry The AbilityRegistry instance
      */
     fun setProfessionServicesForAll(service: ProfessionsService, registry: AbilityRegistry) {
-        logger.atFine().log("Updating profession services for ${playerHuds.size} registered HUDs")
+        LoggingManager.debug(logger, "core") { "Updating profession services for ${playerHuds.size} registered HUDs" }
         playerHuds.values.forEach { hud ->
             hud.setProfessionServices(service, registry)
         }
@@ -179,7 +180,7 @@ class MultiHudManager(
      * @param debuffsSystem The DebuffsSystem instance (or null to disable debuffs)
      */
     fun setMetabolismServicesForAll(buffsSystem: BuffsSystem?, debuffsSystem: DebuffsSystem?) {
-        logger.atFine().log("Updating metabolism services for ${playerHuds.size} registered HUDs")
+        LoggingManager.debug(logger, "core") { "Updating metabolism services for ${playerHuds.size} registered HUDs" }
         playerHuds.values.forEach { hud ->
             hud.setMetabolismServices(buffsSystem, debuffsSystem)
         }
@@ -192,7 +193,7 @@ class MultiHudManager(
      * This disables profession panels in the HUD but keeps the HUD itself active.
      */
     fun clearProfessionServicesForAll() {
-        logger.atFine().log("Clearing profession services for ${playerHuds.size} registered HUDs")
+        LoggingManager.debug(logger, "core") { "Clearing profession services for ${playerHuds.size} registered HUDs" }
         playerHuds.values.forEach { hud ->
             hud.clearProfessionServices()
         }
@@ -205,7 +206,7 @@ class MultiHudManager(
      * This hides metabolism stats, buffs, and debuffs in the HUD but keeps the HUD itself active.
      */
     fun clearMetabolismServicesForAll() {
-        logger.atFine().log("Clearing metabolism services for ${playerHuds.size} registered HUDs")
+        LoggingManager.debug(logger, "core") { "Clearing metabolism services for ${playerHuds.size} registered HUDs" }
         playerHuds.values.forEach { hud ->
             hud.clearMetabolismServices()
         }
@@ -222,10 +223,10 @@ class MultiHudManager(
      * @param maxDebuffs Maximum number of debuffs to display (default 3)
      */
     fun updateHudConfig(maxBuffs: Int, maxDebuffs: Int) {
-        logger.atFine().log("Updating HUD config: maxBuffs=$maxBuffs, maxDebuffs=$maxDebuffs")
+        LoggingManager.debug(logger, "core") { "Updating HUD config: maxBuffs=$maxBuffs, maxDebuffs=$maxDebuffs" }
         this.maxBuffs = maxBuffs
         this.maxDebuffs = maxDebuffs
-        logger.atFine().log("HUD config updated (will apply to new player HUDs)")
+        LoggingManager.debug(logger, "core") { "HUD config updated (will apply to new player HUDs)" }
     }
     
     /**
@@ -238,14 +239,14 @@ class MultiHudManager(
      * @param playerId Player's UUID
      */
     fun removeHud(player: Player, playerRef: PlayerRef, playerId: UUID) {
-        logger.atFine().log("Removing HUD for player $playerId")
+        LoggingManager.debug(logger, "core") { "Removing HUD for player $playerId" }
         
         try {
             val hudManager = player.hudManager
             hudManager.setCustomHud(playerRef, null)
-            logger.atFine().log("Removed HUD for player $playerId")
+            LoggingManager.debug(logger, "core") { "Removed HUD for player $playerId" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to remove HUD for player $playerId")
+            LoggingManager.warn(logger, "core") { "Failed to remove HUD for player $playerId" }
         } finally {
             // ALWAYS clean up maps, even if setCustomHud() fails
             // This prevents memory leaks from failed HUD removal
@@ -269,7 +270,7 @@ class MultiHudManager(
         try {
             hud.show()
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to refresh HUD for player $playerId")
+            LoggingManager.warn(logger, "core") { "Failed to refresh HUD for player $playerId" }
         }
     }
     
@@ -296,18 +297,15 @@ class MultiHudManager(
         newPlayer: Player,
         newPlayerRef: PlayerRef
     ) {
-        logger.atFine().log("Player $playerId switching worlds: $oldWorldUuid -> $newWorldUuid")
+        LoggingManager.debug(logger, "core") { "Player $playerId switching worlds: $oldWorldUuid -> $newWorldUuid" }
         
         // Update the playerRefs map with the new world's PlayerRef
         val oldPair = playerRefs[playerId]
         if (oldPair != null) {
             playerRefs[playerId] = Pair(newPlayer, newPlayerRef)
-            logger.atFine().log("Updated PlayerRef for player $playerId to new world $newWorldUuid")
+            LoggingManager.debug(logger, "core") { "Updated PlayerRef for player $playerId to new world $newWorldUuid" }
         } else {
-            logger.atWarning().log(
-                "Player $playerId switched worlds but was not registered in playerRefs map. " +
-                "HUD may not function correctly. Registering now."
-            )
+            LoggingManager.warn(logger, "core") { "Player $playerId switched worlds but was not registered in playerRefs map. HUD may not function correctly. Registering now." }
             playerRefs[playerId] = Pair(newPlayer, newPlayerRef)
         }
         
@@ -325,7 +323,7 @@ class MultiHudManager(
     fun onPlayerDisconnect(playerId: UUID) {
         playerHuds.remove(playerId)
         playerRefs.remove(playerId)
-        logger.atFine().log("Cleaned up HUD state for disconnecting player $playerId")
+        LoggingManager.debug(logger, "core") { "Cleaned up HUD state for disconnecting player $playerId" }
     }
     
     /**
@@ -334,7 +332,7 @@ class MultiHudManager(
     fun clear() {
         playerHuds.clear()
         playerRefs.clear()
-        logger.atFine().log("MultiHudManager cleared")
+        LoggingManager.debug(logger, "core") { "MultiHudManager cleared" }
     }
     
     // ============ Legacy Compatibility Methods ============
@@ -357,11 +355,7 @@ class MultiHudManager(
         @Suppress("DEPRECATION")
         val playerId = playerRef.uuid
         
-        logger.atWarning().log(
-            "setHud() called with namespace '$namespace' for player $playerId. " +
-            "This method is deprecated - the unified HUD should already be registered via registerHud(). " +
-            "Individual HUD elements are no longer supported."
-        )
+        LoggingManager.warn(logger, "core") { "setHud() called with namespace '$namespace' for player $playerId. This method is deprecated - the unified HUD should already be registered via registerHud(). Individual HUD elements are no longer supported." }
         
         // If the unified HUD isn't registered yet and this is a LivingLandsHudElement, register it
         if (!playerHuds.containsKey(playerId) && hud is LivingLandsHudElement) {
@@ -372,9 +366,9 @@ class MultiHudManager(
                 val hudManager = player.hudManager
                 hudManager.setCustomHud(playerRef, hud)
                 hud.show()
-                logger.atFine().log("Registered unified HUD via legacy setHud() for player $playerId")
+                LoggingManager.debug(logger, "core") { "Registered unified HUD via legacy setHud() for player $playerId" }
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Failed to register HUD via legacy setHud() for player $playerId")
+                LoggingManager.error(logger, "core", e) { "Failed to register HUD via legacy setHud() for player $playerId" }
             }
         }
     }
@@ -387,10 +381,7 @@ class MultiHudManager(
         @Suppress("DEPRECATION")
         val playerId = playerRef.uuid
         
-        logger.atWarning().log(
-            "removeHud() called with namespace '$namespace' for player $playerId. " +
-            "Namespace is ignored - removing the unified HUD."
-        )
+         LoggingManager.warn(logger, "core") { "removeHud() called with namespace '$namespace' for player $playerId. Namespace is ignored - removing the unified HUD." }
         
         removeHud(player, playerRef, playerId)
     }

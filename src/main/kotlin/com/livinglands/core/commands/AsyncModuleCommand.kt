@@ -1,5 +1,6 @@
 package com.livinglands.core.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
@@ -146,21 +147,21 @@ abstract class AsyncModuleCommand(
                 try {
                     // Double-check module is still operational before async work
                     if (!isModuleOperational()) {
-                        logger.atWarning().log("Module '$moduleId' became non-operational during async execution")
+                        LoggingManager.warn(logger, "core") { "Module '$moduleId' became non-operational during async execution" }
                         return@launch
                     }
                     
                     executeAsyncIfModuleEnabled(ctx, validationResult.validatedData)
                     onCommandSuccess(ctx, validationResult.validatedData)
                 } catch (e: Exception) {
-                    logger.atSevere().withCause(e).log("Async command '$name' failed")
+                    LoggingManager.error(logger, "core", e) { "Async command '$name' failed" }
                     onCommandFailure(ctx, validationResult.validatedData, e)
                 }
             }
             
         } catch (e: Exception) {
             MessageFormatter.commandError(ctx, "Command failed: ${e.message}")
-            logger.atSevere().withCause(e).log("Error in command '$name'")
+            LoggingManager.error(logger, "core", e) { "Error in command '$name'" }
         }
     }
     
@@ -202,7 +203,7 @@ abstract class AsyncModuleCommand(
      * Default: Logs success, no player message (fire-and-forget pattern)
      */
     protected open fun onCommandSuccess(ctx: CommandContext, validatedData: Any?) {
-        logger.atFine().log("Command '$name' completed successfully")
+        LoggingManager.debug(logger, "core") { "Command '$name' completed successfully" }
     }
     
     /**
@@ -210,7 +211,7 @@ abstract class AsyncModuleCommand(
      * Default: Logs error, no player message
      */
     protected open fun onCommandFailure(ctx: CommandContext, validatedData: Any?, error: Exception) {
-        logger.atSevere().withCause(error).log("Command '$name' failed: ${error.message}")
+        LoggingManager.error(logger, "core", error) { "Command '$name' failed: ${error.message}" }
     }
     
     /**

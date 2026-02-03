@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.food
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffect
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent
@@ -94,7 +95,7 @@ class FoodEffectDetector(
         val effectController = try {
             session.store.getComponent(session.entityRef, EffectControllerComponent.getComponentType())
         } catch (e: Exception) {
-            logger.atFine().log("Failed to get EffectControllerComponent for player $playerId: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to get EffectControllerComponent for player $playerId: ${e.message}" }
             return emptyList()
         }
         
@@ -155,7 +156,7 @@ class FoodEffectDetector(
                 val entityEffect = assetMap.getAsset(index)
                 entityEffect?.id
             } catch (e: Exception) {
-                logger.atFine().log("Failed to get effect ID for index $index: ${e.message}")
+                LoggingManager.debug(logger, "metabolism") { "Failed to get effect ID for index $index: ${e.message}" }
                 null
             }
             
@@ -168,14 +169,14 @@ class FoodEffectDetector(
                 
                 // Log if this is a re-detection (useful for debugging)
                 if (index in processed) {
-                    logger.atFine().log("Re-detected effect index $index: $effectId (same food consumed again)")
+                    LoggingManager.debug(logger, "metabolism") { "Re-detected effect index $index: $effectId (same food consumed again)" }
                 }
                 
                 // Mark as processed with current timestamp to prevent duplicate detection
                 processed[index] = System.currentTimeMillis()
                 
                 val source = if (moddedRegistry?.findByEffectId(effectId) != null) "modded" else "vanilla"
-                logger.atFine().log("Detected food consumption [$source]: $effectId (tier ${detection.tier}, type ${detection.foodType})")
+                LoggingManager.debug(logger, "metabolism") { "Detected food consumption [$source]: $effectId (tier ${detection.tier}, type ${detection.foodType})" }
             }
         }
         
@@ -236,10 +237,7 @@ class FoodEffectDetector(
             
             // Log cleanup stats if significant cleanup occurred
             if (playersToRemove.size > 0 || previousToRemove.size > 0) {
-                logger.atFine().log(
-                    "FoodEffectDetector cleanup: removed ${playersToRemove.size} processed maps, " +
-                    "${previousToRemove.size} previous effect maps"
-                )
+                LoggingManager.debug(logger, "metabolism") { "FoodEffectDetector cleanup: removed ${playersToRemove.size} processed maps, ${previousToRemove.size} previous effect maps" }
             }
         }
     }
@@ -261,7 +259,7 @@ class FoodEffectDetector(
         val effectController = try {
             session.store.getComponent(session.entityRef, EffectControllerComponent.getComponentType())
         } catch (e: Exception) {
-            logger.atFine().log("Failed to get EffectControllerComponent for player $playerId during init: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to get EffectControllerComponent for player $playerId during init: ${e.message}" }
             return
         }
         
@@ -273,11 +271,11 @@ class FoodEffectDetector(
             val currentIndexes = activeEffects.map { it.getEntityEffectIndex() }.toSet()
             previousEffects[playerId] = currentIndexes
             
-            logger.atFine().log("Initialized food detection for player $playerId with ${currentIndexes.size} existing effects")
+            LoggingManager.debug(logger, "metabolism") { "Initialized food detection for player $playerId with ${currentIndexes.size} existing effects" }
         } else {
             // No active effects, initialize with empty set
             previousEffects[playerId] = emptySet()
-            logger.atFine().log("Initialized food detection for player $playerId with no existing effects")
+            LoggingManager.debug(logger, "metabolism") { "Initialized food detection for player $playerId with no existing effects" }
         }
     }
     

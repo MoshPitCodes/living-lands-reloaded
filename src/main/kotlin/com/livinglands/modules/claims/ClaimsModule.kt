@@ -1,5 +1,6 @@
 package com.livinglands.modules.claims
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
@@ -59,9 +60,9 @@ class ClaimsModule : AbstractModule(
     override suspend fun onSetup() {
         // Safety guard: Prevent enabling incomplete module
         if (!isImplemented) {
-            logger.atSevere().log("❌ ClaimsModule is NOT IMPLEMENTED - refusing to start")
-            logger.atSevere().log("This is a stub module. Do not enable until Phase 3 implementation is complete.")
-            logger.atSevere().log("See docs/FUTURE_MODULES.md for design documentation and implementation checklist.")
+            LoggingManager.error(logger, "claims") { "❌ ClaimsModule is NOT IMPLEMENTED - refusing to start" }
+            LoggingManager.error(logger, "claims") { "This is a stub module. Do not enable until Phase 3 implementation is complete." }
+            LoggingManager.error(logger, "claims") { "See docs/FUTURE_MODULES.md for design documentation and implementation checklist." }
             throw UnsupportedOperationException(
                 "ClaimsModule is a stub and cannot be enabled. " +
                 "Set isImplemented = true after completing implementation. " +
@@ -69,7 +70,7 @@ class ClaimsModule : AbstractModule(
             )
         }
         
-        logger.atFine().log("Claims module setting up...")
+        LoggingManager.debug(logger, "claims") { "Claims module setting up..." }
         
         // TODO: Load configuration
         // config = CoreModule.config.loadWithMigration(...)
@@ -85,27 +86,27 @@ class ClaimsModule : AbstractModule(
         // TODO: Register commands (/ll claim, /ll unclaim, /ll trust, /ll untrust, /ll claims)
         // TODO: Register visualization tick system (show boundaries when near claim edge)
         
-        logger.atFine().log("Claims module setup complete")
+        LoggingManager.debug(logger, "claims") { "Claims module setup complete" }
     }
     
     override suspend fun onStart() {
-        logger.atFine().log("Claims module started (MOCK)")
+        LoggingManager.debug(logger, "claims") { "Claims module started (MOCK)" }
     }
     
     override suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {
         // TODO: Load player's claims from database
         // TODO: Update player claim count cache
-        logger.atFine().log("Player $playerId joined - claims data loaded (MOCK)")
+        LoggingManager.debug(logger, "claims") { "Player $playerId joined - claims data loaded (MOCK)" }
     }
     
     override suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {
         // TODO: Save any pending claim updates
         playerClaimCounts.remove(playerId)
-        logger.atFine().log("Player $playerId disconnected - claims data saved (MOCK)")
+        LoggingManager.debug(logger, "claims") { "Player $playerId disconnected - claims data saved (MOCK)" }
     }
     
     override suspend fun onShutdown() {
-        logger.atFine().log("Claims module shutting down (MOCK)")
+        LoggingManager.debug(logger, "claims") { "Claims module shutting down (MOCK)" }
         claims.clear()
         playerClaimCounts.clear()
     }

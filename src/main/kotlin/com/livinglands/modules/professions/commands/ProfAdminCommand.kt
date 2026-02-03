@@ -1,5 +1,6 @@
 package com.livinglands.modules.professions.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.command.system.CommandContext
@@ -163,7 +164,7 @@ class ProfAdminCommand(
         val playerId = resolvePlayerId(data.playerName)
         
         if (playerId == null) {
-            logger.atWarning().log("Player not found: ${data.playerName}")
+            LoggingManager.warn(logger, "professions") { "Player not found: ${data.playerName}" }
             return
         }
 
@@ -186,7 +187,7 @@ class ProfAdminCommand(
         }
 
         professionsService.setLevel(playerId, data.profession, data.level)
-        logger.atFine().log("Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}")
+        LoggingManager.debug(logger, "professions") { "Set ${data.profession.displayName} to level ${data.level} for ${data.playerName}" }
         
         // Reapply all abilities with updated levels
         val professionLevels = professionsService.getAllStats(playerId)
@@ -204,7 +205,7 @@ class ProfAdminCommand(
         val playerId = resolvePlayerId(data.playerName)
         
         if (playerId == null) {
-            logger.atWarning().log("Player not found: ${data.playerName}")
+            LoggingManager.warn(logger, "professions") { "Player not found: ${data.playerName}" }
             return
         }
 
@@ -221,10 +222,10 @@ class ProfAdminCommand(
         refreshPlayerHud(playerId)
 
         if (result.didLevelUp) {
-            logger.atFine().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName} - Level up! ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName} - Level up! ${result.oldLevel} → ${result.newLevel}" }
             notifyPlayer(playerId, "[Admin] You gained ${data.xp} XP in ${data.profession.displayName}! Level up: ${result.oldLevel} → ${result.newLevel}")
         } else {
-            logger.atFine().log("Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName}")
+            LoggingManager.debug(logger, "professions") { "Added ${data.xp} XP to ${data.profession.displayName} for ${data.playerName}" }
         }
     }
 
@@ -232,7 +233,7 @@ class ProfAdminCommand(
         val playerId = resolvePlayerId(data.playerName)
         
         if (playerId == null) {
-            logger.atWarning().log("Player not found: ${data.playerName}")
+            LoggingManager.warn(logger, "professions") { "Player not found: ${data.playerName}" }
             return
         }
 
@@ -262,7 +263,7 @@ class ProfAdminCommand(
 
         if (data.profession != null) {
             professionsService.resetProfession(playerId, data.profession)
-            logger.atFine().log("Reset ${data.profession.displayName} for ${data.playerName}")
+            LoggingManager.debug(logger, "professions") { "Reset ${data.profession.displayName} for ${data.playerName}" }
             
             // Reapply abilities after reset (remove ability bonuses)
             val professionLevels = professionsService.getAllStats(playerId)
@@ -277,7 +278,7 @@ class ProfAdminCommand(
             Profession.values().forEach { profession ->
                 professionsService.resetProfession(playerId, profession)
             }
-            logger.atFine().log("Reset all professions for ${data.playerName}")
+            LoggingManager.debug(logger, "professions") { "Reset all professions for ${data.playerName}" }
             
             // Reapply abilities after reset (remove all ability bonuses)
             val professionLevels = professionsService.getAllStats(playerId)
@@ -295,7 +296,7 @@ class ProfAdminCommand(
         val playerId = resolvePlayerId(data.playerName)
         
         if (playerId == null) {
-            logger.atWarning().log("Player not found: ${data.playerName}")
+            LoggingManager.warn(logger, "professions") { "Player not found: ${data.playerName}" }
             return
         }
 
@@ -367,9 +368,9 @@ class ProfAdminCommand(
                     hud?.refreshProfessionsPanel()  // Set refresh flag
                     hud?.updateProfessionsPanel()   // Update only professions section
                     
-                    logger.atFine().log("Refreshed professions panel for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Refreshed professions panel for player $playerId" }
                 } catch (e: Exception) {
-                    logger.atFine().log("Could not refresh professions panel for player $playerId: ${e.message}")
+                    LoggingManager.debug(logger, "professions") { "Could not refresh professions panel for player $playerId: ${e.message}" }
                 }
             }
         }
@@ -391,7 +392,7 @@ class ProfAdminCommand(
                         Message.raw(message).color(java.awt.Color(255, 170, 0))
                     )
                 } catch (e: Exception) {
-                    logger.atFine().log("Could not notify player $playerId: ${e.message}")
+                    LoggingManager.debug(logger, "professions") { "Could not notify player $playerId: ${e.message}" }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.food
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.protocol.InteractionType
 import com.hypixel.hytale.server.core.asset.type.item.config.Item
@@ -44,7 +45,7 @@ object ConsumablesScanner {
             val itemStore = Item.getAssetStore()
             val allItems = itemStore.assetMap.assetMap
             
-            logger.atFine().log("Scanning ${allItems.size} items for consumables...")
+            LoggingManager.debug(logger, "metabolism") { "Scanning ${allItems.size} items for consumables..." }
             
             var consumableCount = 0
             var skippedCount = 0
@@ -58,14 +59,14 @@ object ConsumablesScanner {
                 // Get consumption effect ID
                 val effectId = extractEffectId(item, logger)
                 if (effectId == null) {
-                    logger.atFine().log("Consumable $itemId has no effect")
+                    LoggingManager.debug(logger, "metabolism") { "Consumable $itemId has no effect" }
                     noEffectCount++
                     return@forEach
                 }
                 
                 // Skip if already configured
                 if (effectId in excludeEffects) {
-                    logger.atFine().log("Skipping already configured: $itemId -> $effectId")
+                    LoggingManager.debug(logger, "metabolism") { "Skipping already configured: $itemId -> $effectId" }
                     skippedCount++
                     return@forEach
                 }
@@ -83,24 +84,19 @@ object ConsumablesScanner {
                     namespace = namespace
                 ))
                 
-                logger.atFine().log("Discovered: $namespace:$itemId -> $effectId (T$tier, $category)")
+                LoggingManager.debug(logger, "metabolism") { "Discovered: $namespace:$itemId -> $effectId (T$tier, $category)" }
             }
             
-            logger.atInfo().log(
-                "Scan complete: $consumableCount consumables total, " +
-                "$skippedCount already configured, " +
-                "$noEffectCount without effects, " +
-                "${discovered.size} new"
-            )
+            LoggingManager.info(logger, "metabolism") { "Scan complete: $consumableCount consumables total, $skippedCount already configured, $noEffectCount without effects, ${discovered.size} new" }
             
             // Log namespace breakdown
             val byNamespace = discovered.groupBy { it.namespace }
             byNamespace.forEach { (namespace, items) ->
-                logger.atInfo().log("  Namespace '$namespace': ${items.size} items")
+                LoggingManager.info(logger, "metabolism") { "  Namespace '$namespace': ${items.size} items" }
             }
             
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to scan Item registry")
+            LoggingManager.error(logger, "metabolism", e) { "Failed to scan Item registry" }
         }
         
         return discovered
@@ -120,7 +116,7 @@ object ConsumablesScanner {
         
         // Skip placeholder/template values
         if (effectId != null && (effectId.startsWith("*") || effectId.isBlank())) {
-            logger.atFine().log("Item ${item.id} has placeholder/template secondary interaction: $effectId")
+            LoggingManager.debug(logger, "metabolism") { "Item ${item.id} has placeholder/template secondary interaction: $effectId" }
             return null  // Treat as no real effect
         }
         
@@ -229,11 +225,11 @@ object ConsumablesScanner {
                     packName
                 }
                 
-                logger.atFine().log("Extracted namespace from asset pack: $itemId -> $modGroup (pack: $packName)")
+                LoggingManager.debug(logger, "metabolism") { "Extracted namespace from asset pack: $itemId -> $modGroup (pack: $packName)" }
                 return modGroup
             }
         } catch (e: Exception) {
-            logger.atFine().log("Failed to extract namespace from asset pack for $itemId: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to extract namespace from asset pack for $itemId: ${e.message}" }
         }
         
         // Fallback: Parse item ID for namespace hints

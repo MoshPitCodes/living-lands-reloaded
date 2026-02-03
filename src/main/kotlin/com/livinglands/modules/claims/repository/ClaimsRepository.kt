@@ -1,5 +1,6 @@
 package com.livinglands.modules.claims.repository
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.modules.claims.Claim
 import com.livinglands.modules.claims.ChunkPosition
@@ -91,11 +92,11 @@ class ClaimsRepository(
                         ON land_claims(owner_uuid)
                     """.trimIndent())
                     
-                    logger.atFine().log("Claims database initialized at: $dbPath")
+                    LoggingManager.debug(logger, "claims") { "Claims database initialized at: $dbPath" }
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to initialize claims database")
+            LoggingManager.error(logger, "claims", e) { "Failed to initialize claims database" }
             throw e
         }
     }
@@ -132,7 +133,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to get claim at $position")
+            LoggingManager.error(logger, "claims", e) { "Failed to get claim at $position" }
             null
         }
     }
@@ -167,7 +168,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to get claims for owner $ownerUuid")
+            LoggingManager.error(logger, "claims", e) { "Failed to get claims for owner $ownerUuid" }
             emptyList()
         }
     }
@@ -203,7 +204,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to get trusted claims for $trustedUuid")
+            LoggingManager.error(logger, "claims", e) { "Failed to get trusted claims for $trustedUuid" }
             emptyList()
         }
     }
@@ -259,7 +260,7 @@ class ClaimsRepository(
                     incrementClaimCount(conn, claim.owner)
                     
                     conn.commit()
-                    logger.atFine().log("Created claim ${claim.id} at ${claim.position}")
+                    LoggingManager.debug(logger, "claims") { "Created claim ${claim.id} at ${claim.position}" }
                     true
                 } catch (e: Exception) {
                     conn.rollback()
@@ -267,7 +268,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to create claim ${claim.id}")
+            LoggingManager.error(logger, "claims", e) { "Failed to create claim ${claim.id}" }
             false
         }
     }
@@ -290,7 +291,7 @@ class ClaimsRepository(
                         if (rowsAffected > 0) {
                             decrementClaimCount(conn, ownerUuid)
                             conn.commit()
-                            logger.atFine().log("Deleted claim $claimId")
+                            LoggingManager.debug(logger, "claims") { "Deleted claim $claimId" }
                             true
                         } else {
                             conn.rollback()
@@ -303,7 +304,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to delete claim $claimId")
+            LoggingManager.error(logger, "claims", e) { "Failed to delete claim $claimId" }
             false
         }
     }
@@ -327,7 +328,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to add trusted player $trustedUuid to claim $claimId")
+            LoggingManager.error(logger, "claims", e) { "Failed to add trusted player $trustedUuid to claim $claimId" }
             false
         }
     }
@@ -347,7 +348,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to remove trusted player $trustedUuid from claim $claimId")
+            LoggingManager.error(logger, "claims", e) { "Failed to remove trusted player $trustedUuid from claim $claimId" }
             false
         }
     }
@@ -368,7 +369,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to get claim count for $ownerUuid")
+            LoggingManager.error(logger, "claims", e) { "Failed to get claim count for $ownerUuid" }
             0
         }
     }
@@ -393,7 +394,7 @@ class ClaimsRepository(
                 }
             }
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to update claim name for $claimId")
+            LoggingManager.error(logger, "claims", e) { "Failed to update claim name for $claimId" }
             false
         }
     }

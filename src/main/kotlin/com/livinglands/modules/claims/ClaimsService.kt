@@ -1,5 +1,6 @@
 package com.livinglands.modules.claims
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.modules.claims.cache.ClaimsCache
 import com.livinglands.modules.claims.config.ClaimsConfig
@@ -80,7 +81,7 @@ class ClaimsService(
         // Update cache
         cache.put(claim)
         
-        logger.atFine().log("Player $playerId claimed chunk at ${position.chunkX}, ${position.chunkZ}")
+        LoggingManager.debug(logger, "claims") { "Player $playerId claimed chunk at ${position.chunkX}, ${position.chunkZ}" }
         return ClaimResult.Success(claim)
     }
     
@@ -116,7 +117,7 @@ class ClaimsService(
         // Remove from cache
         cache.remove(claim.id)
         
-        logger.atFine().log("Player $playerId unclaimed chunk at ${position.chunkX}, ${position.chunkZ}")
+        LoggingManager.debug(logger, "claims") { "Player $playerId unclaimed chunk at ${position.chunkX}, ${position.chunkZ}" }
         return UnclaimResult.Success
     }
     
@@ -185,7 +186,7 @@ class ClaimsService(
         val updatedClaim = claim.withTrustedPlayer(targetPlayerId)
         cache.update(updatedClaim)
         
-        logger.atFine().log("Added $targetPlayerId to trust list for claim $claimId")
+        LoggingManager.debug(logger, "claims") { "Added $targetPlayerId to trust list for claim $claimId" }
         return TrustResult.Success
     }
     
@@ -221,7 +222,7 @@ class ClaimsService(
         val updatedClaim = claim.withoutTrustedPlayer(targetPlayerId)
         cache.update(updatedClaim)
         
-        logger.atFine().log("Removed $targetPlayerId from trust list for claim $claimId")
+        LoggingManager.debug(logger, "claims") { "Removed $targetPlayerId from trust list for claim $claimId" }
         return UntrustResult.Success
     }
     
@@ -281,7 +282,7 @@ class ClaimsService(
         val updatedClaim = claim.withName(newName)
         cache.update(updatedClaim)
         
-        logger.atFine().log("Updated claim $claimId name to: $newName")
+        LoggingManager.debug(logger, "claims") { "Updated claim $claimId name to: $newName" }
         return UpdateNameResult.Success
     }
     
@@ -291,7 +292,7 @@ class ClaimsService(
      */
     suspend fun warmCache(worldId: UUID) {
         // TODO: Implement once we have a way to query all claims by world
-        logger.atFine().log("Cache warming not yet implemented for world $worldId")
+        LoggingManager.debug(logger, "claims") { "Cache warming not yet implemented for world $worldId" }
     }
 }
 

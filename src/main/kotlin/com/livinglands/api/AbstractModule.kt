@@ -63,10 +63,10 @@ abstract class AbstractModule(
          state = ModuleState.SETUP
          try {
              onSetup()
-             logger.atFine().log("Module '$id' setup complete")
+             LoggingManager.debug(logger, "core") { "Module '$id' setup complete" }
         } catch (e: Exception) {
             state = ModuleState.ERROR
-            logger.atSevere().withCause(e).log("Failed to setup module $id")
+            LoggingManager.error(logger, "core", e) { "Failed to setup module $id" }
             throw e
         }
     }
@@ -81,7 +81,7 @@ abstract class AbstractModule(
      */
     final override suspend fun start() {
         if (state != ModuleState.SETUP) {
-            logger.atWarning().log("Cannot start module '$id' - not in SETUP state (current: $state)")
+            LoggingManager.warn(logger, "core") { "Cannot start module '$id' - not in SETUP state (current: $state)" }
             return
         }
         
@@ -90,11 +90,11 @@ abstract class AbstractModule(
             // Only set to STARTED if not already marked as DISABLED_BY_CONFIG
             if (state == ModuleState.SETUP) {
                 state = ModuleState.STARTED
-                logger.atFine().log("Module '$id' v$version started")
+                LoggingManager.debug(logger, "core") { "Module '$id' v$version started" }
             }
         } catch (e: Exception) {
             state = ModuleState.ERROR
-            logger.atSevere().withCause(e).log("Failed to start module $id")
+            LoggingManager.error(logger, "core", e) { "Failed to start module $id" }
             throw e
         }
     }
@@ -121,7 +121,7 @@ abstract class AbstractModule(
      */
     protected fun markDisabledByConfig() {
         state = ModuleState.DISABLED_BY_CONFIG
-        logger.atFine().log("Module '$id' is disabled by configuration")
+        LoggingManager.debug(logger, "core") { "Module '$id' is disabled by configuration" }
     }
     
     /**
@@ -134,7 +134,7 @@ abstract class AbstractModule(
     protected fun markStarted() {
         if (state == ModuleState.DISABLED_BY_CONFIG) {
             state = ModuleState.STARTED
-            logger.atFine().log("Module '$id' enabled via config reload")
+            LoggingManager.debug(logger, "core") { "Module '$id' enabled via config reload" }
         }
     }
     
@@ -146,31 +146,31 @@ abstract class AbstractModule(
      final override suspend fun shutdown() {
          // Allow shutdown from STARTED or ERROR states
          if (state != ModuleState.STARTED && state != ModuleState.ERROR) {
-             logger.atFine().log("Module '$id' not started or in error, skipping shutdown")
+             LoggingManager.debug(logger, "core") { "Module '$id' not started or in error, skipping shutdown" }
              return
          }
          
          try {
              onShutdown()
              state = ModuleState.STOPPED
-             logger.atFine().log("Module '$id' shutdown complete")
+             LoggingManager.debug(logger, "core") { "Module '$id' shutdown complete" }
              
              // Report cleanup information
              val report = resourceTracker.getCleanupReport()
              if (report.warnings.isNotEmpty()) {
-                 logger.atWarning().log(report.formatSummary())
+                 LoggingManager.warn(logger, "core") { report.formatSummary() }
             }
          } catch (e: Exception) {
              // Don't rethrow - allow other modules to continue shutdown
              state = ModuleState.ERROR
-             logger.atSevere().withCause(e).log("Failed to shutdown module $id")
+             LoggingManager.error(logger, "core", e) { "Failed to shutdown module $id" }
              
              // Still report cleanup information for error case
              val report = resourceTracker.getCleanupReport()
              if (report.warnings.isNotEmpty()) {
-                 logger.atWarning().log("Cleanup warnings during error shutdown for module '$id':")
+                 LoggingManager.warn(logger, "core") { "Cleanup warnings during error shutdown for module '$id':" }
                  report.warnings.forEach { warning ->
-                     logger.atWarning().log("  - $warning")
+                     LoggingManager.warn(logger, "core") { "  - $warning" }
                  }
              }
          }
@@ -258,7 +258,7 @@ abstract class AbstractModule(
       *     // Use metabolism module features
       *     val service = metabolismModule.metabolismService
       * } else {
-      *     logger.atFine().log("Metabolism module not available - running in degraded mode")
+      *     LoggingManager.debug(logger, "core") { "Metabolism module not available - running in degraded mode" }
       * }
       * ```
       * 
@@ -303,7 +303,7 @@ abstract class AbstractModule(
       * if (professionsService != null) {
       *     val xp = professionsService.getPlayerXp(playerId, profession)
       * } else {
-      *     logger.atFine().log("Professions module not available")
+      *     LoggingManager.debug(logger, "core") { "Professions module not available" }
       * }
       * ```
       * 
@@ -368,7 +368,7 @@ abstract class AbstractModule(
                      handler(event)
                  }
              } catch (e: Exception) {
-                 logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
+                 LoggingManager.warn(logger, "core") { "Error in ${E::class.simpleName} handler for module '$id'" }
              }
          }
      }
@@ -403,7 +403,7 @@ abstract class AbstractModule(
                      handler(event as E)
                  }
              } catch (e: Exception) {
-                 logger.atWarning().withCause(e).log("Error in ${E::class.simpleName} handler for module '$id'")
+                 LoggingManager.warn(logger, "core") { "Error in ${E::class.simpleName} handler for module '$id'" }
              }
          }
      }
@@ -492,7 +492,7 @@ abstract class AbstractModule(
       *     shutdownScopeWithTimeout(persistenceScope, "persistence", 5000)
       *     
       *     // Do synchronous cleanup if needed
-      *     logger.atFine().log("Cleaning up resources...")
+      *     LoggingManager.debug(logger, "core") { "Cleaning up resources..." }
       * }
       * ```
       * 
@@ -506,7 +506,7 @@ abstract class AbstractModule(
          timeoutMs: Long = 5000L
      ) {
          try {
-             logger.atFine().log("Waiting for $name scope to complete (timeout: ${timeoutMs}ms)...")
+             LoggingManager.debug(logger, "core") { "Waiting for $name scope to complete (timeout: ${timeoutMs}ms)..." }
              
              val job = scope.coroutineContext[Job]
              scope.cancel("Module shutting down")
@@ -516,18 +516,15 @@ abstract class AbstractModule(
                      withTimeout(timeoutMs) {
                          job.join()
                      }
-                     logger.atFine().log("All $name scope coroutines completed")
+                     LoggingManager.debug(logger, "core") { "All $name scope coroutines completed" }
                  } catch (e: TimeoutCancellationException) {
-                     logger.atWarning().log(
-                         "$name scope did not complete within ${timeoutMs}ms - " +
-                         "some operations may not have finished. Check logs for incomplete saves."
-                     )
+                      LoggingManager.warn(logger, "core") { "$name scope did not complete within ${timeoutMs}ms - some operations may not have finished. Check logs for incomplete saves." }
                  }
              }
          } catch (e: CancellationException) {
-             logger.atFine().log("$name scope cancelled")
+             LoggingManager.debug(logger, "core") { "$name scope cancelled" }
          } catch (e: Exception) {
-             logger.atWarning().withCause(e).log("Error shutting down $name scope")
+             LoggingManager.warn(logger, "core") { "Error shutting down $name scope" }
          }
      }
     

@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.Message
 import com.hypixel.hytale.server.core.command.system.CommandContext
@@ -244,7 +245,7 @@ class ScanConsumablesCommand : ModuleCommand(
                 }
             
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to save consumables config")
+            LoggingManager.error(logger, "metabolism", e) { "Failed to save consumables config" }
             MessageFormatter.commandError(ctx, "Failed to save: ${e.message}")
         }
     }

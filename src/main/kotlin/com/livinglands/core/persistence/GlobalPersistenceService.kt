@@ -1,5 +1,6 @@
 package com.livinglands.core.persistence
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,7 +36,7 @@ class GlobalPersistenceService(
         val globalDir = File(dataDir, "global")
         if (!globalDir.exists()) {
             globalDir.mkdirs()
-            logger.atFine().log("Created global data directory: ${globalDir.absolutePath}")
+            LoggingManager.debug(logger, "core") { "Created global data directory: ${globalDir.absolutePath}" }
         }
         
         dbFile = File(globalDir, "livinglands.db")
@@ -44,7 +45,7 @@ class GlobalPersistenceService(
         try {
             initializeDatabase()
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Failed to initialize global database")
+            LoggingManager.error(logger, "core", e) { "Failed to initialize global database" }
             throw e
         }
     }
@@ -57,7 +58,7 @@ class GlobalPersistenceService(
         try {
             Class.forName("org.sqlite.JDBC")
         } catch (e: ClassNotFoundException) {
-            logger.atSevere().log("SQLite JDBC driver not found! Check if sqlite-jdbc is included in JAR.")
+            LoggingManager.error(logger, "core") { "SQLite JDBC driver not found! Check if sqlite-jdbc is included in JAR." }
             throw e
         }
         
@@ -96,7 +97,7 @@ class GlobalPersistenceService(
             """.trimIndent())
         }
         
-        logger.atFine().log("Global database initialized: ${dbFile.absolutePath}")
+        LoggingManager.debug(logger, "core") { "Global database initialized: ${dbFile.absolutePath}" }
     }
     
     /**
@@ -115,7 +116,7 @@ class GlobalPersistenceService(
                 block(conn)
             }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Global database operation failed")
+            LoggingManager.warn(logger, "core") { "Global database operation failed" }
             throw e
         }
     }
@@ -142,9 +143,9 @@ class GlobalPersistenceService(
                 try {
                     conn.rollback()
                 } catch (rollbackException: Exception) {
-                    logger.atWarning().withCause(rollbackException).log("Rollback failed")
+                    LoggingManager.warn(logger, "core") { "Rollback failed" }
                 }
-                logger.atWarning().withCause(e).log("Transaction failed")
+                LoggingManager.warn(logger, "core") { "Transaction failed" }
                 throw e
             } finally {
                 conn.autoCommit = originalAutoCommit
@@ -220,9 +221,9 @@ class GlobalPersistenceService(
                         conn.close()
                     }
                 }
-                logger.atFine().log("Global database connection closed")
+                LoggingManager.debug(logger, "core") { "Global database connection closed" }
             } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Error closing global database connection")
+                LoggingManager.warn(logger, "core") { "Error closing global database connection" }
             } finally {
                 connection = null
             }
