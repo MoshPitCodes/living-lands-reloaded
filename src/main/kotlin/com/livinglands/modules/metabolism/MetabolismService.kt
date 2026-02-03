@@ -19,6 +19,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.max
+import com.hypixel.hytale.server.core.universe.Universe
 
 /**
  * Service for managing metabolism stats across all players.
@@ -872,25 +873,40 @@ class MetabolismService(
      * Force update the HUD regardless of threshold.
      * Useful for initial display or manual refresh.
      * 
+     * THREAD SAFETY: This method may be called from async contexts (e.g., ability application on IO thread).
+     * We wrap the HUD update in world.execute { } to ensure it runs on the WorldThread,
+     * as Hytale's CustomUI API is not thread-safe.
+     * 
      * @param playerId Player's UUID as string
      * @param playerUuid Player's UUID (for MultiHudManager lookup)
      */
     fun forceUpdateHud(playerId: String, playerUuid: UUID) {
         val state = playerStates[playerId] ?: return
         
-        // Get unified HUD from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return
+        // Get player's session to access their world
+        val playerRegistry = CoreModule.services.get<com.livinglands.core.PlayerRegistry>()
+        val session = playerRegistry?.getSession(playerUuid)
+        if (session == null) {
+            LoggingManager.debug(logger, "metabolism") { "Cannot force HUD update - player $playerUuid not in session registry" }
+            return
+        }
         
-        hudElement.updateMetabolism(
-            hunger = state.hunger,
-            thirst = state.thirst,
-            energy = state.energy,
-            maxHunger = state.maxHunger,
-            maxThirst = state.maxThirst,
-            maxEnergy = state.maxEnergy
-        )
-        hudElement.updateMetabolismHud()
-        state.markDisplayed()
+        // CRITICAL: Wrap UI update in world.execute to run on WorldThread
+        // Hytale's CustomUI API requires WorldThread execution
+        session.world.execute {
+            val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return@execute
+            
+            hudElement.updateMetabolism(
+                hunger = state.hunger,
+                thirst = state.thirst,
+                energy = state.energy,
+                maxHunger = state.maxHunger,
+                maxThirst = state.maxThirst,
+                maxEnergy = state.maxEnergy
+            )
+            hudElement.updateMetabolismHud()
+            state.markDisplayed()
+        }
     }
     
     // ============ System Accessors ============
