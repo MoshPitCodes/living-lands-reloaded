@@ -3,6 +3,7 @@ package com.livinglands.modules.professions
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.professions.abilities.AbilityEffectService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
 import com.livinglands.modules.professions.config.ProfessionsConfig
@@ -148,11 +149,6 @@ class ProfessionsModule : AbstractModule(
         CoreModule.services.register<AbilityRegistry>(abilityRegistry)
         CoreModule.services.register<AbilityEffectService>(abilityEffectService)
         
-        // Register config reload callback
-        CoreModule.config.onReload(ProfessionsConfig.MODULE_ID) {
-            handleConfigReload()
-        }
-        
         // Register commands (must be in onSetup before main command registration)
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.professions.commands.ProfessionCommand())
         logger.atFine().log("Registered /ll profession command")
@@ -246,13 +242,15 @@ class ProfessionsModule : AbstractModule(
     
     // ============ Config Reload ============
     
+    override fun onConfigReload() {
+        handleConfigReload()
+    }
+    
     /**
-     * Handle config reload.
-     * Called by ConfigManager when professions.yml is reloaded.
+     * Handle config reload - update services with new config.
+     * Called by onConfigReload() during hot-reload.
      */
     private fun handleConfigReload() {
-        logger.atFine().log("Reloading professions config...")
-        
         // Reload configuration
         val newConfig = CoreModule.config.load(
             ProfessionsConfig.MODULE_ID,
@@ -263,7 +261,7 @@ class ProfessionsModule : AbstractModule(
         professionsService.updateConfig(newConfig)
         professionsConfig = newConfig
         
-        logger.atFine().log("Professions config reloaded: enabled=${newConfig.enabled}")
+        LoggingManager.info(logger, "professions") { "Config reloaded: enabled=${newConfig.enabled}" }
     }
     
     // ============ Periodic Auto-Save ============

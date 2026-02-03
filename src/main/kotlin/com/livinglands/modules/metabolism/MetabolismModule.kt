@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.universe.world.events.StartWorldEvent
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.commands.TestMetabolismCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
@@ -284,12 +285,6 @@ class MetabolismModule : AbstractModule(
         // Register scan command for discovering consumables
         CoreModule.mainCommand.registerSubCommand(com.livinglands.core.commands.ScanCommand())
         logger.atFine().log("Registered /ll scan command")
-        
-        // Register config reload callback
-        CoreModule.config.onReload("metabolism") {
-            onConfigReloaded()
-        }
-        
         logger.atFine().log("Metabolism module setup complete")
     }
     
@@ -581,19 +576,9 @@ class MetabolismModule : AbstractModule(
         
         // Clear the service cache
         metabolismService.clearCache()
-        
-        // Unregister config reload callback
-        CoreModule.config.removeReloadCallback("metabolism")
     }
     
     override fun onConfigReload() {
-        onConfigReloaded()
-    }
-    
-    /**
-     * Handle config reload - update service with new config.
-     */
-    private fun onConfigReloaded() {
         // Reload with migration support in case the file was manually edited
         val newConfig = CoreModule.config.loadWithMigration(
             MetabolismConfig.MODULE_ID,
@@ -602,7 +587,7 @@ class MetabolismModule : AbstractModule(
         )
         metabolismConfig = newConfig
         metabolismService.updateConfig(newConfig)
-        logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
+        LoggingManager.info(logger, "metabolism") { "Config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}" }
         
         // Re-resolve world-specific configs for all existing worlds
         var worldsResolved = 0
@@ -610,13 +595,13 @@ class MetabolismModule : AbstractModule(
             try {
                 worldContext.resolveMetabolismConfig(newConfig)
                 worldsResolved++
-                logger.atFine().log("Re-resolved metabolism config for world ${worldContext.worldName}")
+                LoggingManager.debug(logger, "metabolism") { "Re-resolved config for world ${worldContext.worldName}" }
             } catch (e: Exception) {
                 logger.atWarning().withCause(e)
                     .log("Failed to re-resolve metabolism config for world ${worldContext.worldName}")
             }
         }
-        logger.atFine().log("Metabolism configs re-resolved for $worldsResolved worlds")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism configs re-resolved for $worldsResolved worlds" }
         
         // Reload consumables config from separate file
         reloadConsumablesConfig()
@@ -634,7 +619,7 @@ class MetabolismModule : AbstractModule(
             // Disable modded consumables
             moddedConsumablesRegistry?.clear()
             moddedItemValidator?.clearCache()
-            logger.atFine().log("Modded consumables support disabled on reload")
+            LoggingManager.info(logger, "metabolism") { "Modded consumables support disabled on reload" }
             return
         }
         
@@ -664,7 +649,7 @@ class MetabolismModule : AbstractModule(
         }
         
         val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
-        logger.atFine().log("Modded consumables reloaded: $registryCount entries")
+        LoggingManager.debug(logger, "metabolism") { "Modded consumables reloaded: $registryCount entries" }
     }
     
     /**

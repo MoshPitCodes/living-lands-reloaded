@@ -194,6 +194,33 @@ abstract class AbstractModule(
      */
     protected open suspend fun onShutdown() {}
     
+    /**
+     * Handle config reload.
+     * Override to respond to configuration reloads from CoreModule.
+     * 
+     * Use this to reload any cached configuration values or restart services
+     * that depend on config settings.
+     * 
+     * **Standard Pattern:**
+     * 
+     * ```kotlin
+     * override fun onConfigReload() {
+     *     // Reload config from ConfigManager
+     *     val newConfig = CoreModule.config.getConfig<MyConfig>("mymodule")
+     *     
+     *     // Update cached values
+     *     myService.updateConfig(newConfig)
+     *     
+     *     LoggingManager.info(logger, "mymodule") { "Config reloaded" }
+     * }
+     * ```
+     * 
+     * **Note:** Do NOT register callbacks in onSetup(). This lifecycle hook
+     * replaces callback registration - CoreModule automatically calls this
+     * when config is reloaded.
+     */
+    override fun onConfigReload() {}
+    
     // ============ Helper Methods ============
     
     /**
