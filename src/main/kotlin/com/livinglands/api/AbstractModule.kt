@@ -45,12 +45,13 @@ abstract class AbstractModule(
     protected val logger: HytaleLogger 
         get() = if (::context.isInitialized) context.logger else CoreModule.logger
     
-    /** Current module state */
-    override var state: ModuleState = ModuleState.DISABLED
-        protected set
+     /** Current module state */
+     override var state: ModuleState = ModuleState.DISABLED
+         internal set
     
-    /** Resource tracker for cleanup reporting */
-    private val resourceTracker = ModuleResourceTracker(id)
+    /** Resource tracker for cleanup reporting - internal use only but must be public for inline functions */
+    @PublishedApi
+    internal val resourceTracker = ModuleResourceTracker(id)
     
     /**
      * Setup phase - wraps onSetup() with state management and error handling.
@@ -325,11 +326,13 @@ abstract class AbstractModule(
       * @throws IllegalStateException if called outside setup phase
       */
      protected inline fun <reified E : IBaseEvent<*>> registerListenerAny(noinline handler: (E) -> Unit) {
-         require(state == ModuleState.SETUP) {
-             "Cannot register listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
+         val currentState = state
+         require(currentState == ModuleState.SETUP) {
+             "Cannot register listener for ${E::class.simpleName} - module '$id' is in $currentState state, not SETUP. " +
              "Listeners must be registered during onSetup()."
          }
-         resourceTracker.trackEventListener(E::class.simpleName ?: E::class.java.simpleName)
+         val eventClassName = E::class.simpleName ?: E::class.java.simpleName
+         resourceTracker.trackEventListener(eventClassName)
          context.eventRegistry.register(E::class.java) { event ->
              try {
                  // Only handle event if module is in operational state
@@ -358,11 +361,13 @@ abstract class AbstractModule(
       */
      @Suppress("UNCHECKED_CAST")
      protected inline fun <reified E : Any> registerListenerGlobal(noinline handler: (E) -> Unit) {
-         require(state == ModuleState.SETUP) {
-             "Cannot register global listener for ${E::class.simpleName} - module '$id' is in $state state, not SETUP. " +
+         val currentState = state
+         require(currentState == ModuleState.SETUP) {
+             "Cannot register global listener for ${E::class.simpleName} - module '$id' is in $currentState state, not SETUP. " +
              "Listeners must be registered during onSetup()."
          }
-         resourceTracker.trackEventListener("(global) ${E::class.simpleName ?: E::class.java.simpleName}")
+         val eventClassName = "(global) ${E::class.simpleName ?: E::class.java.simpleName}"
+         resourceTracker.trackEventListener(eventClassName)
          context.eventRegistry.registerGlobal(E::class.java as Class<IBaseEvent<Any>>) { event ->
              try {
                  // Only handle event if module is in operational state
@@ -429,7 +434,8 @@ abstract class AbstractModule(
              "Cannot register command '${command.name}' - module '$id' is in $state state, not SETUP. " +
              "Commands must be registered during onSetup()."
          }
-         resourceTracker.trackCommand(command.name)
+         val commandName = command.name ?: "unknown"
+         resourceTracker.trackCommand(commandName)
          context.commandRegistry.registerCommand(command)
      }
     
