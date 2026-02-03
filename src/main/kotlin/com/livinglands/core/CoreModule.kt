@@ -363,6 +363,9 @@ object CoreModule {
             return
         }
         
+        // Validate all dependencies exist before proceeding
+        validateDependencies()
+        
         // Resolve dependency order
         val sorted = resolveDependencyOrder()
         if (sorted.isEmpty() && modules.isNotEmpty()) {
@@ -561,6 +564,43 @@ object CoreModule {
      * 
      * @return List of module IDs in dependency order, or empty list if circular dependency detected
      */
+    /**
+     * Validate that all module dependencies exist.
+     * 
+     * Checks each enabled module's dependencies to ensure all required modules are registered.
+     * If any dependencies are missing, logs detailed errors and prevents startup.
+     */
+    private fun validateDependencies() {
+        val missingDeps = mutableListOf<String>()
+        
+        modules.forEach { (moduleId, module) ->
+            // Check if this module is enabled
+            if (!coreConfig.isModuleEnabled(moduleId)) {
+                return@forEach
+            }
+            
+            // Check each dependency
+            module.dependencies.forEach { depId ->
+                if (!modules.containsKey(depId)) {
+                    missingDeps.add("  - $moduleId → $depId (missing)")
+                }
+            }
+        }
+        
+        // If any dependencies are missing, abort startup
+        if (missingDeps.isNotEmpty()) {
+            logger.atSevere().log(
+                "Cannot start modules - missing dependencies detected:\n" +
+                missingDeps.joinToString("\n")
+            )
+            logger.atSevere().log(
+                "Fix: Ensure all required modules are registered before setupModules() is called.\n" +
+                "Check that dependencies exist in your module registration code."
+            )
+            throw IllegalStateException("Missing module dependencies - startup aborted")
+        }
+    }
+    
     private fun resolveDependencyOrder(): List<String> {
         // Build in-degree map and adjacency list
         val inDegree = mutableMapOf<String, Int>()
@@ -581,10 +621,9 @@ object CoreModule {
                     // depId -> id edge: id depends on depId
                     graph[depId]?.add(id)
                     inDegree[id] = inDegree.getOrDefault(id, 0) + 1
-                } else {
-                    // Dependency not found - warn but continue
-                    logger.atWarning().log("Module '$id' has missing dependency: '$depId'")
                 }
+                // Note: Missing dependencies are validated in validateDependencies()
+                // before this function is called, so we don't need to handle them here
             }
         }
         
