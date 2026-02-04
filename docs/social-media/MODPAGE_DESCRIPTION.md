@@ -8,9 +8,11 @@
 
 ***
 
-Living Lands Reloaded makes survival feel personal.
+**Survival that matters. Progression that reflects how you play.**
 
-Every trip has a cost, every fight drains you, and every run home becomes a decision. As you play, your craft turns into identity: you grow into a fighter, miner, builder, logger, or gatherer, unlocking lasting perks along the way.
+Every adventure drains your hunger, thirst, and energy. Sprint home with low energy? You'll move slower. Fight on an empty stomach? Your health suffers. But keep yourself fed and rested, and you'll gain speed and defensive bonuses.
+
+Your playstyle shapes your character. Mine deep? Your thirst capacity grows. Love combat? Your hunger bar extends. The more you do, the better you get at it—with permanent stat boosts and powerful abilities that match your journey.
 
 ***
 
@@ -23,55 +25,50 @@ Every trip has a cost, every fight drains you, and every run home becomes a deci
 
 ***
 
-## 🧭 RPG Survival: Needs That Create Stakes
+## 🧭 Survival With Consequences & Rewards
 
-Three stats tracked on HUD:
+Your HUD tracks **Hunger**, **Thirst**, and **Energy**—three needs that change how you play:
 
-*   **Hunger** - food pressure (damage at low levels)
-*   **Thirst** - travel pressure (stamina penalties at low levels)
-*   **Energy** - effort pressure (speed debuffs/buffs)
+- Run low on energy? Move slower. Keep it topped up? Gain speed bonuses.
+- Ignore hunger too long? Take damage. Stay well-fed? Boost your max health.
+- Skip water breaks? Your stamina suffers. Stay hydrated? Increase your stamina pool.
 
-Activity-based drain (sprinting/combat/travel). **Auto-discovers modded food/drink/potions** with zero configuration (T1-T7 support, ~200ms scan). Use `/ll scan consumables --save` to re-scan after adding mods.
+Everything drains your stats—sprinting burns energy, combat costs hunger, long journeys need water. But you adapt: pack food for expeditions, rest before big fights, and drink before mining deep.
 
-***
-
-## 🏅 Professions: Your Character Sheet In Motion
-
-Gain XP from normal play:
-
-*   **Combat** (kills), **Mining** (ores), **Logging** (logs), **Building** (placing blocks), **Gathering** (item pickups)
-
-Abilities unlock at:
-
-*   **Level 15 (Tier 1):** +15% XP in that profession
-*   **Level 45 (Tier 2):** **MASSIVE survival boosts!** Combat +35 max hunger (135 total), Mining +35 max thirst (135 total), Logging +35 max energy (135 total), Building +15 max stamina, Gathering +4 hunger/thirst on food pickup ✅
-*   **Level 100 (Tier 3):** ✨ **ALL FUNCTIONAL IN 1.4.0!** ✨
-    *   **Survivalist (Combat):** -15% metabolism depletion
-    *   **Adrenaline Rush (Combat):** +10% speed for 5 seconds on kill
-    *   **Ore Sense (Mining):** 10% chance bonus ore drop
-    *   **Timber! (Logging):** 25% chance extra log
-    *   **Efficient Architect (Building):** 12% chance block refund
-
-Death penalty: progressive XP loss on your **2 highest professions** (base **10%**, +**3%** per death, capped at **35%**), with decay and mercy.
+**Works with food mods automatically.** Install any food/drink mod and Living Lands discovers it on startup—no configuration needed.
 
 ***
 
-## 🛠️ Built For Server Owners (Not Just Players)
+## 🏅 Professions: Become What You Do
 
-*   **Drop-in setup** - install the jar, boot the server, configs generate automatically
-*   **Hot reload** - `/ll reload [module]`
-*   **Per-world metabolism rules** - optional world overrides for metabolism config
-*   **Configurable** - XP rates, drain rates, penalties, announcements
+Your actions earn XP in five professions: **Combat**, **Mining**, **Logging**, **Building**, and **Gathering**. Fight monsters? Level Combat. Chop trees? Logging grows. Your playstyle naturally shapes your character.
+
+**Abilities unlock as you level:**
+
+- **Level 15:** Learn faster—gain 15% more XP in that profession
+- **Level 45:** Gain massive survival boosts—extend your hunger, thirst, or energy pools by 35%
+- **Level 100:** Master your craft with powerful abilities:
+  - **Combat:** Survive longer (slower metabolism drain) + speed burst on kills
+  - **Mining:** Find bonus ores while mining
+  - **Logging:** Harvest extra logs from trees
+  - **Building:** Get blocks refunded when placing
+  - **Gathering:** Restore more hunger/thirst from food pickups
+
+**Death has weight.** You lose XP in your two highest professions when you die, but the system shows mercy—penalties decrease over time and ease up after multiple deaths.
 
 ***
 
-## 📢 Server Announcements
+## 🛠️ Server Admin Experience
 
-*   MOTD + welcome messages (first-time vs returning)
-*   Recurring announcements with configurable intervals
-*   Admin broadcast: `/ll broadcast <message>`
-*   Placeholders: `{player_name}`, `{server_name}`, `{join_count}`
-*   Color code support: `&a`, `&6`, etc.
+**Zero-friction setup.** Drop in the JAR, start your server, and configs generate automatically. Tweak XP rates, metabolism drain, or death penalties—then hot-reload with `/ll reload` without restarting.
+
+**Flexible configuration.** Set different metabolism rules per world, customize announcements, adjust profession XP rewards. Everything adapts to your server's playstyle.
+
+***
+
+## 📢 Keep Players Informed
+
+Welcome players with custom messages on join, send recurring server tips, or broadcast announcements instantly with `/ll broadcast`. Use placeholders like `{player_name}` and color codes to make messages feel personal.
 
 ***
 
@@ -83,42 +80,24 @@ Death penalty: progressive XP loss on your **2 highest professions** (base **10%
 
 ***
 
-## 🛡️ Stability & Performance
+## 🛡️ Reliable & Polished
 
-**Recent Improvements (v1.4.4-v1.4.8):**
-*   ✅ Profession bonuses persist correctly across disconnect/reconnect (v1.4.8)
-*   ✅ Thread-safe HUD updates prevent silent failures (v1.4.8)
-*   ✅ Safe cross-module access prevents crashes when modules disabled (v1.4.4)
-*   ✅ Graceful shutdown with timeout prevents data loss (v1.4.5)
-*   ✅ Standardized logging across 643 calls in 43 files (v1.4.7)
+Your progress saves automatically every 5 minutes—no data loss from crashes. Profession bonuses persist when you disconnect. HUD updates instantly when you eat food. The mod runs smoothly in the background while you focus on the adventure.
 
-**Core Reliability:**
-*   Auto-save every 5 minutes prevents data loss
-*   Race condition protection with Mutex synchronization
-*   Memory leak prevention with guaranteed cleanup
-*   Database write verification with row count checks
-*   Instant HUD feedback when eating food
-*   10-point hysteresis gaps prevent debuff flickering
+## 🗺️ What's Next
 
-## 🗺️ What's Coming Next
-
-**Next Updates:**
-
-*   **Land Claims** (planned) - protect builds, trust friends, per-world management
-*   **Advanced mechanics** (planned) - high-stat buffs, seasonal variation, custom food effects, poison and dangerous consumables
+**Planned:** Land protection, seasonal mechanics, advanced food effects, and more ways to make the world feel alive.
 
 ***
 
 ## 📦 Installation
 
-Players: join a server running Living Lands Reloaded. The HUD appears automatically.
+**Players:** Join a server running Living Lands Reloaded. The HUD appears automatically—no client-side install needed.
 
-Server owners:
-
-1.  Download `livinglands-reloaded-1.4.8.jar`
-2.  Place it in your Hytale global mods folder: `AppData/Roaming/Hytale/UserData/Mods/`
-3.  Start the server
-4.  Configs generate in `Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/`
+**Server Owners:**
+1. Download `livinglands-reloaded-1.4.8.jar`
+2. Place in `AppData/Roaming/Hytale/UserData/Mods/`
+3. Start server—configs generate automatically
 
 ***
 
