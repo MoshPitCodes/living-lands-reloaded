@@ -14,60 +14,24 @@ Every trip has a cost, every fight drains you, and every run home becomes a deci
 
 ***
 
-***
+## ⚠️ Compatibility Notice
 
-**🚨 IMPORTANT 🚨**
-
-**This mod is __NOT COMPATIBLE__ with other mods that have a CustomUI.**
-
-**This mod is __NOT COMPATIBLE__ with MultipleHUD mod.**
-
-*   Until Hypixel has figured out how UIs should work in the game, I will not invest any time into this.
-
-**This mod is __NOT COMPATIBLE__ with mods that manipulate player stats or introduce XP systems.**
-
-*   These introduce conflicting mechanics with individual implementations that are not meant to work together.
-
-***
+**NOT COMPATIBLE with:**
+- Mods using CustomUI (HUD conflicts)
+- MultipleHUD mod
+- Mods that manipulate player stats or add XP systems
 
 ***
 
 ## 🧭 RPG Survival: Needs That Create Stakes
 
-Three stats tracked and shown on the HUD:
+Three stats tracked on HUD:
 
-*   **Hunger** - food pressure (includes damage at low hunger)
-*   **Thirst** - travel pressure (stamina pressure at low thirst)
-*   **Energy** - effort pressure (speed debuffs at low energy, speed buff at high energy)
+*   **Hunger** - food pressure (damage at low levels)
+*   **Thirst** - travel pressure (stamina penalties at low levels)
+*   **Energy** - effort pressure (speed debuffs/buffs)
 
-Drain is **activity-based** (sprinting/combat/travel), and foods restore different needs.
-
-**🎉 v1.4.3 - AUTOMATIC CONSUMABLES DISCOVERY! 🎉**
-
-**Zero-configuration modded consumables - just install mods and start your server!**
-
-*   ✨ **Auto-Scan System:** Automatically discovers all food/drink/potion items on first startup
-*   🏷️ **Smart Grouping:** Organizes items by mod namespace (Hytale, NoCube, HiddenIsme, ChampionsVandal)
-*   ⚡ **Fast Performance:** ~200ms scan time for 250 consumable items (201 with valid effects)
-*   🔍 **Manual Scan:** `/ll scan consumables --save` to discover new items after installing mods
-*   📁 **Separate Config:** Clean organization in `metabolism_consumables.yml`
-
-### 🍖 Modded Consumables Support (v1.4.3 - AUTO-DISCOVERY!)
-
-**NEW IN v1.4.3:** Living Lands automatically discovers and configures consumables from installed mods!
-
-No more manual configuration - just install your favorite food/drink mods and Living Lands handles the rest.
-
-*   **Namespace Detection** - Smart grouping by mod for easy management
-    *   Uses Hytale's `AssetMap.getAssetPack()` API for accurate detection
-    *   Creates organized sections: `AutoScan_2026-02-02_Hytale`, `AutoScan_2026-02-02_NoCube`
-*   **Extended Tier System** - Support for T1-T7 items (vanilla was T1-T3)
-    *   T6 Exquisite Feast: 53 hunger (69 with MEAT multiplier!)
-    *   T7 Legendary Feast: 65 hunger (84.5 with MEAT multiplier!)
-*   **Manual Scan Command** - Need to discover new items after installing more mods?
-    *   `/ll scan consumables` - Preview discovered items
-    *   `/ll scan consumables --save` - Save to config with namespace grouping
-*   **Hot-Reload Support** - Edit config, run `/ll reload`, changes apply instantly
+Activity-based drain (sprinting/combat/travel). **Auto-discovers modded food/drink/potions** with zero configuration (T1-T7 support, ~200ms scan). Use `/ll scan consumables --save` to re-scan after adding mods.
 
 ***
 
@@ -103,59 +67,38 @@ Death penalty: progressive XP loss on your **2 highest professions** (base **10%
 
 ## 📢 Server Announcements
 
-*   **MOTD** + **welcome messages** (first-time vs returning)
-*   **Recurring announcements** (configurable intervals)
-*   **Admin broadcast** (`/ll broadcast <message>`)
+*   MOTD + welcome messages (first-time vs returning)
+*   Recurring announcements with configurable intervals
+*   Admin broadcast: `/ll broadcast <message>`
 *   Placeholders: `{player_name}`, `{server_name}`, `{join_count}`
-*   Color codes: `&a`, `&6`, etc.
-
-Note: per-world overrides are supported in config; world-specific routing is being finished.
+*   Color code support: `&a`, `&6`, etc.
 
 ***
 
 ## ⌨️ Commands
 
-**Player Commands:**
+**Player:** `/ll stats`, `/ll buffs`, `/ll debuffs`, `/ll professions`, `/ll progress`
 
-*   `/ll stats` - toggle metabolism HUD panel
-*   `/ll buffs` - toggle buffs display
-*   `/ll debuffs` - toggle debuffs display
-*   `/ll professions` - toggle professions panel
-*   `/ll progress` - toggle compact professions progress panel
-
-**Admin Commands:**
-
-*   `/ll reload [module]` - reload configuration files (operator only)
-*   `/ll broadcast <message>` - broadcast message to all players (operator only)
-*   `/ll prof set/add/reset/show` - manage player professions (operator only)
-*   `/ll scan consumables [--save] [--section <name>]` - discover consumable items (operator only)
+**Admin:** `/ll reload`, `/ll broadcast`, `/ll prof`, `/ll scan consumables`
 
 ***
 
-## 🛡️ Stability & Performance (v1.4.8)
+## 🛡️ Stability & Performance
 
-Living Lands Reloaded has undergone comprehensive architecture improvements and algorithm auditing to ensure rock-solid reliability:
+**Recent Improvements (v1.4.4-v1.4.8):**
+*   ✅ Profession bonuses persist correctly across disconnect/reconnect (v1.4.8)
+*   ✅ Thread-safe HUD updates prevent silent failures (v1.4.8)
+*   ✅ Safe cross-module access prevents crashes when modules disabled (v1.4.4)
+*   ✅ Graceful shutdown with timeout prevents data loss (v1.4.5)
+*   ✅ Standardized logging across 643 calls in 43 files (v1.4.7)
 
-**NEW IN v1.4.8:**
-*   **HUD Bonus Persistence Fix** - Profession Tier 2 ability bonuses now persist correctly across disconnect/reconnect
-*   **Thread-Safe HUD Updates** - All HUD updates properly synchronized to prevent silent failures
-*   **Database Persistence** - Max stat bonuses (Iron Stomach +35 hunger, etc.) now saved to database
-
-**Architecture Improvements (v1.4.4-v1.4.7):**
-*   **Safe Service Access** - Cross-module dependencies use safe patterns to prevent crashes when modules disabled
-*   **Standardized Shutdown** - All modules use timeout-based graceful shutdown to prevent data loss
-*   **Dependency Validation** - Fail-fast startup checks ensure required modules are available
-*   **Logging Standardization** - 643 logging calls standardized across 43 files for better diagnostics
-
-**Core Reliability (v1.4.3 and earlier):**
-*   **Auto-Discovery System** - Automatic consumables detection with ~200ms scan time for 250 items (201 valid)
-*   **Smart Namespace Grouping** - Efficient mod detection using Hytale's AssetMap API
-*   **Auto-Save System** - 5-minute periodic saves prevent data loss on server crashes
-*   **Race Condition Protection** - Coroutine Mutex prevents corruption when admin commands and gameplay events collide
-*   **Memory Leak Prevention** - Guaranteed cleanup on player disconnect, even when errors occur
-*   **Database Verification** - All writes verified with row count checks and failure warnings
-*   **Instant Feedback** - Buffs/debuffs and HUD update the moment you eat food (no delay)
-*   **Wider Hysteresis Gaps** - 10-point gaps eliminate debuff flickering
+**Core Reliability:**
+*   Auto-save every 5 minutes prevents data loss
+*   Race condition protection with Mutex synchronization
+*   Memory leak prevention with guaranteed cleanup
+*   Database write verification with row count checks
+*   Instant HUD feedback when eating food
+*   10-point hysteresis gaps prevent debuff flickering
 
 ## 🗺️ What's Coming Next
 
