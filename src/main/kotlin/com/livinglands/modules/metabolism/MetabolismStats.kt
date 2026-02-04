@@ -11,20 +11,30 @@ package com.livinglands.modules.metabolism
  * For hot-path tick updates, use PlayerMetabolismState which provides
  * mutable fields to avoid allocations on every tick.
  * 
- * All stat values range from 0.0 to 100.0.
+ * Current stat values range from 0.0 to maxValue.
+ * Max stat values are set by Tier 2 abilities (default 100, up to ~135 with bonuses).
  */
 data class MetabolismStats(
     /** Player UUID as string (matches database schema) */
     val playerId: String,
     
-    /** Current hunger level (0.0 - 100.0) */
+    /** Current hunger level (0.0 - maxHunger) */
     val hunger: Float = 100f,
     
-    /** Current thirst level (0.0 - 100.0) */
+    /** Current thirst level (0.0 - maxThirst) */
     val thirst: Float = 100f,
     
-    /** Current energy level (0.0 - 100.0) */
+    /** Current energy level (0.0 - maxEnergy) */
     val energy: Float = 100f,
+    
+    /** Maximum hunger capacity (default 100, modified by Iron Stomach Tier 2 ability) */
+    val maxHunger: Float = 100f,
+    
+    /** Maximum thirst capacity (default 100, modified by Desert Nomad Tier 2 ability) */
+    val maxThirst: Float = 100f,
+    
+    /** Maximum energy capacity (default 100, modified by Tireless Woodsman Tier 2 ability) */
+    val maxEnergy: Float = 100f,
     
     /** Timestamp of last update (milliseconds since epoch) */
     val lastUpdated: Long = System.currentTimeMillis()
@@ -107,6 +117,9 @@ data class MetabolismStats(
                 hunger = 100f,
                 thirst = 100f,
                 energy = 100f,
+                maxHunger = 100f,
+                maxThirst = 100f,
+                maxEnergy = 100f,
                 lastUpdated = timestamp
             )
         }

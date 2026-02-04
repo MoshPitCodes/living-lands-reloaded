@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Living Lands Reloaded - Mod Page Description</title>
+    <style>
+      :root {
+        --bg0: #0b1020;
+        --bg1: #0f1730;
+        --card: rgba(255, 255, 255, 0.06);
+        --card2: rgba(255, 255, 255, 0.04);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.70);
+        --muted2: rgba(255, 255, 255, 0.60);
+        --line: rgba(255, 255, 255, 0.12);
+        --good: #31c48d;
+        --warn: #f59e0b;
+        --danger: #fb7185;
+        --link: #93c5fd;
+        --accent: #60a5fa;
+        --accent2: #22d3ee;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        color: var(--text);
+        background:
+          radial-gradient(900px 600px at 20% -10%, rgba(96, 165, 250, 0.20), transparent 60%),
+          radial-gradient(900px 600px at 90% 10%, rgba(34, 211, 238, 0.16), transparent 60%),
+          radial-gradient(900px 600px at 30% 120%, rgba(49, 196, 141, 0.10), transparent 60%),
+          linear-gradient(180deg, var(--bg0), var(--bg1));
+      }
+
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 32px 18px 64px;
+      }
+
+      header {
+        padding: 18px 18px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }
+
+      .title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        letter-spacing: 0.2px;
+      }
+
+      .subtitle {
+        margin: 10px 0 0;
+        color: var(--muted);
+        line-height: 1.45;
+        max-width: 78ch;
+      }
+
+      .badges {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .badges img {
+        height: 28px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        padding: 16px 16px 14px;
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+        letter-spacing: 0.2px;
+      }
+
+      .card h3 {
+        margin: 12px 0 6px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.88);
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .list li {
+        margin: 6px 0;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--card2);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .pill strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .warn {
+        border-color: rgba(245, 158, 11, 0.35);
+        background: rgba(245, 158, 11, 0.08);
+      }
+
+      .danger {
+        border-color: rgba(251, 113, 133, 0.38);
+        background: rgba(251, 113, 133, 0.08);
+      }
+
+      .good {
+        border-color: rgba(49, 196, 141, 0.35);
+        background: rgba(49, 196, 141, 0.08);
+      }
+
+      .k {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.24);
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+      }
+
+      .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 560px) {
+        .cols {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .section {
+        margin-top: 18px;
+      }
+
+      .section h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .mods {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      @media (max-width: 820px) {
+        .mods {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 520px) {
+        .mods {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .mods .group {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        padding: 14px;
+      }
+
+      .mods .group h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.35px;
+        color: rgba(255, 255, 255, 0.86);
+      }
+
+      .mods .group ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      footer {
+        margin-top: 18px;
+        color: var(--muted2);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="title">
+          <h1>Living Lands Reloaded</h1>
+          <span class="pill good"><strong>Version</strong> 1.4.3</span>
+        </div>
+
+        <p class="subtitle">
+          RPG-flavored survival and progression: travel, combat, and work drain your needs, while professions turn your playstyle into long-term perks.
+        </p>
+
+        <div class="badges" aria-label="Links">
+          <a href="https://discord.gg/8jgMj9GPsq" target="_blank" rel="noreferrer">
+            <img
+              src="https://img.shields.io/badge/DISCORD-JOIN%20SERVER-5865F2?style=for-the-badge&logo=discord&logoColor=white"
+              alt="Discord"
+            />
+          </a>
+          <a href="https://ko-fi.com/moshpitplays" target="_blank" rel="noreferrer">
+            <img
+              src="https://img.shields.io/badge/BUY%20ME%20A%20COFFEE-SUPPORT-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black"
+              alt="Buy Me A Coffee"
+            />
+          </a>
+          <a href="https://github.com/MoshPitCodes/living-lands-reloaded" target="_blank" rel="noreferrer">
+            <img
+              src="https://img.shields.io/badge/DOCS-READ%20MORE-4A90E2?style=for-the-badge&logo=github&logoColor=white"
+              alt="Documentation"
+            />
+          </a>
+        </div>
+
+        <div class="grid">
+          <section class="card">
+            <h2>Player Experience</h2>
+
+            <h3>RPG Survival Needs</h3>
+            <ul class="list">
+              <li>HUD-tracked needs: <strong>Hunger</strong>, <strong>Thirst</strong>, <strong>Energy</strong></li>
+              <li>Activity-based drain (travel, combat, effort)</li>
+              <li>Clear consequences and rewards (low needs hurt, high energy feels great)</li>
+            </ul>
+
+            <h3>Professions</h3>
+            <ul class="list">
+              <li>Earn XP by playing: Combat, Mining, Logging, Building, Gathering</li>
+              <li>Tier 1 (Lv 15): XP bonus</li>
+              <li>Tier 2 (Lv 45): big survival boosts</li>
+              <li>Tier 3 (Lv 100): powerful perks (mobility/combat triggers, resource bonuses, building efficiency)</li>
+            </ul>
+            <p class="subtitle" style="margin-top: 10px;">
+              Death penalty: XP loss on your <strong>2 highest professions</strong> (10% base, +3% per death, capped at 35%) with decay/mercy.
+            </p>
+
+            <h3>Modded Consumables (v1.4.3)</h3>
+            <ul class="list">
+              <li>Auto-discovers food/drinks/potions from installed mods on first startup</li>
+              <li>Groups items by mod namespace for easy management</li>
+              <li>Re-scan after adding mods: <span class="k">/ll scan consumables --save</span></li>
+            </ul>
+            <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+              <span class="pill"><strong>Auto-scan</strong> ~200ms</span>
+              <span class="pill"><strong>Items</strong> ~250</span>
+              <span class="pill"><strong>Valid effects</strong> 201</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Admin Experience</h2>
+            <ul class="list">
+              <li>Drop-in setup: install, boot once, configs generate automatically</li>
+              <li>Hot reload: <span class="k">/ll reload [module]</span></li>
+              <li>Optional per-world metabolism overrides</li>
+              <li>Announcements: MOTD, welcome messages, recurring announcements, operator broadcast</li>
+            </ul>
+
+            <div class="section">
+              <h2 style="margin: 0 0 10px;">Commands (Quick Reference)</h2>
+              <div class="cols">
+                <div>
+                  <div class="pill good" style="margin-bottom: 10px;"><strong>Players</strong></div>
+                  <ul class="list">
+                    <li><span class="k">/ll stats</span></li>
+                    <li><span class="k">/ll buffs</span>, <span class="k">/ll debuffs</span></li>
+                    <li><span class="k">/ll professions</span>, <span class="k">/ll progress</span></li>
+                  </ul>
+                </div>
+                <div>
+                  <div class="pill warn" style="margin-bottom: 10px;"><strong>Admins</strong></div>
+                  <ul class="list">
+                    <li><span class="k">/ll reload [module]</span></li>
+                    <li><span class="k">/ll broadcast &lt;message&gt;</span></li>
+                    <li><span class="k">/ll prof set/add/reset/show</span></li>
+                    <li><span class="k">/ll scan consumables [--save] [--section &lt;name&gt;]</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2 style="margin: 0 0 10px;">Stability & Performance</h2>
+              <ul class="list">
+                <li>Auto-save every 5 minutes to reduce data loss risk</li>
+                <li>Fast startup consumables scan (see metrics)</li>
+                <li>Responsive HUD updates (changes show immediately)</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <div class="section">
+          <div class="card danger">
+            <h2 style="margin: 0 0 8px;">IMPORTANT (Compatibility)</h2>
+            <div class="pill danger" style="margin-bottom: 10px;"><strong>Not compatible with</strong></div>
+            <ul class="list">
+              <li>Mods using CustomUI (HUD/UI conflicts)</li>
+              <li>MultipleHUD</li>
+              <li>Mods that manipulate player stats or add separate XP systems</li>
+            </ul>
+            <p class="subtitle" style="margin-top: 10px;">
+              If you hit a compatibility issue, report it on
+              <a href="https://github.com/MoshPitCodes/living-lands-reloaded" target="_blank" rel="noreferrer">GitHub</a>.
+            </p>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Compatible Mods (Tested)</h2>
+          <div class="mods">
+            <div class="group">
+              <h3>Quality of Life</h3>
+              <ul>
+                <li>AdvancedItemInfo (v1.0.5)</li>
+                <li>BetterMap (v1.2.7)</li>
+                <li>WhereThisAt (v1.0.6)</li>
+                <li>Simply-Trash (v1.0.0)</li>
+                <li>BetterWardrobes (v1.0.2)</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Gameplay / Utility</h3>
+              <ul>
+                <li>BloodMoon (v1.2.1)</li>
+                <li>Eldritch Tales (v0.0.1)</li>
+                <li>Books and Papers (v1.1.0)</li>
+                <li>Vein Mining (v1.3.7)</li>
+                <li>Hybrid (v1.7 - 2026.01.17)</li>
+                <li>Overstacked (v2026.1.28)</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Content Expansion (Highlights)</h3>
+              <ul>
+                <li>Hidden's Harvest Delights (v0.0.3)</li>
+                <li>NoCube Bakehouse/Culinary/Tavern/Orchard/Cultivation (v0.0.2)</li>
+                <li>More Potions (v2.0.0)</li>
+                <li>Aures Horses (v01.02.2026 - Evil Update)</li>
+                <li>Aures Livestock (v01.02.2026)</li>
+                <li>NoCube Undead Warriors (v0.0.3)</li>
+                <li>Skeleton Banging Shield (v0.2)</li>
+                <li>NoCube Bags/Resource Bags (v0.0.2)</li>
+                <li>Outlanders Armor Pack (v1.2)</li>
+                <li>Thorium Chests (v1.0.0)</li>
+                <li>Thorium Furnaces (v1.0.2)</li>
+                <li>Artisan's Palette (v1.0.1)</li>
+                <li>Violet's Furnishings (v1.0.1)</li>
+                <li>Violet's Wardrobe</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="card">
+            <h2>Installation</h2>
+            <p class="subtitle" style="margin: 0 0 10px;">
+              <strong>Players:</strong> join a server running Living Lands Reloaded (HUD appears automatically).
+            </p>
+            <ul class="list">
+              <li><strong>Server owners:</strong></li>
+              <li>Download <span class="k">livinglands-reloaded-1.4.3.jar</span></li>
+              <li>Place it in <span class="k">AppData/Roaming/Hytale/UserData/Mods/</span></li>
+              <li>Start the server (configs generate under <span class="k">Saves/{SAVE_NAME}/mods/MPC_LivingLandsReloaded/config/</span>)</li>
+            </ul>
+            <footer>Built by <strong>MoshPitCodes</strong>.</footer>
+          </div>
+        </div>
+      </header>
+    </div>
+  </body>
+</html>

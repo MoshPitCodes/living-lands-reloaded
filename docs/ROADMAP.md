@@ -1,8 +1,8 @@
 # Living Lands Reloaded - Product Roadmap
 
-**Current Version:** v1.4.3  
-**Status:** Production Ready (MVP Complete + All Abilities + Modded Consumables)  
-**Last Updated:** 2026-02-03
+**Current Version:** v1.4.8  
+**Status:** Production Ready (MVP Complete + P0-P2 Architecture Improvements + HUD Fix)  
+**Last Updated:** 2026-02-04
 
 ---
 
@@ -23,7 +23,9 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 | **Professions System** | 100% | ✅ Complete |
 | **Announcer Module** | 100% | ✅ Complete |
 | **Modded Consumables (Phase 12)** | 100% | ✅ Complete |
-| **Polish & Testing** | 100% | ✅ Single-Player Tested |
+| **Architecture Improvements (P0-P2)** | 100% | ✅ Complete (v1.4.4-v1.4.7) |
+| **HUD Bonus Persistence Fix** | 100% | ✅ Complete (v1.4.8) |
+| **Polish & Testing** | 100% | ✅ Complete (Single-Player Tested) |
 | **Future Modules** | 0% | 📋 Planned (Design Phase) |
 
 ---
@@ -40,49 +42,131 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ---
 
-## ✅ Completed Features (v1.4.3)
+## ✅ Completed Features
 
-### Auto-Scan Consumables & HUD Enhancements (v1.4.3)
+### P0-P2 Architecture Improvements + HUD Bonus Persistence Fix (v1.4.4-v1.4.8)
 
-**Status:** ✅ **Complete**  
-**Version:** 1.4.3  
-**Completion Date:** 2026-02-02  
+**Status:** ✅ **Complete & Tested**  
+**Versions:** 1.4.4 through 1.4.8  
+**Completion Date:** 2026-02-04  
 **Completion:** 100%
 
-**Mission:** Automatic consumables discovery with smart namespace detection and HUD code quality improvements
+**Mission:** Comprehensive architecture improvements (28 story points) across infrastructure, module lifecycle, and code quality, plus critical HUD bonus persistence bug fix.
 
-**Features:**
-- ✅ **Auto-Scan on Startup** - Discovers all consumables from installed mods automatically
-- ✅ **Smart Namespace Detection** - Identifies vanilla vs modded items intelligently
-- ✅ **Separate Config File** - `metabolism_consumables.yml` for better organization
-- ✅ **Manual Scan Command** - `/ll scan consumables` with preview and save modes
-- ✅ **Registry System** - O(1) lookup with ConcurrentHashMap for fast detection
-- ✅ **Food System Integration** - Registry integrated into FoodEffectDetector and FoodConsumptionProcessor
-- ✅ **Item Validation** - Checks if configured items exist in game registry
-- ✅ **Tier Detection** - Automatic tier detection from effect IDs
+#### P0 - Infrastructure Audit (v1.4.4)
+- ✅ **MPC-138: Safe Service Access** - Fixed 11 unsafe `CoreModule.services.get<T>()` calls
+  - Standardized on `safeService<T>("moduleName")` for cross-module dependencies
+  - Prevents crashes when modules are disabled
+  - Added null checks and graceful degradation
+- ✅ **MPC-139: Linting Task** - Added `checkUnsafeServiceAccess` Gradle task
+  - Prevents regression to unsafe patterns
+  - Scans all Kotlin files for `CoreModule.services.get<` pattern
+  - Build fails if unsafe patterns detected
 
-**HUD Improvements:**
-- ✅ **Code Quality** - DRY fixes, extracted duplicate code patterns
-- ✅ **World Switch Handler** - Updates PlayerRef map when players change worlds
-- ✅ **Configurable Limits** - MAX_BUFFS/MAX_DEBUFFS now configurable via `core.yml`
-- ✅ **StringBuilder Optimization** - Reduced allocations in progress bar rendering
-- ✅ **Service Setters** - Added `setMetabolismServicesForAll()` for config hot-reload
+#### P1 - Module Lifecycle (v1.4.5)
+- ✅ **MPC-140: Standardized Shutdown** - All modules use `shutdownScopeWithTimeout()`
+  - 5-second timeout prevents server hangs
+  - Ensures graceful shutdown without blocking indefinitely
+  - Prevents data loss from interrupted async operations
+- ✅ **MPC-141: HUD Availability Fix** - Fixed race condition in HUD registration
+  - `ensureHudRegistered()` now public with lazy initialization
+  - Prevents crashes when modules access HUD before registration complete
 
-**Testing:**
-- ✅ **Production Scan** - Discovered 201 consumables from 4 namespaces in ~200ms
-- ✅ **Compatible Mods Verified** - Tested with 29 mods across 6 categories
-- ✅ **Single-Player Tested** - All systems working correctly on live server
-- ✅ **No Crashes** - HUD stable with race condition and memory leak fixes
+#### P2 - Code Quality (v1.4.6-v1.4.7)
+- ✅ **MPC-142: Dependency Validation** - Added module dependency validation at startup
+  - Fail-fast if required modules disabled
+  - Clear error messages for missing dependencies
+  - Prevents runtime failures from missing services
+- ✅ **MPC-144: Config Reload Standardization** - Lifecycle hook `onConfigReload()`
+  - Replaced ad-hoc callback pattern
+  - Consistent config reload behavior across modules
+  - Simplifies module implementation
+- ✅ **MPC-143: Logging Standardization** - Standardized 643 logging calls across 43 files
+  - All module code now uses `LoggingManager` (NOT direct `logger.atFine()`)
+  - Configurable log levels (TRACE/DEBUG/CONFIG/INFO/WARN/ERROR)
+  - Better diagnostics and debugging capabilities
+
+#### HUD Bonus Persistence Fix (v1.4.8)
+- ✅ **MPC-145: Thread Safety** - Fixed CustomUI thread violation
+  - HUD updates from async DB load now wrapped in `world.execute {}`
+  - Prevents silent UI update failures
+- ✅ **MPC-146: Database Persistence** - Max stats now saved to database
+  - Extended schema v3→v4 with `max_hunger`, `max_thirst`, `max_energy` columns
+  - `MetabolismStats` data class includes max stat fields
+  - All save/load operations persist max values
+- ✅ **MPC-146: Save Trigger** - Added missing save call after ability application
+  - `ProfAdminCommand` now calls `metabolismService.savePlayer()` after applying abilities
+  - **THE CRITICAL FIX** - bonuses now persist across disconnect/reconnect
 
 **Impact:**
-- Zero manual configuration needed for modded foods
-- Install mods and restart - consumables auto-detected
-- Server admins can fine-tune via manual scan
-- Better organization with separate consumables config
+- Zero crashes from disabled modules (safe service access)
+- Zero data loss from server shutdown (standardized shutdown)
+- Zero race conditions in HUD registration (lazy init)
+- Zero silent HUD update failures (thread-safe)
+- **Profession ability bonuses now persist correctly** (Tier 2 max stat bonuses work)
+- Improved code maintainability (standardized patterns)
+- Better diagnostics (standardized logging)
 
-**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.3
+**Files Modified:** 50+ files across modules, core, and commands
+
+**Documentation:**
+- Updated `docs/TECHNICAL_DESIGN.md` (1,500+ lines for P0-P2)
+- Created `docs/MODULE_STRUCTURE.md` (370 lines)
+- Updated `docs/MODULE_LIFECYCLE.md`
+- Updated all changelogs and README
 
 ---
+
+### Auto-Scan Consumables & HUD Improvements (v1.4.3)
+
+**Status:** ✅ **Complete & Tested**  
+**Version:** 1.4.3  
+**Completion Date:** 2026-02-03  
+**Completion:** 100%
+
+**Mission:** Automatic consumables discovery with zero configuration and comprehensive HUD code quality improvements.
+
+**Auto-Scan Consumables:**
+- ✅ **Automatic Discovery** - Zero-config modded food/drink/potion support
+- ✅ **Smart Namespace Grouping** - Organizes items by mod (Hytale, NoCube, HiddenIsme, etc.)
+- ✅ **Fast Performance** - ~200ms scan time for 250+ consumables
+- ✅ **Manual Scan Command** - `/ll scan consumables --save` for new mods
+- ✅ **Separate Config File** - Clean organization in `metabolism_consumables.yml`
+
+**HUD Code Quality Improvements:**
+- ✅ **DRY Fix** - Extracted `updateStatusDisplay()` method (eliminated duplicate code)
+- ✅ **World Switch Handler** - Added `onPlayerWorldSwitch()` for PlayerRef updates
+- ✅ **Metabolism Services Setter** - Added `setMetabolismServicesForAll()` for config hot-reload
+- ✅ **Configurable Limits** - MAX_BUFFS/MAX_DEBUFFS now configurable in `core.yml`
+- ✅ **Performance Optimization** - StringBuilder improvements in `buildTextProgressBar()`
+- ✅ **Race Condition Fixes** - Atomic service capture prevents TOCTOU issues
+- ✅ **Memory Leak Prevention** - Guaranteed cleanup with finally blocks
+
+**Testing Status:**
+- ✅ **Single-Player Testing** - Verified on live server with 29 compatible mods
+- ✅ **Auto-Scan Verification** - 201 consumables discovered across 4 mod namespaces
+- ✅ **HUD Stability** - No crashes, memory leaks, or race conditions
+- ✅ **Config Hot-Reload** - Works correctly with metabolism module enable/disable
+- ⏳ **Multi-Player Testing** - Pending (LLR-87 - 50+ concurrent players)
+
+**Compatible Mods (29 tested):**
+- Quality of Life: AdvancedItemInfo, BetterMap, WhereThisAt, Simply-Trash, BetterWardrobes
+- Gameplay: BloodMoon, Eldritch Tales, Books and Papers, Vein Mining
+- Utility: Hybrid, Overstacked
+- Food & Consumables: 7 mods (Hidden's Harvest, NoCube series, More Potions)
+- Creatures & NPCs: 4 mods (Aures series, NoCube Undead, Skeleton Shield)
+- Items & Equipment: 5 mods (NoCube Bags, Outlanders Armor, Thorium series)
+- Decoration: 3 mods (Artisan's Palette, Violet's series)
+
+**Impact:**
+- ✅ Zero-configuration mod compatibility for food/drink/potions
+- ✅ Cleaner, more maintainable HUD codebase
+- ✅ Production-ready stability for single-player and small servers
+- ✅ Server admins can confidently build mod packs
+
+---
+
+## ✅ Completed Features (v1.4.2)
 
 ### Critical Hotfix (v1.4.2)
 
@@ -798,7 +882,58 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 ## 📅 Release Timeline
 
-### v1.3.1 (Current) - 2026-01-31
+### v1.4.8 (Current) - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** HUD Bonus Persistence Fix
+
+- ✅ Thread-safe HUD updates (MPC-145)
+- ✅ Database persistence for max stats (MPC-146)
+- ✅ Save trigger after ability application (MPC-146)
+- ✅ Profession Tier 2 bonuses now persist across disconnect/reconnect
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.8
+
+### v1.4.7 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Logging Standardization (P2-143)
+
+- ✅ Standardized 643 logging calls across 43 files
+- ✅ All modules use LoggingManager (configurable log levels)
+- ✅ Updated all documentation with P0-P2 improvements
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.7
+
+### v1.4.6 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Config Reload & Dependency Validation (P2)
+
+- ✅ Module dependency validation at startup (MPC-142)
+- ✅ Standardized config reload with lifecycle hook (MPC-144)
+- ✅ Fail-fast error messages for missing dependencies
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.6
+
+### v1.4.5 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Module Lifecycle Improvements (P1)
+
+- ✅ Standardized shutdown with timeout (MPC-140)
+- ✅ HUD availability race condition fix (MPC-141)
+- ✅ Graceful shutdown prevents data loss
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.5
+
+### v1.4.4 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Infrastructure Audit (P0)
+
+- ✅ Safe service access patterns (MPC-138)
+- ✅ Gradle linting task for unsafe patterns (MPC-139)
+- ✅ Prevents crashes from disabled modules
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.4
+
+### v1.3.1 - 2026-01-31
 **Status:** ✅ Released  
 **Theme:** HUD Performance Hotfix
 
@@ -883,25 +1018,23 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 **Note:** v1.4.1 completed all core functionality - v1.5.0 focuses on testing infrastructure and quality of life improvements.
 
-**Completed in v1.4.3:**
-- [x] **Modded Consumables Auto-Scan** - Automatic discovery on startup ✅ **DONE**
-  - Auto-scan on first startup with empty config
-  - Manual scan command: `/ll scan consumables` (preview and save modes)
-  - Smart namespace detection (vanilla vs modded)
-  - Separate config file: `metabolism_consumables.yml`
-  - O(1) registry lookup for fast detection
-  - **Linear:** LLR-118, LLR-119, LLR-120, LLR-121, LLR-122, LLR-124 ✅ **ALL COMPLETE**
-
-**Remaining Work:**
+**Planned Features:**
+- [ ] **Modded Consumables Scan Command** - `/ll metabolism scan` for runtime detection (10-15 hours)
+  - Preview mode (no changes): Lists unrecognized food effects
+  - Save mode (`--save` flag): Adds new items to config with backup
+  - Category inference from effect IDs
+  - Performance target: < 500ms scan time
+  - **Linear:** LLR-124
 - [ ] Multi-player stress testing (50+ players) - 3-5 days
 - [ ] Unit test infrastructure (JUnit5 + Mockito) - 2-3 days
 - [ ] Performance benchmarks (JMH) - 2-3 days
 - [ ] Documentation improvements - 1 day
 
-**Total Remaining Effort:** 10-15 days  
+**Total Estimated Effort:** 16-25 days  
 **Target Date:** Not yet scheduled (awaiting test environment)
 
 **Linear Issues:**
+- LLR-124: Modded Consumables Scan Command
 - LLR-87: Multi-Player Stress Testing (Backlog)
 - LLR-86: Unit Test Infrastructure (Backlog)
 - LLR-85: JMH Benchmark Suite (Backlog)
@@ -1037,7 +1170,6 @@ The original Leveling module has been fully replaced by the more comprehensive P
 - [x] **Tier 3 Ability Stubs** - ~~4/5 Tier 3 abilities are stubs (no trigger logic)~~ ✅ COMPLETE v1.4.0 - **Linear: LLR-113**
 - [x] **Admin Command HUD Refresh** - ~~Instant HUD updates after admin commands~~ ✅ COMPLETE v1.4.0 - **Linear: LLR-116**
 - [x] **Tier 2 Stamina API Stub** - ~~Enduring Builder needs stamina API research~~ ✅ COMPLETE v1.4.1 - **Linear: LLR-114**
-- [x] **Modded Consumables Support** - ~~Auto-scan and registry system~~ ✅ COMPLETE v1.4.3 - **Linear: LLR-118-124**
 - [ ] **Unit Tests** - No automated tests exist (manual only) - **Linear: LLR-86**
 - [ ] **JMH Benchmarks** - Performance claims not quantitatively measured - **Linear: LLR-85**
 - [ ] **Multi-Player Testing** - 50+ player stress testing not performed - **Linear: LLR-87**

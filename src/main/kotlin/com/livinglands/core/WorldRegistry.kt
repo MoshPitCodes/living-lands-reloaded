@@ -1,5 +1,6 @@
 package com.livinglands.core
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.universe.world.World
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent
@@ -43,7 +44,7 @@ class WorldRegistry(
         worlds[worldId] = context
         nameToUuid[worldName.lowercase()] = worldId  // Case-insensitive lookup
         
-        logger.atFine().log("World registered: $worldName ($worldId)")
+        LoggingManager.debug(logger, "core") { "World registered: $worldName ($worldId)" }
     }
     
     /**
@@ -60,7 +61,7 @@ class WorldRegistry(
             context.cleanup()
         }
         
-        logger.atFine().log("World unregistered: $worldName ($worldId)")
+        LoggingManager.debug(logger, "core") { "World unregistered: $worldName ($worldId)" }
     }
     
     /**
@@ -105,7 +106,7 @@ class WorldRegistry(
         val worldId = world.worldConfig.uuid
         val worldName = world.name
         return worlds.getOrPut(worldId) {
-            logger.atFine().log("Creating lazy WorldContext for $worldName ($worldId)")
+            LoggingManager.debug(logger, "core") { "Creating lazy WorldContext for $worldName ($worldId)" }
             // Also update name mapping for lazy-created worlds
             nameToUuid[worldName.lowercase()] = worldId
             WorldContext(

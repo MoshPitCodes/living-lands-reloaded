@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.universe.world.events.StartWorldEvent
 import com.livinglands.api.AbstractModule
 import com.livinglands.core.CoreModule
 import com.livinglands.core.PlayerSession
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.commands.TestMetabolismCommand
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.modules.metabolism.config.MetabolismConfigValidator
@@ -114,8 +115,7 @@ class MetabolismModule : AbstractModule(
         CoroutineExceptionHandler { _, throwable ->
             // Log uncaught exceptions from persistence coroutines
             if (throwable !is CancellationException) {
-                logger.atSevere().withCause(throwable)
-                    .log("Uncaught exception in persistence coroutine")
+                LoggingManager.error(logger, "metabolism", throwable) { "Uncaught exception in persistence coroutine" }
             }
         }
     )
@@ -133,14 +133,14 @@ class MetabolismModule : AbstractModule(
     private val playerRefs = ConcurrentHashMap<UUID, Pair<Player, PlayerRef>>()
     
     override suspend fun onSetup() {
-        logger.atFine().log("Metabolism module setting up...")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism module setting up..." }
         
         // Register migrations first
         CoreModule.config.registerMigrations(
             MetabolismConfig.MODULE_ID,
             MetabolismConfig.getMigrations()
         )
-        logger.atFine().log("Registered ${MetabolismConfig.getMigrations().size} metabolism config migrations")
+        LoggingManager.debug(logger, "metabolism") { "Registered ${MetabolismConfig.getMigrations().size} metabolism config migrations" }
         
         // Load configuration with migration support
         metabolismConfig = CoreModule.config.loadWithMigration(
@@ -148,11 +148,11 @@ class MetabolismModule : AbstractModule(
             MetabolismConfig(),
             MetabolismConfig.CURRENT_VERSION
         )
-        logger.atFine().log("Loaded metabolism config: enabled=${metabolismConfig.enabled}, version=${metabolismConfig.configVersion}")
+        LoggingManager.debug(logger, "metabolism") { "Loaded metabolism config: enabled=${metabolismConfig.enabled}, version=${metabolismConfig.configVersion}" }
         
         // Load consumables config from separate file
         consumablesConfig = CoreModule.config.load(MetabolismConsumablesConfig.CONFIG_NAME, MetabolismConsumablesConfig())
-        logger.atFine().log("Loaded consumables config: enabled=${consumablesConfig.enabled}, entries=${consumablesConfig.getEntryCount()}")
+        LoggingManager.debug(logger, "metabolism") { "Loaded consumables config: enabled=${consumablesConfig.enabled}, entries=${consumablesConfig.getEntryCount()}" }
         
         // Validate world overrides
         val knownWorldNames = CoreModule.worlds.getAllWorldNames()
@@ -161,7 +161,7 @@ class MetabolismModule : AbstractModule(
         // Create global repository (server-wide metabolism stats)
         metabolismRepository = MetabolismRepository(CoreModule.globalPersistence, logger)
         metabolismRepository.initialize()
-        logger.atFine().log("Initialized global metabolism repository")
+        LoggingManager.debug(logger, "metabolism") { "Initialized global metabolism repository" }
         
         // Create service
         metabolismService = MetabolismService(metabolismConfig, logger)
@@ -178,7 +178,7 @@ class MetabolismModule : AbstractModule(
         registerListenerAny<StartWorldEvent> { event ->
             handleWorldStarted(event)
         }
-        logger.atFine().log("Registered StartWorldEvent listener for auto-scan")
+        LoggingManager.debug(logger, "metabolism") { "Registered StartWorldEvent listener for auto-scan" }
         
         // Note: Tick system registration must happen AFTER buffs/debuffs initialization
         // so they can be passed to the tick system constructor
@@ -205,7 +205,7 @@ class MetabolismModule : AbstractModule(
                 logger
             )
             registerSystem(foodTickSystem)
-            logger.atFine().log("Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})")
+            LoggingManager.debug(logger, "metabolism") { "Registered FoodDetectionTickSystem (interval=${metabolismConfig.foodConsumption.detectionTickInterval} ticks, batch=${metabolismConfig.foodConsumption.batchSize})" }
         }
         
         // Initialize buffs and debuffs system
@@ -215,7 +215,7 @@ class MetabolismModule : AbstractModule(
             
             // Register SpeedManager with ServiceRegistry so other modules (e.g., professions) can use it
             CoreModule.services.register<SpeedManager>(speedManager)
-            logger.atFine().log("Registered SpeedManager with ServiceRegistry")
+            LoggingManager.debug(logger, "metabolism") { "Registered SpeedManager with ServiceRegistry" }
             
             // Create debuffs system (must be created before buffs for suppression check)
             debuffsSystem = DebuffsSystem(
@@ -236,7 +236,7 @@ class MetabolismModule : AbstractModule(
             metabolismService.setBuffsSystem(buffsSystem)
             metabolismService.setDebuffsSystem(debuffsSystem)
             
-            logger.atFine().log("Initialized buffs and debuffs system")
+            LoggingManager.debug(logger, "metabolism") { "Initialized buffs and debuffs system" }
         }
         
         // Register ECS tick system (must be after buffs/debuffs initialization)
@@ -248,7 +248,7 @@ class MetabolismModule : AbstractModule(
                 logger = logger
             )
             registerSystem(tickSystem)
-            logger.atFine().log("Registered MetabolismTickSystem with buffs/debuffs")
+            LoggingManager.debug(logger, "metabolism") { "Registered MetabolismTickSystem with buffs/debuffs" }
             
             // Register respawn reset system to handle metabolism reset on player death/respawn
             respawnResetSystem = RespawnResetSystem(
@@ -259,7 +259,7 @@ class MetabolismModule : AbstractModule(
                 logger = logger
             )
             registerSystem(respawnResetSystem)
-            logger.atFine().log("Registered RespawnResetSystem for death/respawn handling")
+            LoggingManager.debug(logger, "metabolism") { "Registered RespawnResetSystem for death/respawn handling" }
         }
         
         // NOTE: Player lifecycle events are handled via onPlayerJoin/onPlayerDisconnect hooks
@@ -267,7 +267,7 @@ class MetabolismModule : AbstractModule(
         
         // Register test command for Metabolism API validation (Phase 0 - Professions Prerequisites)
         CoreModule.mainCommand.registerSubCommand(TestMetabolismCommand())
-        logger.atFine().log("Registered /ll testmeta command")
+        LoggingManager.debug(logger, "metabolism") { "Registered /ll testmeta command" }
         
         // Register HUD toggle commands (matching v2.6.0: /ll stats, /ll buffs, /ll debuffs)
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(
@@ -279,22 +279,16 @@ class MetabolismModule : AbstractModule(
         CoreModule.mainCommand.registerSubCommand(com.livinglands.modules.metabolism.commands.HudToggleCommand(
             com.livinglands.modules.metabolism.commands.HudToggleCommand.ToggleType.DEBUFFS
         ))
-        logger.atFine().log("Registered HUD toggle commands: /ll stats, /ll buffs, /ll debuffs")
+        LoggingManager.debug(logger, "metabolism") { "Registered HUD toggle commands: /ll stats, /ll buffs, /ll debuffs" }
         
         // Register scan command for discovering consumables
         CoreModule.mainCommand.registerSubCommand(com.livinglands.core.commands.ScanCommand())
-        logger.atFine().log("Registered /ll scan command")
-        
-        // Register config reload callback
-        CoreModule.config.onReload("metabolism") {
-            onConfigReloaded()
-        }
-        
-        logger.atFine().log("Metabolism module setup complete")
+        LoggingManager.debug(logger, "metabolism") { "Registered /ll scan command" }
+        LoggingManager.debug(logger, "metabolism") { "Metabolism module setup complete" }
     }
     
     override suspend fun onStart() {
-        logger.atFine().log("Metabolism module started")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism module started" }
         
         // Start periodic auto-save to prevent data loss on server crash
         startPeriodicAutoSave()
@@ -304,7 +298,7 @@ class MetabolismModule : AbstractModule(
         
         // Trigger auto-scan if config is empty (events might not fire reliably)
         if (shouldAutoScan() && !autoScanComplete) {
-            logger.atInfo().log("Empty consumables config detected - running auto-scan...")
+            LoggingManager.info(logger, "metabolism") { "Empty consumables config detected - running auto-scan..." }
             autoScanComplete = true
             
             // Run scan on default world thread
@@ -314,7 +308,7 @@ class MetabolismModule : AbstractModule(
                     performAutoScan()
                 }
             } else {
-                logger.atWarning().log("No default world available for auto-scan")
+                LoggingManager.warn(logger, "metabolism") { "No default world available for auto-scan" }
             }
         }
     }
@@ -335,17 +329,17 @@ class MetabolismModule : AbstractModule(
                 try {
                     val cacheSize = metabolismService.getCacheSize()
                     if (cacheSize > 0) {
-                        logger.atFine().log("Periodic auto-save starting for $cacheSize cached players...")
+                        LoggingManager.debug(logger, "metabolism") { "Periodic auto-save starting for $cacheSize cached players..." }
                         metabolismService.saveAllPlayers(metabolismRepository)
-                        logger.atFine().log("Periodic auto-save completed")
+                        LoggingManager.debug(logger, "metabolism") { "Periodic auto-save completed" }
                     }
                 } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Periodic auto-save failed")
+                    LoggingManager.warn(logger, "metabolism") { "Periodic auto-save failed" }
                 }
             }
         }
         
-        logger.atFine().log("Periodic auto-save started (every 5 minutes)")
+        LoggingManager.debug(logger, "metabolism") { "Periodic auto-save started (every 5 minutes)" }
     }
     
     // ============ Player Lifecycle Hooks ============
@@ -355,12 +349,12 @@ class MetabolismModule : AbstractModule(
      * Called by plugin through CoreModule after session is registered.
      */
     override suspend fun onPlayerJoin(playerId: UUID, session: PlayerSession) {
-        logger.atFine().log("Metabolism: onPlayerJoin called for $playerId")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism: onPlayerJoin called for $playerId" }
         
         // Get world context from session
         val worldContext = CoreModule.worlds.getContext(session.worldId)
         if (worldContext == null) {
-            logger.atWarning().log("No world context for player $playerId (worldId: ${session.worldId})")
+            LoggingManager.warn(logger, "metabolism") { "No world context for player $playerId (worldId: ${session.worldId})" }
             return
         }
         
@@ -379,7 +373,7 @@ class MetabolismModule : AbstractModule(
                 // Get Player component from entity ref
                 val player = store.getComponent(entityRef, Player.getComponentType())
                 if (player == null) {
-                    logger.atWarning().log("Player component not found for $playerId")
+                    LoggingManager.warn(logger, "metabolism") { "Player component not found for $playerId" }
                     return@execute
                 }
                 
@@ -387,7 +381,7 @@ class MetabolismModule : AbstractModule(
                 @Suppress("DEPRECATION")
                 val playerRef = player.playerRef
                 if (playerRef == null) {
-                    logger.atWarning().log("PlayerRef is null for player $playerId")
+                    LoggingManager.warn(logger, "metabolism") { "PlayerRef is null for player $playerId" }
                     return@execute
                 }
                 
@@ -404,25 +398,25 @@ class MetabolismModule : AbstractModule(
                         statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina")
                         statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
                         statMap.removeModifier(com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
-                        logger.atFine().log("Cleaned up stale modifiers for player $playerId")
+                        LoggingManager.debug(logger, "metabolism") { "Cleaned up stale modifiers for player $playerId" }
                     }
                 } catch (e: Exception) {
-                    logger.atFine().log("Could not cleanup stale modifiers for $playerId: ${e.message}")
+                    LoggingManager.debug(logger, "metabolism") { "Could not cleanup stale modifiers for $playerId: ${e.message}" }
                 }
                 
                 // Ensure world config is resolved (for lazily created worlds)
                 if (worldContext.metabolismConfig == null) {
                     worldContext.resolveMetabolismConfig(metabolismConfig)
-                    logger.atFine().log("Resolved metabolism config for lazily created world ${worldContext.worldName}")
+                    LoggingManager.debug(logger, "metabolism") { "Resolved metabolism config for lazily created world ${worldContext.worldName}" }
                 }
                 
                 if (!alreadyCached) {
                     // First join - initialize with defaults immediately (non-blocking)
                     metabolismService.initializePlayerWithDefaults(playerId)
-                    logger.atFine().log("First join - initialized with defaults for $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "First join - initialized with defaults for $playerId" }
                 } else {
                     // World switch - player already has stats, keep them
-                    logger.atFine().log("World switch - keeping existing stats for $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "World switch - keeping existing stats for $playerId" }
                 }
                 
                 // Register HUD (will show cached stats immediately if available, defaults otherwise)
@@ -434,8 +428,7 @@ class MetabolismModule : AbstractModule(
                 }
                 
             } catch (e: Exception) {
-                logger.atSevere().withCause(e)
-                    .log("Failed to initialize metabolism for player $playerId")
+                LoggingManager.error(logger, "metabolism", e) { "Failed to initialize metabolism for player $playerId" }
             }
         }
         
@@ -464,9 +457,9 @@ class MetabolismModule : AbstractModule(
                     
                     // Force HUD refresh to show loaded values AND buffs/debuffs
                     metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
-                    logger.atFine().log("Loaded metabolism stats from database for $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "Loaded metabolism stats from database for $playerId" }
                 } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Failed to load metabolism stats for $playerId, using defaults")
+                    LoggingManager.warn(logger, "metabolism") { "Failed to load metabolism stats for $playerId, using defaults" }
                 }
             }
         } else {
@@ -489,7 +482,7 @@ class MetabolismModule : AbstractModule(
                     
                     // Force HUD refresh with current stats
                     metabolismService.forceUpdateHud(playerId.toCachedString(), playerId)
-                    logger.atFine().log("World switch - re-evaluated buffs/debuffs for $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "World switch - re-evaluated buffs/debuffs for $playerId" }
                 }
             }
         }
@@ -500,12 +493,12 @@ class MetabolismModule : AbstractModule(
      * Called by plugin through CoreModule BEFORE session is unregistered.
      */
     override suspend fun onPlayerDisconnect(playerId: UUID, session: PlayerSession) {
-        logger.atFine().log("Metabolism: onPlayerDisconnect called for $playerId")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism: onPlayerDisconnect called for $playerId" }
         
         // Get world context from session
         val worldContext = CoreModule.worlds.getContext(session.worldId)
         if (worldContext == null) {
-            logger.atWarning().log("No world context for disconnecting player $playerId")
+            LoggingManager.warn(logger, "metabolism") { "No world context for disconnecting player $playerId" }
             metabolismService.removeFromCache(playerId)
             cleanupPlayerRefsOnly(playerId)
             return
@@ -517,9 +510,9 @@ class MetabolismModule : AbstractModule(
             persistenceScope.launch {
                 try {
                     metabolismRepository.saveHudPreferences(playerId.toCachedString(), hudElement.metabolismPreferences)
-                    logger.atFine().log("Saved HUD preferences for disconnecting player $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "Saved HUD preferences for disconnecting player $playerId" }
                 } catch (e: Exception) {
-                    logger.atWarning().withCause(e).log("Failed to save HUD preferences for $playerId")
+                    LoggingManager.warn(logger, "metabolism") { "Failed to save HUD preferences for $playerId" }
                 }
             }
         }
@@ -534,10 +527,9 @@ class MetabolismModule : AbstractModule(
         // Save metabolism stats to global database (this is blocking - we need to complete before session is removed)
         try {
             metabolismService.savePlayer(playerId, metabolismRepository)
-            logger.atFine().log("Saved metabolism for disconnecting player $playerId (to global database)")
+            LoggingManager.debug(logger, "metabolism") { "Saved metabolism for disconnecting player $playerId (to global database)" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e)
-                .log("Failed to save metabolism for disconnecting player $playerId")
+            LoggingManager.warn(logger, "metabolism") { "Failed to save metabolism for disconnecting player $playerId" }
         } finally {
             // Cleanup buffs/debuffs on world thread to access ECS
             session.world.execute {
@@ -568,58 +560,22 @@ class MetabolismModule : AbstractModule(
     }
     
     override suspend fun onShutdown() {
-        logger.atFine().log("Metabolism module shutting down...")
-        
-        // First, cancel the persistence scope to prevent new saves from starting
-        // and wait for any in-flight saves to complete (with timeout)
-        try {
-            logger.atFine().log("Waiting for pending persistence operations...")
-            
-            // Get the supervisor job to wait on it
-            val supervisorJob = persistenceScope.coroutineContext[Job]
-            
-            // Cancel the scope (signals no new work should start)
-            persistenceScope.cancel("Module shutting down")
-            
-            // Wait for any in-flight coroutines to complete (with 5 second timeout)
-            if (supervisorJob != null) {
-                withTimeout(5000) {
-                    supervisorJob.join()
-                }
-                logger.atFine().log("All pending persistence operations completed")
-            }
-        } catch (e: CancellationException) {
-            // Expected when timeout occurs or scope is cancelled
-            logger.atFine().log("Persistence scope cancelled (some saves may have been interrupted)")
-        } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Error waiting for persistence operations")
-        }
+        // Wait for pending persistence operations (with 5 second timeout)
+        shutdownScopeWithTimeout(persistenceScope, "persistence", 5000)
         
         // Save all remaining players' metabolism data to global database (fallback for any not saved on disconnect)
         try {
             metabolismService.saveAllPlayers(metabolismRepository)
-            logger.atFine().log("Saved all remaining metabolism data to global database")
+            LoggingManager.debug(logger, "metabolism") { "Saved all remaining metabolism data to global database" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Error saving metabolism data during shutdown")
+            LoggingManager.warn(logger, "metabolism") { "Error saving metabolism data during shutdown" }
         }
         
         // Clear the service cache
         metabolismService.clearCache()
-        
-        // Unregister config reload callback
-        CoreModule.config.removeReloadCallback("metabolism")
-        
-        logger.atFine().log("Metabolism module shutdown complete")
     }
     
     override fun onConfigReload() {
-        onConfigReloaded()
-    }
-    
-    /**
-     * Handle config reload - update service with new config.
-     */
-    private fun onConfigReloaded() {
         // Reload with migration support in case the file was manually edited
         val newConfig = CoreModule.config.loadWithMigration(
             MetabolismConfig.MODULE_ID,
@@ -628,7 +584,7 @@ class MetabolismModule : AbstractModule(
         )
         metabolismConfig = newConfig
         metabolismService.updateConfig(newConfig)
-        logger.atFine().log("Metabolism config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}")
+        LoggingManager.info(logger, "metabolism") { "Config reloaded: enabled=${newConfig.enabled}, version=${newConfig.configVersion}" }
         
         // Re-resolve world-specific configs for all existing worlds
         var worldsResolved = 0
@@ -636,13 +592,12 @@ class MetabolismModule : AbstractModule(
             try {
                 worldContext.resolveMetabolismConfig(newConfig)
                 worldsResolved++
-                logger.atFine().log("Re-resolved metabolism config for world ${worldContext.worldName}")
+                LoggingManager.debug(logger, "metabolism") { "Re-resolved config for world ${worldContext.worldName}" }
             } catch (e: Exception) {
-                logger.atWarning().withCause(e)
-                    .log("Failed to re-resolve metabolism config for world ${worldContext.worldName}")
+                LoggingManager.warn(logger, "metabolism") { "Failed to re-resolve metabolism config for world ${worldContext.worldName}" }
             }
         }
-        logger.atFine().log("Metabolism configs re-resolved for $worldsResolved worlds")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism configs re-resolved for $worldsResolved worlds" }
         
         // Reload consumables config from separate file
         reloadConsumablesConfig()
@@ -660,7 +615,7 @@ class MetabolismModule : AbstractModule(
             // Disable modded consumables
             moddedConsumablesRegistry?.clear()
             moddedItemValidator?.clearCache()
-            logger.atFine().log("Modded consumables support disabled on reload")
+            LoggingManager.info(logger, "metabolism") { "Modded consumables support disabled on reload" }
             return
         }
         
@@ -690,7 +645,7 @@ class MetabolismModule : AbstractModule(
         }
         
         val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
-        logger.atFine().log("Modded consumables reloaded: $registryCount entries")
+        LoggingManager.debug(logger, "metabolism") { "Modded consumables reloaded: $registryCount entries" }
     }
     
     /**
@@ -704,10 +659,9 @@ class MetabolismModule : AbstractModule(
             try {
                 // Resolve world-specific config (merges overrides with global config)
                 worldContext.resolveMetabolismConfig(metabolismConfig)
-                logger.atFine().log("Resolved metabolism config for world ${worldContext.worldName} (${worldContext.worldId})")
+                LoggingManager.debug(logger, "metabolism") { "Resolved metabolism config for world ${worldContext.worldName} (${worldContext.worldId})" }
             } catch (e: Exception) {
-                logger.atWarning().withCause(e)
-                    .log("Failed to resolve metabolism config for world ${worldContext.worldName} (${worldContext.worldId})")
+                LoggingManager.warn(logger, "metabolism") { "Failed to resolve metabolism config for world ${worldContext.worldName} (${worldContext.worldId})" }
             }
         }
     }
@@ -720,7 +674,7 @@ class MetabolismModule : AbstractModule(
      */
     private fun initializeModdedConsumables() {
         if (!consumablesConfig.enabled) {
-            logger.atFine().log("Modded consumables support is disabled")
+            LoggingManager.debug(logger, "metabolism") { "Modded consumables support is disabled" }
             moddedConsumablesRegistry = null
             moddedItemValidator = null
             return
@@ -741,9 +695,9 @@ class MetabolismModule : AbstractModule(
         
         val registryCount = moddedConsumablesRegistry?.getEntryCount() ?: 0
         if (registryCount > 0) {
-            logger.atFine().log("Modded consumables support enabled with $registryCount entries")
+            LoggingManager.debug(logger, "metabolism") { "Modded consumables support enabled with $registryCount entries" }
         } else {
-            logger.atFine().log("Modded consumables support enabled (no entries configured)")
+            LoggingManager.debug(logger, "metabolism") { "Modded consumables support enabled (no entries configured)" }
         }
     }
     
@@ -770,9 +724,9 @@ class MetabolismModule : AbstractModule(
         }
         
         if (invalidCount > 0) {
-            logger.atFine().log("Modded consumables validation: $validCount valid, $invalidCount invalid")
+            LoggingManager.debug(logger, "metabolism") { "Modded consumables validation: $validCount valid, $invalidCount invalid" }
         } else {
-            logger.atFine().log("Modded consumables validation: all $validCount entries valid")
+            LoggingManager.debug(logger, "metabolism") { "Modded consumables validation: all $validCount entries valid" }
         }
     }
     
@@ -796,12 +750,12 @@ class MetabolismModule : AbstractModule(
         
         // Only run if config is empty (no consumables configured)
         if (!shouldAutoScan()) {
-            logger.atFine().log("Consumables config already populated (${consumablesConfig.getEntryCount()} entries) - skipping auto-scan")
+            LoggingManager.debug(logger, "metabolism") { "Consumables config already populated (${consumablesConfig.getEntryCount()} entries) - skipping auto-scan" }
             autoScanComplete = true
             return
         }
         
-        logger.atInfo().log("Empty consumables config detected - running auto-scan...")
+        LoggingManager.info(logger, "metabolism") { "Empty consumables config detected - running auto-scan..." }
         autoScanComplete = true
         
         // Run scan on the world thread (required for Item AssetStore access)
@@ -832,7 +786,7 @@ class MetabolismModule : AbstractModule(
             val discovered = ConsumablesScanner.scanItemRegistry(emptySet(), logger)
             
             if (discovered.isEmpty()) {
-                logger.atInfo().log("Auto-scan complete: No consumables discovered")
+                LoggingManager.info(logger, "metabolism") { "Auto-scan complete: No consumables discovered" }
                 return
             }
             
@@ -851,7 +805,7 @@ class MetabolismModule : AbstractModule(
                     )
                 }
                 newSections[sectionName] = entries
-                logger.atFine().log("Grouped $namespace: ${entries.size} items -> section '$sectionName'")
+                LoggingManager.debug(logger, "metabolism") { "Grouped $namespace: ${entries.size} items -> section '$sectionName'" }
             }
             
             // Create new config with all namespace sections
@@ -869,10 +823,10 @@ class MetabolismModule : AbstractModule(
             // Rebuild the consumables registry with new entries
             rebuildConsumablesRegistry()
             
-            logger.atInfo().log("✅ Auto-scan complete: Added ${discovered.size} consumables in ${newSections.size} namespace sections to ${MetabolismConsumablesConfig.CONFIG_NAME}.yml")
+            LoggingManager.info(logger, "metabolism") { "✅ Auto-scan complete: Added ${discovered.size} consumables in ${newSections.size} namespace sections to ${MetabolismConsumablesConfig.CONFIG_NAME}.yml" }
             
         } catch (e: Exception) {
-            logger.atSevere().withCause(e).log("Auto-scan failed")
+            LoggingManager.error(logger, "metabolism", e) { "Auto-scan failed" }
         }
     }
     
@@ -900,7 +854,7 @@ class MetabolismModule : AbstractModule(
             )
         }
         
-        logger.atFine().log("Rebuilt consumables registry with ${allEntries.size} entries")
+        LoggingManager.debug(logger, "metabolism") { "Rebuilt consumables registry with ${allEntries.size} entries" }
     }
     
     /**
@@ -928,14 +882,13 @@ class MetabolismModule : AbstractModule(
             try {
                 metabolismService.initializePlayer(session.playerId, metabolismRepository)
             } catch (e: Exception) {
-                logger.atWarning().withCause(e)
-                    .log("Failed to initialize metabolism for player ${session.playerId}")
+                LoggingManager.warn(logger, "metabolism") { "Failed to initialize metabolism for player ${session.playerId}" }
             }
         }
         
         val playerCount = metabolismService.getCacheSize()
         if (playerCount > 0) {
-            logger.atFine().log("Initialized metabolism for $playerCount online players")
+            LoggingManager.debug(logger, "metabolism") { "Initialized metabolism for $playerCount online players" }
         }
     }
     
@@ -953,20 +906,11 @@ class MetabolismModule : AbstractModule(
         
         try {
             // Get ProfessionsService and AbilityRegistry if they're registered
-            val professionsService = try {
-                CoreModule.services.get<com.livinglands.modules.professions.ProfessionsService>()
-            } catch (e: Exception) {
-                null
-            }
-            
-            val abilityRegistry = try {
-                CoreModule.services.get<com.livinglands.modules.professions.abilities.AbilityRegistry>()
-            } catch (e: Exception) {
-                null
-            }
+             val professionsService = safeService<com.livinglands.modules.professions.ProfessionsService>("professions")
+             val abilityRegistry = safeService<com.livinglands.modules.professions.abilities.AbilityRegistry>("professions")
             
             // Register the unified HUD with MultiHudManager
-            logger.atFine().log("Registering unified HUD via MultiHudManager on world thread...")
+            LoggingManager.debug(logger, "metabolism") { "Registering unified HUD via MultiHudManager on world thread..." }
             CoreModule.hudManager.registerHud(
                 player = player,
                 playerRef = playerRef,
@@ -976,10 +920,9 @@ class MetabolismModule : AbstractModule(
                 professionsService = professionsService,
                 abilityRegistry = abilityRegistry
             )
-            logger.atFine().log("Registered unified HUD for player $playerId")
+            LoggingManager.debug(logger, "metabolism") { "Registered unified HUD for player $playerId" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e)
-                .log("Failed to register unified HUD for player $playerId")
+            LoggingManager.warn(logger, "metabolism") { "Failed to register unified HUD for player $playerId" }
         }
         
         // Load preferences asynchronously (outside world.execute) and update
@@ -989,11 +932,68 @@ class MetabolismModule : AbstractModule(
                 if (hudElement != null) {
                     val preferences = metabolismRepository.loadHudPreferences(playerId.toCachedString())
                     hudElement.metabolismPreferences = preferences
-                    logger.atFine().log("Loaded HUD preferences for $playerId")
+                    LoggingManager.debug(logger, "metabolism") { "Loaded HUD preferences for $playerId" }
                 }
             } catch (e: Exception) {
-                logger.atFine().log("Failed to load HUD preferences for $playerId, using defaults")
+                LoggingManager.debug(logger, "metabolism") { "Failed to load HUD preferences for $playerId, using defaults" }
             }
+        }
+    }
+    
+    /**
+     * Ensure HUD is registered for a player (lazy initialization).
+     * 
+     * This method is called by commands that need HUD to be available.
+     * If HUD isn't registered yet (due to race condition on player join),
+     * this will trigger registration synchronously on the world thread.
+     * 
+     * Safe to call multiple times - if HUD already exists, returns immediately.
+     * 
+     * @param playerId The player UUID
+     * @return true if HUD is now available, false if player/world not found
+     */
+    public suspend fun ensureHudRegistered(playerId: UUID): Boolean {
+        // Quick check - if HUD already registered, we're done
+        val existingHud = CoreModule.hudManager.getHud(playerId)
+        if (existingHud != null) {
+            return true
+        }
+        
+        // HUD not registered - try to register it now
+        try {
+            val session = CoreModule.players.getSession(playerId)
+            if (session == null) {
+                LoggingManager.debug(logger, "metabolism") { "Cannot register HUD for $playerId - player session not found" }
+                return false
+            }
+            
+            // Check if we have playerRef cached (from onPlayerJoin)
+            val cachedRefs = playerRefs[playerId]
+            if (cachedRefs == null) {
+                LoggingManager.debug(logger, "metabolism") { "Cannot register HUD for $playerId - player refs not cached yet" }
+                return false
+            }
+            val (player, playerRef) = cachedRefs
+            
+            // Execute on world thread to safely access player data and register HUD
+            var hudRegistered = false
+            session.world.execute {
+                try {
+                    val currentPlayer = session.store.getComponent(session.entityRef, Player.getComponentType())
+                    if (currentPlayer != null) {
+                        registerHudForPlayer(currentPlayer, playerRef, playerId)
+                        hudRegistered = true
+                    } else {
+                        LoggingManager.debug(logger, "metabolism") { "Cannot register HUD for $playerId - player component not found" }
+                    }
+                } catch (e: Exception) {
+                    LoggingManager.warn(logger, "metabolism") { "Failed to lazily register HUD for $playerId" }
+                }
+            }
+            return hudRegistered
+        } catch (e: Exception) {
+            LoggingManager.warn(logger, "metabolism") { "Error ensuring HUD registration for $playerId" }
+            return false
         }
     }
     
@@ -1009,7 +1009,7 @@ class MetabolismModule : AbstractModule(
                 CoreModule.hudManager.removeHud(player, playerRef, playerId)
                 CoreModule.hudManager.onPlayerDisconnect(playerId)
             } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Error cleaning up HUD for player $playerId")
+                LoggingManager.warn(logger, "metabolism") { "Error cleaning up HUD for player $playerId" }
             }
         }
     }
@@ -1041,11 +1041,10 @@ class MetabolismModule : AbstractModule(
                             }
                         } else {
                             // Entity already removed, just notify manager
-                            logger.atFine().log("Player entity already removed for $playerId, skipping HUD cleanup")
+                            LoggingManager.debug(logger, "metabolism") { "Player entity already removed for $playerId, skipping HUD cleanup" }
                         }
                     } catch (e: Exception) {
-                        logger.atWarning().withCause(e)
-                            .log("Error removing unified HUD for player $playerId")
+                        LoggingManager.warn(logger, "metabolism") { "Error removing unified HUD for player $playerId" }
                     }
                 }
             }
@@ -1055,8 +1054,7 @@ class MetabolismModule : AbstractModule(
             
             debug("Cleaned up unified HUD for player $playerId")
         } catch (e: Exception) {
-            logger.atWarning().withCause(e)
-                .log("Error cleaning up unified HUD for player $playerId")
+            LoggingManager.warn(logger, "metabolism") { "Error cleaning up unified HUD for player $playerId" }
         }
     }
 }

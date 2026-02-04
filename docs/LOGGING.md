@@ -79,7 +79,9 @@ logging:
 
 ## Direct Logger vs LoggingManager
 
-Living Lands has two ways to log messages. Understanding when to use each is important:
+Living Lands has two ways to log messages. Understanding when to use each is important.
+
+**Note (P2-143):** As of v1.4.7, all 643+ direct logger calls have been standardized to use `LoggingManager` throughout the codebase. This provides consistent logging behavior and proper module-level filtering.
 
 ### When to Use LoggingManager (Preferred for Module Code)
 
@@ -134,16 +136,20 @@ class AbstractModule {
 
 **Trade-off:** These logs **bypass** per-module configuration and always respect Java's default log level.
 
-### Migration Strategy
+### Migration Strategy (Complete as of v1.4.7)
 
-**Existing code:**
-- Direct logger calls in `AbstractModule` and `CoreModule` are **intentional** and should remain
-- These are core lifecycle logs that should always appear
+**P2-143 Completion:** All 643+ direct logger calls across the entire codebase have been migrated to `LoggingManager`. This provides:
 
-**New module code:**
-- Always use `LoggingManager` for module-specific functionality
-- Use appropriate log levels based on message importance
-- Use `CONFIG` level for configuration-related messages
+✅ Consistent logging patterns throughout all modules
+✅ Proper per-module log level filtering
+✅ Zero-cost logging when disabled (lambda evaluation)
+✅ Better maintainability and debugging
+
+**Current standards (v1.4.7+):**
+- All module code uses `LoggingManager`
+- Core lifecycle logs use direct logger (AbstractModule, CoreModule) only for critical events
+- New code should always use `LoggingManager` for module-specific functionality
+- Use appropriate log levels: TRACE (hot paths), DEBUG (diagnostics), CONFIG (config events), INFO (lifecycle), WARN (issues), ERROR (failures)
 
 ### Example: Configuration Loading
 

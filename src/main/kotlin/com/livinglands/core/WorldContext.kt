@@ -1,6 +1,7 @@
 package com.livinglands.core
 
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.core.persistence.GlobalPlayerDataRepository
 import com.livinglands.core.persistence.PersistenceService
 import com.livinglands.modules.metabolism.config.MetabolismConfig
@@ -73,10 +74,7 @@ class WorldContext(
         
         // Warn if both exist and are different (ambiguous configuration)
         if (byName != null && byId != null && byName != byId) {
-            logger.atWarning().log(
-                "World '$worldName' ($worldId) has conflicting overrides by name and UUID. " +
-                "Using name-based override. Consider removing one to avoid confusion."
-            )
+            LoggingManager.warn(logger, "core") { "World '$worldName' ($worldId) has conflicting overrides by name and UUID. Using name-based override. Consider removing one to avoid confusion." }
         }
         
         // Prefer name-based override, fall back to UUID-based, then global config
@@ -85,12 +83,7 @@ class WorldContext(
         } ?: globalConfig
         
         metabolismConfig = resolved
-        logger.atFine().log(
-            "Resolved metabolism config for world $worldName: " +
-            "hunger.rate=${resolved.hunger.baseDepletionRateSeconds}, " +
-            "thirst.rate=${resolved.thirst.baseDepletionRateSeconds}, " +
-            "energy.rate=${resolved.energy.baseDepletionRateSeconds}"
-        )
+        LoggingManager.debug(logger, "core") { "Resolved metabolism config for world $worldName: hunger.rate=${resolved.hunger.baseDepletionRateSeconds}, thirst.rate=${resolved.thirst.baseDepletionRateSeconds}, energy.rate=${resolved.energy.baseDepletionRateSeconds}" }
     }
     
     /**
@@ -145,9 +138,9 @@ class WorldContext(
                 globalPlayerRepo.ensurePlayer(uuid, playerName)
                 globalPlayerRepo.updateLastSeen(uuid, System.currentTimeMillis())
                 
-                logger.atFine().log("Player $playerName ($playerId) persisted to global database")
+                LoggingManager.debug(logger, "core") { "Player $playerName ($playerId) persisted to global database" }
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Error persisting player join for $playerId")
+                LoggingManager.error(logger, "core", e) { "Error persisting player join for $playerId" }
             }
         }
     }
@@ -167,9 +160,9 @@ class WorldContext(
                     ?: throw IllegalStateException("GlobalPlayerDataRepository not registered")
                 
                 globalPlayerRepo.updateLastSeen(UUID.fromString(playerId), System.currentTimeMillis())
-                logger.atFine().log("Updated last seen for player $playerId")
+                LoggingManager.debug(logger, "core") { "Updated last seen for player $playerId" }
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Error updating last seen for $playerId")
+                LoggingManager.error(logger, "core", e) { "Error updating last seen for $playerId" }
             }
         }
     }
@@ -199,7 +192,7 @@ class WorldContext(
                     }
                 }
             } catch (e: Exception) {
-                logger.atFine().log("Cleanup timeout for world $worldId, forcing close")
+                LoggingManager.debug(logger, "core") { "Cleanup timeout for world $worldId, forcing close" }
             }
             
             // Cancel scopes to prevent new operations from starting
@@ -214,7 +207,7 @@ class WorldContext(
             // Clear all module data
             moduleData.clear()
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Error during WorldContext cleanup for world $worldId")
+            LoggingManager.warn(logger, "core") { "Error during WorldContext cleanup for world $worldId" }
         }
     }
 }

@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
 import com.livinglands.core.WorldContext
 import com.livinglands.core.hud.LivingLandsHudElement
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.config.MetabolismConfig
 import com.livinglands.core.UuidStringCache
 import com.livinglands.core.toCachedString
@@ -18,6 +19,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.max
+import com.hypixel.hytale.server.core.universe.Universe
 
 /**
  * Service for managing metabolism stats across all players.
@@ -80,7 +82,7 @@ class MetabolismService(
             true
         }
         
-        logger.atFine().log("Metabolism config updated globally and re-resolved for $worldCount worlds")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism config updated globally and re-resolved for $worldCount worlds" }
     }
     
     /**
@@ -136,9 +138,9 @@ class MetabolismService(
         try {
             val stats = state.toImmutableStats()
             repository.updateStats(stats)
-            logger.atFine().log("Persisted reset metabolism stats for $playerId")
+            LoggingManager.debug(logger, "metabolism") { "Persisted reset metabolism stats for $playerId" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to persist reset stats for $playerId")
+            LoggingManager.error(logger, "metabolism", e) { "Failed to persist reset stats for $playerId" }
         }
     }
     
@@ -156,7 +158,7 @@ class MetabolismService(
         // Get current state (if exists)
         val state = playerStates[playerIdStr]
         if (state == null) {
-            logger.atWarning().log("Player $playerId not in cache during in-memory reset")
+            LoggingManager.warn(logger, "metabolism") { "Player $playerId not in cache during in-memory reset" }
             return false
         }
         
@@ -165,7 +167,7 @@ class MetabolismService(
         state.updateStats(100f, 100f, 100f, currentTime)
         state.lastDepletionTime = currentTime
         
-        logger.atFine().log("Reset metabolism in-memory for player $playerId to defaults (H=100, T=100, E=100)")
+        LoggingManager.debug(logger, "metabolism") { "Reset metabolism in-memory for player $playerId to defaults (H=100, T=100, E=100)" }
         return true
     }
     
@@ -185,7 +187,7 @@ class MetabolismService(
         // Use cached string representation (avoids allocation on subsequent calls)
         val playerIdStr = playerId.toCachedString()
         
-        logger.atFine().log("🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr")
+         LoggingManager.debug(logger, "metabolism") { "🔵 initializePlayer() called: UUID=$playerId, string=$playerIdStr" }
         
         // Load or create stats from global database
         val stats = repository.ensureStats(playerIdStr)
@@ -196,7 +198,7 @@ class MetabolismService(
         // Cache the state (single map entry instead of 4)
         playerStates[playerIdStr] = state
         
-        logger.atFine().log("Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+         LoggingManager.debug(logger, "metabolism") { "Initialized metabolism for player $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}" }
     }
     
     /**
@@ -221,19 +223,21 @@ class MetabolismService(
         // both pass containsKey() check and one overwrites the other's data
         val existing = playerStates.putIfAbsent(playerIdStr, state)
         if (existing != null) {
-            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
+             LoggingManager.debug(logger, "metabolism") { "Player $playerId already in cache, skipping default initialization" }
             return
         }
         
-        logger.atFine().log("Initialized metabolism with defaults for $playerId (H=100, T=100, E=100)")
+         LoggingManager.debug(logger, "metabolism") { "Initialized metabolism with defaults for $playerId (H=100, T=100, E=100)" }
     }
     
     /**
      * Update player state with loaded stats from database.
      * Called asynchronously after initializePlayerWithDefaults().
      * 
+     * Also loads max stat values from Tier 2 ability bonuses.
+     * 
      * @param playerId Player's UUID
-     * @param stats Loaded stats from database
+     * @param stats Loaded stats from database (includes max stat values)
      */
     fun updatePlayerState(playerId: UUID, stats: MetabolismStats) {
         val playerIdStr = playerId.toCachedString()
@@ -242,7 +246,12 @@ class MetabolismService(
         // Update the mutable state with loaded values
         state.updateStats(stats.hunger, stats.thirst, stats.energy, stats.lastUpdated)
         
-        logger.atFine().log("Updated metabolism state from database for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+        // Load max stat values from database (Tier 2 ability bonuses)
+        state.maxHunger = stats.maxHunger
+        state.maxThirst = stats.maxThirst
+        state.maxEnergy = stats.maxEnergy
+        
+         LoggingManager.debug(logger, "metabolism") { "Updated metabolism state from database for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}, maxH=${stats.maxHunger}, maxT=${stats.maxThirst}, maxE=${stats.maxEnergy}" }
     }
     
     /**
@@ -498,12 +507,12 @@ class MetabolismService(
     fun setMaxHunger(playerIdStr: String, maxValue: Float) {
         val state = playerStates[playerIdStr]
         if (state == null) {
-            logger.atWarning().log("Cannot set max hunger for $playerIdStr - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot set max hunger for $playerIdStr - player not in cache" }
             return
         }
         
         state.maxHunger = maxValue.coerceIn(50f, 200f)
-        logger.atFine().log("Set max hunger to $maxValue for player $playerIdStr")
+        LoggingManager.debug(logger, "metabolism") { "Set max hunger to $maxValue for player $playerIdStr" }
     }
     
     /**
@@ -526,12 +535,12 @@ class MetabolismService(
     fun setMaxThirst(playerIdStr: String, maxValue: Float) {
         val state = playerStates[playerIdStr]
         if (state == null) {
-            logger.atWarning().log("Cannot set max thirst for $playerIdStr - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot set max thirst for $playerIdStr - player not in cache" }
             return
         }
         
         state.maxThirst = maxValue.coerceIn(50f, 200f)
-        logger.atFine().log("Set max thirst to $maxValue for player $playerIdStr")
+        LoggingManager.debug(logger, "metabolism") { "Set max thirst to $maxValue for player $playerIdStr" }
     }
     
     /**
@@ -554,12 +563,12 @@ class MetabolismService(
     fun setMaxEnergy(playerIdStr: String, maxValue: Float) {
         val state = playerStates[playerIdStr]
         if (state == null) {
-            logger.atWarning().log("Cannot set max energy for $playerIdStr - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot set max energy for $playerIdStr - player not in cache" }
             return
         }
         
         state.maxEnergy = maxValue.coerceIn(50f, 200f)
-        logger.atFine().log("Set max energy to $maxValue for player $playerIdStr")
+        LoggingManager.debug(logger, "metabolism") { "Set max energy to $maxValue for player $playerIdStr" }
     }
     
     /**
@@ -601,14 +610,14 @@ class MetabolismService(
     fun resetMaxStats(playerId: UUID) {
         val state = playerStates[playerId.toCachedString()]
         if (state == null) {
-            logger.atWarning().log("Cannot reset max stats for $playerId - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot reset max stats for $playerId - player not in cache" }
             return
         }
         
         state.maxHunger = 100f
         state.maxThirst = 100f
         state.maxEnergy = 100f
-        logger.atFine().log("Reset max stats to defaults for player $playerId")
+        LoggingManager.debug(logger, "metabolism") { "Reset max stats to defaults for player $playerId" }
     }
     
     // ============ Depletion Modifier Management (for Professions Tier 3 abilities) ============
@@ -627,12 +636,12 @@ class MetabolismService(
     fun applyDepletionModifier(playerId: UUID, sourceId: String, multiplier: Double) {
         val state = playerStates[playerId.toCachedString()]
         if (state == null) {
-            logger.atWarning().log("Cannot apply depletion modifier '$sourceId' to $playerId - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot apply depletion modifier '$sourceId' to $playerId - player not in cache" }
             return
         }
         
         state.applyDepletionModifier(sourceId, multiplier)
-        logger.atFine().log("Applied depletion modifier '$sourceId' (${multiplier}x) to player $playerId")
+        LoggingManager.debug(logger, "metabolism") { "Applied depletion modifier '$sourceId' (${multiplier}x) to player $playerId" }
     }
     
     /**
@@ -645,13 +654,13 @@ class MetabolismService(
     fun removeDepletionModifier(playerId: UUID, sourceId: String): Boolean {
         val state = playerStates[playerId.toCachedString()]
         if (state == null) {
-            logger.atWarning().log("Cannot remove depletion modifier '$sourceId' from $playerId - player not in cache")
+            LoggingManager.warn(logger, "metabolism") { "Cannot remove depletion modifier '$sourceId' from $playerId - player not in cache" }
             return false
         }
         
         val removed = state.removeDepletionModifier(sourceId)
         if (removed) {
-            logger.atFine().log("Removed depletion modifier '$sourceId' from player $playerId")
+            LoggingManager.debug(logger, "metabolism") { "Removed depletion modifier '$sourceId' from player $playerId" }
         }
         return removed
     }
@@ -675,7 +684,7 @@ class MetabolismService(
         val state = playerStates[playerId.toCachedString()]
         if (state != null) {
             state.clearDepletionModifiers()
-            logger.atFine().log("Cleared all depletion modifiers for player $playerId")
+            LoggingManager.debug(logger, "metabolism") { "Cleared all depletion modifiers for player $playerId" }
         }
     }
     
@@ -694,22 +703,22 @@ class MetabolismService(
         // Use cached string
         val playerIdStr = playerId.toCachedString()
         
-        logger.atFine().log("savePlayer() called for $playerId")
+        LoggingManager.debug(logger, "metabolism") { "savePlayer() called for $playerId" }
         
         val state = playerStates[playerIdStr]
         if (state == null) {
-            logger.atWarning().log("No state found in cache for player $playerId - cannot save")
+            LoggingManager.warn(logger, "metabolism") { "No state found in cache for player $playerId - cannot save" }
             return
         }
         
         try {
             // Convert mutable state to immutable for database
             val stats = state.toImmutableStats()
-            logger.atFine().log("About to save stats for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}")
+            LoggingManager.debug(logger, "metabolism") { "About to save stats for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}" }
             repository.updateStats(stats)
-            logger.atFine().log("Successfully saved metabolism for player $playerId")
+            LoggingManager.debug(logger, "metabolism") { "Successfully saved metabolism for player $playerId" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to save metabolism for player $playerId")
+            LoggingManager.error(logger, "metabolism", e) { "Failed to save metabolism for player $playerId" }
             throw e  // Re-throw so caller knows save failed
         }
     }
@@ -731,10 +740,9 @@ class MetabolismService(
         try {
             // Save all stats to global database in one transaction
             repository.saveAll(allStats)
-            logger.atFine().log("Saved metabolism for ${allStats.size} players to global database")
-        } catch (e: Exception) {
-            logger.atWarning().withCause(e)
-                .log("Failed to save metabolism stats to global database")
+            LoggingManager.debug(logger, "metabolism") { "Saved metabolism for ${allStats.size} players to global database" }
+         } catch (e: Exception) {
+             LoggingManager.error(logger, "metabolism", e) { "Failed to save metabolism stats to global database" }
         }
     }
     
@@ -772,7 +780,7 @@ class MetabolismService(
     fun clearCache() {
         playerStates.clear()
         UuidStringCache.clear()
-        logger.atFine().log("Metabolism cache cleared")
+        LoggingManager.debug(logger, "metabolism") { "Metabolism cache cleared" }
     }
     
     /**
@@ -872,25 +880,40 @@ class MetabolismService(
      * Force update the HUD regardless of threshold.
      * Useful for initial display or manual refresh.
      * 
+     * THREAD SAFETY: This method may be called from async contexts (e.g., ability application on IO thread).
+     * We wrap the HUD update in world.execute { } to ensure it runs on the WorldThread,
+     * as Hytale's CustomUI API is not thread-safe.
+     * 
      * @param playerId Player's UUID as string
      * @param playerUuid Player's UUID (for MultiHudManager lookup)
      */
     fun forceUpdateHud(playerId: String, playerUuid: UUID) {
         val state = playerStates[playerId] ?: return
         
-        // Get unified HUD from MultiHudManager
-        val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return
+        // Get player's session to access their world
+        val playerRegistry = CoreModule.services.get<com.livinglands.core.PlayerRegistry>()
+        val session = playerRegistry?.getSession(playerUuid)
+        if (session == null) {
+            LoggingManager.debug(logger, "metabolism") { "Cannot force HUD update - player $playerUuid not in session registry" }
+            return
+        }
         
-        hudElement.updateMetabolism(
-            hunger = state.hunger,
-            thirst = state.thirst,
-            energy = state.energy,
-            maxHunger = state.maxHunger,
-            maxThirst = state.maxThirst,
-            maxEnergy = state.maxEnergy
-        )
-        hudElement.updateMetabolismHud()
-        state.markDisplayed()
+        // CRITICAL: Wrap UI update in world.execute to run on WorldThread
+        // Hytale's CustomUI API requires WorldThread execution
+        session.world.execute {
+            val hudElement = CoreModule.hudManager.getHud(playerUuid) ?: return@execute
+            
+            hudElement.updateMetabolism(
+                hunger = state.hunger,
+                thirst = state.thirst,
+                energy = state.energy,
+                maxHunger = state.maxHunger,
+                maxThirst = state.maxThirst,
+                maxEnergy = state.maxEnergy
+            )
+            hudElement.updateMetabolismHud()
+            state.markDisplayed()
+        }
     }
     
     // ============ System Accessors ============

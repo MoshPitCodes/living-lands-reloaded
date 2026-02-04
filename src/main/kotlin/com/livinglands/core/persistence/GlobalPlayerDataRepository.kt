@@ -1,5 +1,6 @@
 package com.livinglands.core.persistence
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import java.util.UUID
 
@@ -95,7 +96,7 @@ class GlobalPlayerDataRepository(
                     stmt.setLong(4, now)
                     stmt.executeUpdate()
                 }
-                logger.atFine().log("Created global player record: $playerId ($playerName)")
+                LoggingManager.debug(logger, "core") { "Created global player record: $playerId ($playerName)" }
             } else if (existing.playerName != playerName) {
                 conn.prepareStatement("""
                     UPDATE players SET player_name = ? WHERE player_id = ?
@@ -104,7 +105,7 @@ class GlobalPlayerDataRepository(
                     stmt.setString(2, playerId.toString())
                     stmt.executeUpdate()
                 }
-                logger.atFine().log("Updated global player name: $playerId -> $playerName")
+                LoggingManager.debug(logger, "core") { "Updated global player name: $playerId -> $playerName" }
             }
         }
     }
@@ -125,7 +126,7 @@ class GlobalPlayerDataRepository(
                 val updated = stmt.executeUpdate()
                 
                 if (updated == 0) {
-                    logger.atFine().log("Player not found for last seen update: $playerId")
+                    LoggingManager.debug(logger, "core") { "Player not found for last seen update: $playerId" }
                 }
             }
         }

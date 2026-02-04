@@ -9,7 +9,9 @@ import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.event.events.ecs.InteractivelyPickupItemEvent
 import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityEffectService
@@ -128,7 +130,7 @@ class GatheringXpSystem(
 
         // Log multiplier application (INFO level for visibility)
         if (xpMultiplier > 1.0) {
-            logger.atFine().log("Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})")
+            LoggingManager.debug(logger, "professions") { "Applied Tier 1 XP boost for player ${playerUuid}: ${xpMultiplier}x multiplier (base: $xpAmount, final: ${(xpAmount * xpMultiplier).toLong()})" }
         }
         
         // Notify HUD elements (panel + notification)
@@ -144,19 +146,19 @@ class GatheringXpSystem(
         
         // Log level-ups
         if (result.didLevelUp) {
-            logger.atFine().log("Player ${playerUuid} leveled up Gathering: ${result.oldLevel} → ${result.newLevel}")
+            LoggingManager.debug(logger, "professions") { "Player ${playerUuid} leveled up Gathering: ${result.oldLevel} → ${result.newLevel}" }
         }
         
         // Debug logging
         if (config.ui.showXpGainMessages && xpAmount >= config.ui.minXpToShow) {
-            logger.atFine().log("Awarded $xpAmount Gathering XP to player ${playerUuid} (item pickup)")
+            LoggingManager.debug(logger, "professions") { "Awarded $xpAmount Gathering XP to player ${playerUuid} (item pickup)" }
         }
         
         // Hearty Gatherer (Tier 2) - +4 hunger/thirst on FOOD item pickup
         if (currentLevel >= 45 && abilityEffectService.hasHeartyGatherer(playerUuid)) {
             // Check if the picked up item is food
             if (isFoodItem(event)) {
-                val metabolismService = CoreModule.services.get<MetabolismService>()
+                val metabolismService = safeService<MetabolismService>("metabolism")
                 if (metabolismService != null) {
                     metabolismService.restoreStats(
                         playerUuid, 
@@ -164,7 +166,7 @@ class GatheringXpSystem(
                         thirst = HeartyGathererAbility.thirstRestore
                     )
                     
-                    logger.atFine().log("Hearty Gatherer restored +${HeartyGathererAbility.hungerRestore.toInt()} hunger/thirst for player $playerUuid")
+                    LoggingManager.debug(logger, "professions") { "Hearty Gatherer restored +${HeartyGathererAbility.hungerRestore.toInt()} hunger/thirst for player $playerUuid" }
                 }
             }
         }
@@ -188,7 +190,7 @@ class GatheringXpSystem(
             // Check against common food patterns
             return foodPatterns.any { pattern -> itemId.contains(pattern) }
         } catch (e: Exception) {
-            logger.atFine().log("Could not determine if item is food: ${e.message}")
+            LoggingManager.debug(logger, "professions") { "Could not determine if item is food: ${e.message}" }
             return false
         }
     }

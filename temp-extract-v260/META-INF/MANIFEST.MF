@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Implementation-Title: hytale-livinglands
+Implementation-Version: 2.6.0-beta
+

@@ -1,5 +1,6 @@
 package com.livinglands.modules.professions
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.persistence.GlobalPersistenceService
 import com.livinglands.modules.professions.data.Profession
@@ -45,7 +46,7 @@ class ProfessionsRepository(
         
         if (currentVersion == 0) {
             // First-time setup
-            logger.atFine().log("Initializing professions database schema (v$SCHEMA_VERSION)...")
+            LoggingManager.debug(logger, "professions") { "Initializing professions database schema (v$SCHEMA_VERSION)..." }
             
             persistence.transaction { conn ->
                 // Create professions_stats table
@@ -72,12 +73,12 @@ class ProfessionsRepository(
             // Set schema version
             persistence.setModuleSchemaVersion(MODULE_ID, SCHEMA_VERSION)
             
-            logger.atFine().log("Professions database schema initialized successfully")
+            LoggingManager.debug(logger, "professions") { "Professions database schema initialized successfully" }
         } else if (currentVersion < SCHEMA_VERSION) {
             // Future migrations go here
-            logger.atFine().log("Professions schema at v$currentVersion, migrations not yet implemented")
+            LoggingManager.debug(logger, "professions") { "Professions schema at v$currentVersion, migrations not yet implemented" }
         } else {
-            logger.atFine().log("Professions schema up-to-date (v$currentVersion)")
+            LoggingManager.debug(logger, "professions") { "Professions schema up-to-date (v$currentVersion)" }
         }
     }
     
@@ -117,7 +118,7 @@ class ProfessionsRepository(
                 stmt.close()
             }
             
-            logger.atFine().log("Initialized ${missingProfessions.size} missing professions for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Initialized ${missingProfessions.size} missing professions for player $playerId" }
         }
         
         // Return all stats (existing + newly created)
@@ -156,7 +157,7 @@ class ProfessionsRepository(
                         lastUpdated = rs.getLong("last_updated")
                     ))
                 } else {
-                    logger.atWarning().log("Unknown profession '$professionDbId' for player $playerId - skipping")
+                    LoggingManager.warn(logger, "professions") { "Unknown profession '$professionDbId' for player $playerId - skipping" }
                 }
             }
             
@@ -229,7 +230,7 @@ class ProfessionsRepository(
             val rowsAffected = stmt.executeUpdate()
             
             if (rowsAffected == 0) {
-                logger.atWarning().log("DB WRITE FAILED: 0 rows affected when saving profession ${stats.profession.dbId} for player ${stats.playerId}")
+                LoggingManager.warn(logger, "professions") { "DB WRITE FAILED: 0 rows affected when saving profession ${stats.profession.dbId} for player ${stats.playerId}" }
             }
             
             stmt.close()
@@ -271,11 +272,11 @@ class ProfessionsRepository(
             stmt.close()
             
             if (failedWrites > 0) {
-                logger.atWarning().log("DB WRITE FAILED: $failedWrites out of ${stats.size} profession saves had 0 rows affected for player ${stats.firstOrNull()?.playerId}")
+                LoggingManager.warn(logger, "professions") { "DB WRITE FAILED: $failedWrites out of ${stats.size} profession saves had 0 rows affected for player ${stats.firstOrNull()?.playerId}" }
             }
         }
         
-        logger.atFine().log("Saved ${stats.size} profession stats for player ${stats.firstOrNull()?.playerId}")
+        LoggingManager.debug(logger, "professions") { "Saved ${stats.size} profession stats for player ${stats.firstOrNull()?.playerId}" }
     }
     
     /**
@@ -302,7 +303,7 @@ class ProfessionsRepository(
             stmt.close()
         }
         
-        logger.atFine().log("Reset profession ${profession.displayName} for player $playerId")
+        LoggingManager.debug(logger, "professions") { "Reset profession ${profession.displayName} for player $playerId" }
     }
     
     /**
@@ -327,7 +328,7 @@ class ProfessionsRepository(
         // Re-initialize with defaults
         ensureStats(playerId)
         
-        logger.atFine().log("Reset all professions for player $playerId")
+        LoggingManager.debug(logger, "professions") { "Reset all professions for player $playerId" }
     }
     
     /**
@@ -347,9 +348,9 @@ class ProfessionsRepository(
             stmt.close()
             
             if (deleted == 0) {
-                logger.atWarning().log("DB DELETE: 0 rows affected when deleting profession stats for player $playerId (may not exist)")
+                LoggingManager.warn(logger, "professions") { "DB DELETE: 0 rows affected when deleting profession stats for player $playerId (may not exist)" }
             } else {
-                logger.atFine().log("Deleted $deleted profession records for player $playerId")
+                LoggingManager.debug(logger, "professions") { "Deleted $deleted profession records for player $playerId" }
             }
         }
     }

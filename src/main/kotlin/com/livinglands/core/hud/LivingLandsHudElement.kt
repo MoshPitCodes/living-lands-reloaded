@@ -1,5 +1,6 @@
 package com.livinglands.core.hud
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder
@@ -440,7 +441,7 @@ class LivingLandsHudElement(
         service: ProfessionsService,
         registry: AbilityRegistry?
     ) {
-        logger.atFine().log("populateProfessionsData: Starting population for player $playerId")
+        LoggingManager.debug(logger, "core") { "populateProfessionsData: Starting population for player $playerId" }
         
         var totalXp = 0L
         var populatedCount = 0
@@ -448,7 +449,7 @@ class LivingLandsHudElement(
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
             if (stats == null) {
-                logger.atFine().log("populateProfessionsData: Stats null for ${profession.name}")
+                LoggingManager.debug(logger, "core") { "populateProfessionsData: Stats null for ${profession.name}" }
                 return@forEach
             }
             
@@ -469,7 +470,7 @@ class LivingLandsHudElement(
             // Set level and XP text
             val progressPercent = (progress * 100).toInt()
             val levelText = "Lv $level | ${formatXp(xpInLevel)}/${formatXp(xpNeeded)} XP ($progressPercent%)"
-            logger.atFine().log("Setting #${prefix}Level.Text = $levelText")
+            LoggingManager.debug(logger, "core") { "Setting #${prefix}Level.Text = $levelText" }
             builder.set("#${prefix}Level.Text", levelText)
             
             // Get abilities for this profession
@@ -495,7 +496,7 @@ class LivingLandsHudElement(
             }
         }
         
-        logger.atFine().log("populateProfessionsData: Populated $populatedCount professions, total XP: $totalXp")
+        LoggingManager.debug(logger, "core") { "populateProfessionsData: Populated $populatedCount professions, total XP: $totalXp" }
         builder.set("#ProfessionsTotalXp.Text", "Total XP Earned: ${formatXp(totalXp)}")
     }
     
@@ -574,14 +575,14 @@ class LivingLandsHudElement(
         builder: UICommandBuilder,
         service: ProfessionsService
     ) {
-        logger.atFine().log("populateProgressData: Starting population for player $playerId")
+        LoggingManager.debug(logger, "core") { "populateProgressData: Starting population for player $playerId" }
         
         var populatedCount = 0
         
         Profession.values().forEach { profession ->
             val stats = service.getStats(playerId, profession)
             if (stats == null) {
-                logger.atFine().log("populateProgressData: Stats null for ${profession.name}")
+                LoggingManager.debug(logger, "core") { "populateProgressData: Stats null for ${profession.name}" }
                 return@forEach
             }
             
@@ -596,7 +597,7 @@ class LivingLandsHudElement(
             
             // Set level text (fix: use ProgressLevel to match UI element IDs)
             val levelText = "Lv $level"
-            logger.atFine().log("Setting #${professionName}ProgressLevel.Text = $levelText")
+            LoggingManager.debug(logger, "core") { "Setting #${professionName}ProgressLevel.Text = $levelText" }
             builder.set("#${professionName}ProgressLevel.Text", levelText)
             
             // Set progress percentage
@@ -613,7 +614,7 @@ class LivingLandsHudElement(
             builder.set("#${professionName}Xp.Text", xpText)
         }
         
-        logger.atFine().log("populateProgressData: Populated $populatedCount professions")
+        LoggingManager.debug(logger, "core") { "populateProgressData: Populated $populatedCount professions" }
     }
     
     /**
@@ -699,7 +700,7 @@ class LivingLandsHudElement(
      * This is called by ProfessionsModule when it starts up.
      */
     fun setProfessionServices(service: ProfessionsService, registry: AbilityRegistry) {
-        logger.atFine().log("setProfessionServices called for player $playerId")
+        LoggingManager.debug(logger, "core") { "setProfessionServices called for player $playerId" }
         this.professionsService = service
         this.abilityRegistry = registry
         
@@ -708,7 +709,7 @@ class LivingLandsHudElement(
         progressPanelNeedsRefresh = true
         
         // Data will be populated when the panel is toggled visible via /ll profession
-        logger.atFine().log("setProfessionServices: Profession services ready, panel will populate on toggle")
+        LoggingManager.debug(logger, "core") { "setProfessionServices: Profession services ready, panel will populate on toggle" }
     }
     
     /**
@@ -717,18 +718,18 @@ class LivingLandsHudElement(
      * Called when professions module is disabled via config hot-reload.
      */
     fun clearProfessionServices() {
-        logger.atFine().log("clearProfessionServices called for player $playerId")
+        LoggingManager.debug(logger, "core") { "clearProfessionServices called for player $playerId" }
         this.professionsService = null
         this.abilityRegistry = null
         
         // Hide profession panels if they're visible
         if (professionsPanelVisible.get()) {
             professionsPanelVisible.set(false)
-            logger.atFine().log("Hidden professions panel due to module disable")
+            LoggingManager.debug(logger, "core") { "Hidden professions panel due to module disable" }
         }
         if (progressPanelVisible.get()) {
             progressPanelVisible.set(false)
-            logger.atFine().log("Hidden progress panel due to module disable")
+            LoggingManager.debug(logger, "core") { "Hidden progress panel due to module disable" }
         }
         
         // Mark panels as needing refresh to clear their content
@@ -747,7 +748,7 @@ class LivingLandsHudElement(
      * @param debuffsSystem The DebuffsSystem instance (or null to disable debuffs)
      */
     fun setMetabolismServices(buffsSystem: BuffsSystem?, debuffsSystem: DebuffsSystem?) {
-        logger.atFine().log("setMetabolismServices called for player $playerId")
+        LoggingManager.debug(logger, "core") { "setMetabolismServices called for player $playerId" }
         this.buffsSystem = buffsSystem
         this.debuffsSystem = debuffsSystem
         
@@ -756,7 +757,7 @@ class LivingLandsHudElement(
         metabolismPreferences.buffsVisible = true
         metabolismPreferences.debuffsVisible = true
         
-        logger.atFine().log("Enabled metabolism UI due to module enable")
+        LoggingManager.debug(logger, "core") { "Enabled metabolism UI due to module enable" }
     }
     
     /**
@@ -765,7 +766,7 @@ class LivingLandsHudElement(
      * Called when metabolism module is disabled via config hot-reload.
      */
     fun clearMetabolismServices() {
-        logger.atFine().log("clearMetabolismServices called for player $playerId")
+        LoggingManager.debug(logger, "core") { "clearMetabolismServices called for player $playerId" }
         this.buffsSystem = null
         this.debuffsSystem = null
         
@@ -778,7 +779,7 @@ class LivingLandsHudElement(
         currentBuffs.set(emptyList())
         currentDebuffs.set(emptyList())
         
-        logger.atFine().log("Hidden metabolism UI due to module disable")
+        LoggingManager.debug(logger, "core") { "Hidden metabolism UI due to module disable" }
     }
     
     // ============ Utility Methods ============

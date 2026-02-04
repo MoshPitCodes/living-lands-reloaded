@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.food
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.component.ArchetypeChunk
 import com.hypixel.hytale.component.CommandBuffer
 import com.hypixel.hytale.component.Ref
@@ -157,7 +158,7 @@ class FoodDetectionTickSystem(
                     )
                 }
             } catch (e: Exception) {
-                logger.atSevere().withCause(e).log("Error processing food consumption for player $playerId")
+                LoggingManager.error(logger, "metabolism", e) { "Error processing food consumption for player $playerId" }
             }
         }
     }

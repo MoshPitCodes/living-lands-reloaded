@@ -1,5 +1,6 @@
 package com.livinglands.core.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase
@@ -96,14 +97,14 @@ abstract class AsyncCommandBase(
                     executeAsync(ctx, validationResult.validatedData)
                     onCommandSuccess(ctx, validationResult.validatedData)
                 } catch (e: Exception) {
-                    logger.atSevere().withCause(e).log("Async command '$name' failed")
+                    LoggingManager.error(logger, "core", e) { "Async command '$name' failed" }
                     onCommandFailure(ctx, validationResult.validatedData, e)
                 }
             }
             
         } catch (e: Exception) {
             MessageFormatter.commandError(ctx, "Command failed: ${e.message}")
-            logger.atSevere().withCause(e).log("Error in command '$name'")
+            LoggingManager.error(logger, "core", e) { "Error in command '$name'" }
         }
     }
     
@@ -158,7 +159,7 @@ abstract class AsyncCommandBase(
      * ```
      */
     protected open fun onCommandSuccess(ctx: CommandContext, validatedData: Any?) {
-        logger.atFine().log("Command '$name' completed successfully")
+        LoggingManager.debug(logger, "core") { "Command '$name' completed successfully" }
     }
     
     /**
@@ -168,7 +169,7 @@ abstract class AsyncCommandBase(
      * Override to send error notification to player if needed.
      */
     protected open fun onCommandFailure(ctx: CommandContext, validatedData: Any?, error: Exception) {
-        logger.atSevere().withCause(error).log("Command '$name' failed: ${error.message}")
+        LoggingManager.error(logger, "core", error) { "Command '$name' failed: ${error.message}" }
     }
     
     /**

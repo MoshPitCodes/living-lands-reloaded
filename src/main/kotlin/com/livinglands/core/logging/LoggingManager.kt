@@ -147,10 +147,10 @@ object LoggingManager {
      * @param message Lazy message supplier
      */
     inline fun debug(logger: HytaleLogger, moduleId: String, message: () -> String) {
-        if (shouldLog(moduleId, LogLevel.DEBUG)) {
-            logger.atFine().log("[DEBUG][$moduleId] ${message()}")
-        }
-    }
+         if (shouldLog(moduleId, LogLevel.DEBUG)) {
+             logger.atFine().log("[DEBUG][$moduleId] ${message()}")
+         }
+     }
     
     /**
      * Log a CONFIG message.
@@ -177,10 +177,10 @@ object LoggingManager {
      * @param message Lazy message supplier
      */
     inline fun info(logger: HytaleLogger, moduleId: String, message: () -> String) {
-        if (shouldLog(moduleId, LogLevel.INFO)) {
-            logger.atFine().log("[INFO][$moduleId] ${message()}")
-        }
-    }
+         if (shouldLog(moduleId, LogLevel.INFO)) {
+             logger.atInfo().log("[INFO][$moduleId] ${message()}")
+         }
+     }
     
     /**
      * Log a WARN message.
@@ -192,10 +192,10 @@ object LoggingManager {
      * @param message Lazy message supplier
      */
     inline fun warn(logger: HytaleLogger, moduleId: String, message: () -> String) {
-        if (shouldLog(moduleId, LogLevel.WARN)) {
-            logger.atWarning().log("[WARN][$moduleId] ${message()}")
-        }
-    }
+         if (shouldLog(moduleId, LogLevel.WARN)) {
+             logger.atWarning().log("[WARN][$moduleId] ${message()}")
+         }
+     }
     
     /**
      * Log an ERROR message.
@@ -223,10 +223,10 @@ object LoggingManager {
      * @param message Lazy message supplier
      */
     inline fun error(logger: HytaleLogger, moduleId: String, exception: Throwable, message: () -> String) {
-        if (shouldLog(moduleId, LogLevel.ERROR)) {
-            logger.atSevere().withCause(exception).log("[ERROR][$moduleId] ${message()}")
-        }
-    }
+         if (shouldLog(moduleId, LogLevel.ERROR)) {
+             logger.atSevere().withCause(exception).log("[ERROR][$moduleId] ${message()}")
+         }
+     }
     
     // ========================================
     // Diagnostics

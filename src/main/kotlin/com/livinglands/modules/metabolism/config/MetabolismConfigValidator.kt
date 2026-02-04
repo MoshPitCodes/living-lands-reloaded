@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.config
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import java.util.UUID
 

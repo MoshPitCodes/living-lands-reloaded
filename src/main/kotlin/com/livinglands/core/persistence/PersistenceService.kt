@@ -1,5 +1,6 @@
 package com.livinglands.core.persistence
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,7 +33,7 @@ class PersistenceService(
         val worldDir = File(dataDir, worldId.toString())
         if (!worldDir.exists()) {
             worldDir.mkdirs()
-            logger.atFine().log("Created data directory: ${worldDir.absolutePath}")
+            LoggingManager.debug(logger, "core") { "Created data directory: ${worldDir.absolutePath}" }
         }
         
         dbFile = File(worldDir, "livinglands.db")
@@ -41,7 +42,7 @@ class PersistenceService(
         try {
             initializeDatabase()
         } catch (e: Exception) {
-            logger.atFine().log("Failed to initialize database for world $worldId: ${e.message}")
+            LoggingManager.debug(logger, "core") { "Failed to initialize database for world $worldId: ${e.message}" }
             throw e
         }
     }
@@ -54,7 +55,7 @@ class PersistenceService(
         try {
             Class.forName("org.sqlite.JDBC")
         } catch (e: ClassNotFoundException) {
-            logger.atSevere().log("SQLite JDBC driver not found! Check if sqlite-jdbc is included in JAR.")
+            LoggingManager.error(logger, "core") { "SQLite JDBC driver not found! Check if sqlite-jdbc is included in JAR." }
             throw e
         }
         
@@ -78,7 +79,7 @@ class PersistenceService(
             """.trimIndent())
         }
         
-        logger.atFine().log("Database initialized: ${dbFile.absolutePath}")
+        LoggingManager.debug(logger, "core") { "Database initialized: ${dbFile.absolutePath}" }
     }
     
     /**
@@ -97,7 +98,7 @@ class PersistenceService(
                 block(conn)
             }
         } catch (e: Exception) {
-            logger.atFine().log("Database operation failed: ${e.message}")
+            LoggingManager.debug(logger, "core") { "Database operation failed: ${e.message}" }
             throw e
         }
     }
@@ -124,9 +125,9 @@ class PersistenceService(
                 try {
                     conn.rollback()
                 } catch (rollbackException: Exception) {
-                    logger.atFine().log("Rollback failed: ${rollbackException.message}")
+                    LoggingManager.debug(logger, "core") { "Rollback failed: ${rollbackException.message}" }
                 }
-                logger.atFine().log("Transaction failed: ${e.message}")
+                LoggingManager.debug(logger, "core") { "Transaction failed: ${e.message}" }
                 throw e
             } finally {
                 conn.autoCommit = originalAutoCommit
@@ -202,9 +203,9 @@ class PersistenceService(
                         conn.close()
                     }
                 }
-                logger.atFine().log("Database connection closed for world $worldId")
+                LoggingManager.debug(logger, "core") { "Database connection closed for world $worldId" }
             } catch (e: Exception) {
-                logger.atFine().log("Error closing database connection: ${e.message}")
+                LoggingManager.debug(logger, "core") { "Error closing database connection: ${e.message}" }
             } finally {
                 connection = null
             }

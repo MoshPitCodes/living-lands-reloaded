@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.buffs
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
@@ -107,7 +108,7 @@ class BuffsSystem(
             tickStaminaBuff(playerId, stats, entityRef, store, buffsConfig)
             
         } catch (e: Exception) {
-            logger.atWarning().log("Error ticking buffs for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "metabolism") { "Error ticking buffs for player $playerId: ${e.message}" }
         }
     }
     
@@ -137,7 +138,7 @@ class BuffsSystem(
                     statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
                 }
             } catch (e: Exception) {
-                logger.atFine().log("Could not remove modifiers during cleanup for $playerId: ${e.message}")
+                LoggingManager.debug(logger, "metabolism") { "Could not remove modifiers during cleanup for $playerId: ${e.message}" }
             }
         }
     }
@@ -210,15 +211,15 @@ class BuffsSystem(
                 // Use SELF predictable to ensure client receives the stat update
                 statMap.putModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health", modifier)
                 
-                logger.atFine().log("Applied defense buff to player $playerId: +${((buffsConfig.defenseBuff.multiplier - 1.0) * 100).toInt()}% max health")
+                LoggingManager.debug(logger, "metabolism") { "Applied defense buff to player $playerId: +${((buffsConfig.defenseBuff.multiplier - 1.0) * 100).toInt()}% max health" }
             } else {
                 // Remove health buff modifier
                 statMap.removeModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
                 
-                logger.atFine().log("Removed defense buff from player $playerId")
+                LoggingManager.debug(logger, "metabolism") { "Removed defense buff from player $playerId" }
             }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to apply defense buff for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "metabolism") { "Failed to apply defense buff for player $playerId: ${e.message}" }
         }
     }
     
@@ -264,15 +265,15 @@ class BuffsSystem(
                 // Use SELF predictable to ensure client receives the stat update
                 statMap.putModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina", modifier)
                 
-                logger.atFine().log("Applied stamina buff to player $playerId: +${((buffsConfig.staminaBuff.multiplier - 1.0) * 100).toInt()}% max stamina")
+                LoggingManager.debug(logger, "metabolism") { "Applied stamina buff to player $playerId: +${((buffsConfig.staminaBuff.multiplier - 1.0) * 100).toInt()}% max stamina" }
             } else {
                 // Remove stamina buff modifier
                 statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
                 
-                logger.atFine().log("Removed stamina buff from player $playerId")
+                LoggingManager.debug(logger, "metabolism") { "Removed stamina buff from player $playerId" }
             }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to apply stamina buff for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "metabolism") { "Failed to apply stamina buff for player $playerId: ${e.message}" }
         }
     }
     
@@ -345,7 +346,7 @@ class BuffsSystem(
             
             MessageFormatter.buff(playerRef, buffName, activated)
         } catch (e: Exception) {
-            logger.atFine().log("Failed to send buff message to player $playerId: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to send buff message to player $playerId: ${e.message}" }
         }
     }
 }

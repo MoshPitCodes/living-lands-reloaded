@@ -1,10 +1,13 @@
 package com.livinglands.modules.professions.commands
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.command.system.CommandContext
 import com.livinglands.core.CoreModule
 import com.livinglands.core.MessageFormatter
 import com.livinglands.core.commands.ModuleCommand
+import com.livinglands.modules.metabolism.MetabolismModule
+import kotlinx.coroutines.runBlocking
 
 /**
  * Command to toggle the professions progress panel.
@@ -49,19 +52,43 @@ class ProgressCommand : ModuleCommand(
             return
         }
         
-        val playerId = session.playerId
-        
-        // Get the unified HUD element for this player
-        val hudElement = CoreModule.hudManager.getHud(playerId)
-        
-        if (hudElement == null) {
-            MessageFormatter.commandError(ctx, "HUD not available. Please rejoin the server.")
-            return
-        }
-        
-        // Toggle the progress panel
-        // The toggle method handles visibility and data population
-        val newState = hudElement.toggleProgressPanel()
+         val playerId = session.playerId
+         
+         // Try to get HUD element (may not be initialized if command called immediately after join)
+         var hudElement = CoreModule.hudManager.getHud(playerId)
+         
+         if (hudElement == null) {
+             // HUD not registered yet - request metabolism module to lazy-initialize it
+             val metabolismModule = CoreModule.getModule<MetabolismModule>("metabolism")
+             if (metabolismModule != null && metabolismModule.state.isOperational()) {
+                 try {
+                     // Ensure HUD is registered (this is a suspend function that we need to block on)
+                     val hudRegistered = runBlocking {
+                         metabolismModule.ensureHudRegistered(playerId)
+                     }
+                     if (!hudRegistered) {
+                         MessageFormatter.commandError(ctx, "Unable to load HUD - player or world not found")
+                         return
+                     }
+                     // Now try to get the HUD element again
+                     hudElement = CoreModule.hudManager.getHud(playerId)
+                     if (hudElement == null) {
+                         MessageFormatter.commandError(ctx, "HUD initialization failed - please try again")
+                         return
+                     }
+                 } catch (e: Exception) {
+                     LoggingManager.warn(logger, "professions") { "Error initializing HUD for /ll progress: ${e.message}" }
+                     MessageFormatter.commandError(ctx, "HUD initialization error - please rejoin the server")
+                     return
+                 }
+             } else {
+                 MessageFormatter.commandError(ctx, "Metabolism module not available - HUD cannot be initialized")
+                 return
+             }
+         }
+         
+         // Toggle the progress panel
+         val newState = hudElement.toggleProgressPanel()
         
         // Send feedback to player
         val message = if (newState) {

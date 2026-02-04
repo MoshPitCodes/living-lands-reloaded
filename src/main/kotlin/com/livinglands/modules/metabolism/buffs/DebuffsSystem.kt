@@ -1,5 +1,6 @@
 package com.livinglands.modules.metabolism.buffs
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
@@ -139,7 +140,7 @@ class DebuffsSystem(
                     statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina")
                 }
             } catch (e: Exception) {
-                logger.atFine().log("Could not remove modifiers during cleanup for $playerId: ${e.message}")
+                LoggingManager.debug(logger, "metabolism") { "Could not remove modifiers during cleanup for $playerId: ${e.message}" }
             }
         }
     }
@@ -242,7 +243,7 @@ class DebuffsSystem(
             val statMap = store.getComponent(entityRef, EntityStatMap.getComponentType()) ?: return
             statMap.subtractStatValue(DefaultEntityStatTypes.getHealth(), damage.toFloat())
         } catch (e: Exception) {
-            logger.atFine().log("Failed to apply health drain: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to apply health drain: ${e.message}" }
         }
     }
     
@@ -285,16 +286,16 @@ class DebuffsSystem(
             // Use SELF predictable to ensure client receives the stat update
             statMap.putModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_debuff_stamina", modifier)
             
-            logger.atFine().log("[DEBUFF] Applying stamina debuff (had existing=${existingModifier != null})")
+            LoggingManager.debug(logger, "metabolism") { "[DEBUFF] Applying stamina debuff (had existing=${existingModifier != null})" }
             
             // Get new max stamina after modifier (for debugging)
             val newStatValue = statMap.get(staminaId)
             val newMax = newStatValue?.getMax() ?: 0f
             val newValue = newStatValue?.get() ?: 0f
             
-            logger.atFine().log("[DEBUFF] Applied stamina debuff: targetPercent=$multiplier, baseStamina=$baseStamina, additive=$additiveModifier, before=$currentValue/$currentMax, after=$newValue/$newMax")
+            LoggingManager.debug(logger, "metabolism") { "[DEBUFF] Applied stamina debuff: targetPercent=$multiplier, baseStamina=$baseStamina, additive=$additiveModifier, before=$currentValue/$currentMax, after=$newValue/$newMax" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to apply max stamina debuff: ${e.message}")
+            LoggingManager.warn(logger, "metabolism") { "Failed to apply max stamina debuff: ${e.message}" }
             e.printStackTrace()
         }
     }
@@ -319,9 +320,9 @@ class DebuffsSystem(
             val afterCurrent = afterValue?.get() ?: 0f
             val afterMax = afterValue?.getMax() ?: 0f
             
-            logger.atFine().log("[DEBUFF] Removed stamina debuff: before=$beforeCurrent/$beforeMax, after=$afterCurrent/$afterMax")
+            LoggingManager.debug(logger, "metabolism") { "[DEBUFF] Removed stamina debuff: before=$beforeCurrent/$beforeMax, after=$afterCurrent/$afterMax" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to remove max stamina debuff: ${e.message}")
+            LoggingManager.warn(logger, "metabolism") { "Failed to remove max stamina debuff: ${e.message}" }
         }
     }
     
@@ -335,7 +336,7 @@ class DebuffsSystem(
             // Remove stamina buff modifier (to prevent stacking with debuff)
             statMap.removeModifier(EntityStatMap.Predictable.SELF, staminaId, "livinglands_buff_stamina")
         } catch (e: Exception) {
-            logger.atFine().log("Failed to remove stamina buff: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to remove stamina buff: ${e.message}" }
         }
     }
     
@@ -349,7 +350,7 @@ class DebuffsSystem(
             // Remove health buff modifier (to prevent confusion with health drain debuff)
             statMap.removeModifier(EntityStatMap.Predictable.SELF, healthId, "livinglands_buff_health")
         } catch (e: Exception) {
-            logger.atFine().log("Failed to remove health buff: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to remove health buff: ${e.message}" }
         }
     }
     
@@ -365,7 +366,7 @@ class DebuffsSystem(
             
             MessageFormatter.debuff(playerRef, debuffName, activated)
         } catch (e: Exception) {
-            logger.atFine().log("Failed to send debuff message to $playerId: ${e.message}")
+            LoggingManager.debug(logger, "metabolism") { "Failed to send debuff message to $playerId: ${e.message}" }
         }
     }
 }

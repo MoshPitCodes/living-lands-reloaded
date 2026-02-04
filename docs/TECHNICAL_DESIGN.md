@@ -2,9 +2,9 @@
 
 This document provides a deep technical dive into how the Living Lands mod works internally. For user-facing documentation, see the [README](../README.md).
 
-**Version:** 1.4.3  
+**Version:** 1.4.7  
 **Language:** Kotlin (Java 25 compatible)  
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-02-04
 
 ---
 
@@ -31,8 +31,9 @@ This document provides a deep technical dive into how the Living Lands mod works
 15. [Announcer Module](#announcer-module)
 16. [Professions Module](#professions-module)
 17. [Modded Consumables Support](#modded-consumables-support)
-18. [Appendix: Key Classes Reference](#appendix-key-classes-reference)
-19. [Version History](#version-history)
+18. [P0-P2 Architecture Improvements (v1.4.4-1.4.7)](#p0-p2-architecture-improvements)
+19. [Appendix: Key Classes Reference](#appendix-key-classes-reference)
+20. [Version History](#version-history)
 
 ---
 
@@ -4273,6 +4274,72 @@ moddedConsumables:
 ### Migration Path
 
 Existing configs auto-upgrade to v5 with empty `moddedConsumables` section. No action required from users unless they want to add modded items.
+
+---
+
+## P0-P2 Architecture Improvements (v1.4.4-1.4.7)
+
+### P0 Infrastructure Audit (v1.4.3-1.4.4)
+
+**P0-138: Unsafe Service Access Pattern Fixes**
+- Fixed 11 instances of direct `CoreModule.services.get<T>()` without null checks
+- Standardized on safe pattern: `safeService<T>("moduleName")`
+- Prevents NPE runtime errors from disabled/missing modules
+- Files updated: AbilityEffectService, CombatXpSystem, GatheringXpSystem, MetabolismModule
+
+**P0-139: Service Access Linting Rule**
+- Added `checkUnsafeServiceAccess` Gradle task to prevent regression
+- Automatically detects direct service access during build
+- Whitelists 7 core services (ConfigManager, WorldRegistry, PlayerRegistry, etc.)
+- Reports warnings with guidance to use safe pattern
+
+### P1 Module Lifecycle Improvements (v1.4.5)
+
+**P1-140: Standardized Shutdown Patterns**
+- Replaced manual `Job.join()` pattern in MetabolismModule
+- Replaced `AtomicInteger` polling pattern in ProfessionsModule
+- Standardized on `shutdownScopeWithTimeout()` helper (5 second default)
+- Eliminates code duplication, ensures consistent timeout behavior
+- Prevents data loss from interrupted async operations during shutdown
+
+**P1-141: HUD Availability Race Condition Fix**
+- Made `ensureHudRegistered()` public in MetabolismModule
+- Added lazy HUD initialization to HudToggleCommand
+- Improved ProgressCommand with better error handling
+- Handles race condition where HUD isn't ready immediately after player join
+
+### P2 Code Quality & Standardization (v1.4.6-1.4.7)
+
+**P2-142: Module Dependency Validation**
+- Added `validateDependencies()` in CoreModule
+- Validates all declared module dependencies exist before setup
+- Fails fast with clear error message showing missing dependencies
+- Only validates enabled modules to allow flexible disabling
+- Prevents confusing runtime NPE errors from incomplete module setup
+
+**P2-144: Standardized Config Reload Patterns**
+- Added `onConfigReload()` override hook to AbstractModule
+- Standardized on lifecycle hook instead of callback registration
+- Pattern 2 (override) is now the standard - consistent with onSetup/onStart/onShutdown
+- Removed callback registrations from MetabolismModule and ProfessionsModule
+- CoreModule automatically calls the hook, no unregister needed
+
+**P2-143: Logging Standardization (v1.4.7)**
+- Standardized 643 direct `logger.at*()` calls to use LoggingManager
+- Applied across 43 files in entire codebase
+- Mapping: atFine → debug, atInfo → info, atWarning → warn, atSevere → error
+- Module-specific log level filtering now works correctly
+- Consistent logging pattern throughout all module code
+
+### Architectural Benefits
+
+| Improvement | Benefit | Impact |
+|-------------|---------|--------|
+| Safe service access | No NPE from missing modules | Reliability ↑↑ |
+| Shutdown standardization | Consistent timeout behavior | Data safety ↑ |
+| Dependency validation | Fail-fast on missing modules | Developer experience ↑↑ |
+| Config reload patterns | Cleaner lifecycle code | Maintainability ↑ |
+| Logging standardization | Consistent diagnostics | Debugging ↑↑ |
 
 ---
 

@@ -5,7 +5,10 @@ import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.Modifier
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier
+import com.livinglands.api.safeModule
+import com.livinglands.api.safeService
 import com.livinglands.core.CoreModule
+import com.livinglands.core.logging.LoggingManager
 import com.livinglands.core.toCachedString
 import com.livinglands.modules.metabolism.MetabolismService
 import com.livinglands.modules.professions.data.Profession
@@ -57,10 +60,10 @@ class AbilityEffectService(
      */
     fun applyTier2Ability(playerId: UUID, profession: Profession) {
         val playerIdStr = playerId.toString()
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Tier 2 ability - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Tier 2 ability - MetabolismService not available" }
             return
         }
         
@@ -74,7 +77,7 @@ class AbilityEffectService(
         
         // Force HUD update to immediately reflect new max capacities
         metabolismService.forceUpdateHud(playerIdStr, playerId)
-        logger.atInfo().log("[DEBUG] Applied Tier 2 ability for $profession, forced HUD update")
+        LoggingManager.info(logger, "professions") { "[DEBUG] Applied Tier 2 ability for $profession, forced HUD update" }
     }
     
     /**
@@ -82,14 +85,14 @@ class AbilityEffectService(
      */
     private fun applyIronStomach(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Iron Stomach - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Iron Stomach - MetabolismService not available" }
             return
         }
         val abilityId = IronStomachAbility.id
         
         // Check if already applied
         if (isAbilityApplied(playerIdStr, abilityId, 2)) {
-            logger.atFine().log("Iron Stomach already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Iron Stomach already applied for $playerId" }
             return
         }
         
@@ -100,7 +103,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atInfo().log("[DEBUG] Applied Iron Stomach: set max hunger to $newMaxHunger for player $playerId")
+        LoggingManager.info(logger, "professions") { "[DEBUG] Applied Iron Stomach: set max hunger to $newMaxHunger for player $playerId" }
     }
     
     /**
@@ -108,14 +111,14 @@ class AbilityEffectService(
      */
     private fun applyDesertNomad(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Desert Nomad - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Desert Nomad - MetabolismService not available" }
             return
         }
         val abilityId = DesertNomadAbility.id
         
         // Check if already applied
         if (isAbilityApplied(playerIdStr, abilityId, 2)) {
-            logger.atFine().log("Desert Nomad already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Desert Nomad already applied for $playerId" }
             return
         }
         
@@ -126,7 +129,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atFine().log("Applied Desert Nomad (+${DesertNomadAbility.maxThirstBonus.toInt()} max thirst) to player $playerId")
+        LoggingManager.debug(logger, "professions") { "Applied Desert Nomad (+${DesertNomadAbility.maxThirstBonus.toInt()} max thirst) to player $playerId" }
     }
     
     /**
@@ -134,14 +137,14 @@ class AbilityEffectService(
      */
     private fun applyTirelessWoodsman(playerId: UUID, playerIdStr: String, metabolismService: MetabolismService?) {
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Tireless Woodsman - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Tireless Woodsman - MetabolismService not available" }
             return
         }
         val abilityId = TirelessWoodsmanAbility.id
         
         // Check if already applied
         if (isAbilityApplied(playerIdStr, abilityId, 2)) {
-            logger.atFine().log("Tireless Woodsman already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Tireless Woodsman already applied for $playerId" }
             return
         }
         
@@ -152,7 +155,7 @@ class AbilityEffectService(
         // Track that this ability was applied
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atFine().log("Applied Tireless Woodsman (+${TirelessWoodsmanAbility.maxEnergyBonus.toInt()} max energy) to player $playerId")
+        LoggingManager.debug(logger, "professions") { "Applied Tireless Woodsman (+${TirelessWoodsmanAbility.maxEnergyBonus.toInt()} max energy) to player $playerId" }
     }
     
     /**
@@ -166,14 +169,14 @@ class AbilityEffectService(
         
         // Check if already applied
         if (isAbilityApplied(playerIdStr, abilityId, 2)) {
-            logger.atFine().log("Enduring Builder already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Enduring Builder already applied for $playerId" }
             return
         }
         
         // Get player session for ECS access
         val session = CoreModule.players.getSession(playerId)
         if (session == null) {
-            logger.atWarning().log("Cannot apply Enduring Builder - player session not found for $playerId")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Enduring Builder - player session not found for $playerId" }
             return
         }
         
@@ -182,7 +185,7 @@ class AbilityEffectService(
             try {
                 val statMap = session.store.getComponent(session.entityRef, EntityStatMap.getComponentType())
                 if (statMap == null) {
-                    logger.atWarning().log("Cannot apply Enduring Builder - EntityStatMap not found for $playerId")
+                    LoggingManager.warn(logger, "professions") { "Cannot apply Enduring Builder - EntityStatMap not found for $playerId" }
                     return@execute
                 }
                 
@@ -203,9 +206,9 @@ class AbilityEffectService(
                     modifier
                 )
                 
-                logger.atInfo().log("Applied Enduring Builder: +${EnduringBuilderAbility.maxStaminaBonus.toInt()} max stamina for player $playerId")
+                LoggingManager.info(logger, "professions") { "Applied Enduring Builder: +${EnduringBuilderAbility.maxStaminaBonus.toInt()} max stamina for player $playerId" }
             } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to apply Enduring Builder for player $playerId")
+                LoggingManager.warn(logger, "professions") { "Failed to apply Enduring Builder for player $playerId" }
             }
         }
         
@@ -226,14 +229,14 @@ class AbilityEffectService(
         
         // Check if already applied
         if (isAbilityApplied(playerIdStr, abilityId, 2)) {
-            logger.atFine().log("Hearty Gatherer already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Hearty Gatherer already applied for $playerId" }
             return
         }
         
         // Track that this ability was unlocked
         markAbilityApplied(playerIdStr, abilityId, 2)
         
-        logger.atFine().log("Hearty Gatherer unlocked for player $playerId (trigger-based, +4 hunger/thirst on food pickup)")
+        LoggingManager.debug(logger, "professions") { "Hearty Gatherer unlocked for player $playerId (trigger-based, +4 hunger/thirst on food pickup)" }
     }
     
     // ============ Tier 3 Ability Application ============
@@ -268,12 +271,12 @@ class AbilityEffectService(
         val abilityId = AdrenalineRushAbility.id
         
         if (isAbilityApplied(playerIdStr, abilityId, 3)) {
-            logger.atFine().log("Adrenaline Rush already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Adrenaline Rush already applied for $playerId" }
             return
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Adrenaline Rush unlocked for player $playerId (trigger-based, +10% speed on kill)")
+        LoggingManager.debug(logger, "professions") { "Adrenaline Rush unlocked for player $playerId (trigger-based, +10% speed on kill)" }
     }
     
     /**
@@ -284,12 +287,12 @@ class AbilityEffectService(
         val abilityId = OreSenseAbility.id
         
         if (isAbilityApplied(playerIdStr, abilityId, 3)) {
-            logger.atFine().log("Ore Sense already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Ore Sense already applied for $playerId" }
             return
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Ore Sense unlocked for player $playerId (trigger-based, +10% ore drop)")
+        LoggingManager.debug(logger, "professions") { "Ore Sense unlocked for player $playerId (trigger-based, +10% ore drop)" }
     }
     
     /**
@@ -300,12 +303,12 @@ class AbilityEffectService(
         val abilityId = TimberAbility.id
         
         if (isAbilityApplied(playerIdStr, abilityId, 3)) {
-            logger.atFine().log("Timber! already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Timber! already applied for $playerId" }
             return
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Timber! unlocked for player $playerId (trigger-based, +25% extra logs)")
+        LoggingManager.debug(logger, "professions") { "Timber! unlocked for player $playerId (trigger-based, +25% extra logs)" }
     }
     
     /**
@@ -316,12 +319,12 @@ class AbilityEffectService(
         val abilityId = EfficientArchitectAbility.id
         
         if (isAbilityApplied(playerIdStr, abilityId, 3)) {
-            logger.atFine().log("Efficient Architect already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Efficient Architect already applied for $playerId" }
             return
         }
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Efficient Architect unlocked for player $playerId (trigger-based, 12% block save)")
+        LoggingManager.debug(logger, "professions") { "Efficient Architect unlocked for player $playerId (trigger-based, 12% block save)" }
     }
     
     /**
@@ -332,13 +335,13 @@ class AbilityEffectService(
         val abilityId = SurvivalistAbility.id
         
         if (isAbilityApplied(playerIdStr, abilityId, 3)) {
-            logger.atFine().log("Survivalist already applied for $playerId")
+            LoggingManager.debug(logger, "professions") { "Survivalist already applied for $playerId" }
             return
         }
         
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         if (metabolismService == null) {
-            logger.atWarning().log("Cannot apply Survivalist - MetabolismService not available")
+            LoggingManager.warn(logger, "professions") { "Cannot apply Survivalist - MetabolismService not available" }
             return
         }
         
@@ -350,7 +353,7 @@ class AbilityEffectService(
         )
         
         markAbilityApplied(playerIdStr, abilityId, 3)
-        logger.atFine().log("Applied Survivalist (-15% depletion) to player $playerId")
+        LoggingManager.debug(logger, "professions") { "Applied Survivalist (-15% depletion) to player $playerId" }
     }
     
     // ============ Re-application on World Switch ============
@@ -378,14 +381,14 @@ class AbilityEffectService(
         // This ensures that when level drops below 45, the max stats revert to 100.
         // Without this, the old buffed values (110, 115, etc.) persist even after
         // the player no longer qualifies for the ability.
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         if (metabolismService != null) {
             metabolismService.resetMaxStats(playerId)
             
             // Also remove Survivalist depletion modifier (will be re-applied if still qualified)
             metabolismService.removeDepletionModifier(playerId, "professions:survivalist")
             
-            logger.atFine().log("Reset max stats and modifiers to base values for $playerId before re-applying abilities")
+            LoggingManager.debug(logger, "professions") { "Reset max stats and modifiers to base values for $playerId before re-applying abilities" }
         }
         
         // Remove Enduring Builder stamina modifier (will be re-applied if still qualified)
@@ -406,12 +409,12 @@ class AbilityEffectService(
         // Force HUD update to reflect new/reset max capacities
         if (metabolismService != null) {
             metabolismService.forceUpdateHud(playerIdStr, playerId)
-            logger.atFine().log("Force HUD update called after reapplying abilities for $playerId")
+            LoggingManager.debug(logger, "professions") { "Force HUD update called after reapplying abilities for $playerId" }
         } else {
-            logger.atWarning().log("MetabolismService not available when reapplying abilities for $playerId")
+            LoggingManager.warn(logger, "professions") { "MetabolismService not available when reapplying abilities for $playerId" }
         }
         
-        logger.atFine().log("Re-applied abilities for player $playerId (levels: ${professionLevels.entries.joinToString(", ") { "${it.key.name}=${it.value}" }})")
+        LoggingManager.debug(logger, "professions") { "Re-applied abilities for player $playerId (levels: ${professionLevels.entries.joinToString(", ") { "${it.key.name}=${it.value}" }})" }
     }
     
     // ============ Ability Removal (config reload) ============
@@ -435,10 +438,10 @@ class AbilityEffectService(
                         staminaId,
                         "livinglands_ability_enduring_builder"
                     )
-                    logger.atFine().log("Removed Enduring Builder stamina modifier from player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Removed Enduring Builder stamina modifier from player $playerId" }
                 }
             } catch (e: Exception) {
-                logger.atFine().log("Failed to remove Enduring Builder modifier for $playerId: ${e.message}")
+                LoggingManager.debug(logger, "professions") { "Failed to remove Enduring Builder modifier for $playerId: ${e.message}" }
             }
         }
     }
@@ -451,7 +454,7 @@ class AbilityEffectService(
      */
     fun removeAllAbilities(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
-        val metabolismService = CoreModule.services.get<MetabolismService>()
+        val metabolismService = safeService<MetabolismService>("metabolism")
         
         if (metabolismService != null) {
             // Reset max stats to defaults
@@ -470,7 +473,7 @@ class AbilityEffectService(
         appliedTier2Abilities.remove(playerIdStr)
         appliedTier3Abilities.remove(playerIdStr)
         
-        logger.atFine().log("Removed all ability effects for player $playerId (config reload)")
+        LoggingManager.debug(logger, "professions") { "Removed all ability effects for player $playerId (config reload)" }
     }
     
     // ============ Check Methods (for XP systems) ============

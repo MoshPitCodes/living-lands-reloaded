@@ -3,8 +3,10 @@ package com.livinglands.core
 import com.hypixel.hytale.component.Ref
 import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.server.core.entity.entities.Player
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager
+import com.hypixel.hytale.server.core.universe.PlayerRef
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -172,7 +174,8 @@ class SpeedManager(private val logger: HytaleLogger) {
             // CRITICAL: Sync movement settings to the client!
             // Without this call, the speed change only exists server-side and
             // the player won't see or feel any difference in movement speed.
-            val packetHandler = player.getPlayerConnection()
+            val playerRef = store.getComponent(entityRef, PlayerRef.getComponentType())
+            val packetHandler = playerRef?.getPacketHandler()
             if (packetHandler != null) {
                 movementManager.update(packetHandler)
             }
@@ -180,14 +183,9 @@ class SpeedManager(private val logger: HytaleLogger) {
             // Track last applied multiplier
             lastAppliedMultipliers[playerId] = combinedMultiplier
             
-            logger.atFine().log(
-                "Applied speed to player $playerId: " +
-                "original=${"%.2f".format(originalSpeed)}, " +
-                "multiplier=${"%.2f".format(combinedMultiplier)}, " +
-                "new=${"%.2f".format(newSpeed)}"
-            )
+            LoggingManager.debug(logger, "core") { "Applied speed to player $playerId: original=${"%.2f".format(originalSpeed)}, multiplier=${"%.2f".format(combinedMultiplier)}, new=${"%.2f".format(newSpeed)}" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to apply speed for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "core") { "Failed to apply speed for player $playerId: ${e.message}" }
         }
     }
     
@@ -212,7 +210,8 @@ class SpeedManager(private val logger: HytaleLogger) {
             settings.baseSpeed = originalSpeed
             
             // CRITICAL: Sync movement settings to the client!
-            val packetHandler = player.getPlayerConnection()
+            val playerRef = store.getComponent(entityRef, PlayerRef.getComponentType())
+            val packetHandler = playerRef?.getPacketHandler()
             if (packetHandler != null) {
                 movementManager.update(packetHandler)
             }
@@ -221,9 +220,9 @@ class SpeedManager(private val logger: HytaleLogger) {
             multipliers.remove(playerId)
             lastAppliedMultipliers.remove(playerId)
             
-            logger.atFine().log("Restored original speed for player $playerId: $originalSpeed")
+            LoggingManager.debug(logger, "core") { "Restored original speed for player $playerId: $originalSpeed" }
         } catch (e: Exception) {
-            logger.atWarning().log("Failed to restore speed for player $playerId: ${e.message}")
+            LoggingManager.warn(logger, "core") { "Failed to restore speed for player $playerId: ${e.message}" }
         }
     }
     

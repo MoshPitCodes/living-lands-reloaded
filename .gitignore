@@ -6,7 +6,12 @@ build/
 !**/src/test/**/build/
 
 # Hytale Server resources (too large for git)
-libs/
+libs/Server/
+libs/hytale-server/
+
+# Reference mods (for investigation/comparison)
+libs/hytale-mods/
+libs/living-lands-2.6.0_2.8.0-reference/
 
 # Nix
 .envrc

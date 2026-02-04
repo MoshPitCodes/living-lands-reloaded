@@ -1,5 +1,6 @@
 package com.livinglands.modules.professions
 
+import com.livinglands.core.logging.LoggingManager
 import com.hypixel.hytale.logger.HytaleLogger
 import com.livinglands.core.toCachedString
 import com.livinglands.modules.professions.config.ProfessionsConfig
@@ -74,7 +75,7 @@ class ProfessionsService(
      */
     fun updateConfig(newConfig: ProfessionsConfig) {
         config = newConfig
-        logger.atFine().log("Professions config updated")
+        LoggingManager.debug(logger, "professions") { "Professions config updated" }
     }
     
     /**
@@ -160,11 +161,11 @@ class ProfessionsService(
         // both pass containsKey() check and one overwrites the other's data
         val existing = playerStates.putIfAbsent(playerIdStr, professionsMap)
         if (existing != null) {
-            logger.atFine().log("Player $playerId already in cache, skipping default initialization")
+            LoggingManager.debug(logger, "professions") { "Player $playerId already in cache, skipping default initialization" }
             return
         }
 
-        logger.atFine().log("Initialized professions with defaults for player $playerId")
+        LoggingManager.debug(logger, "professions") { "Initialized professions with defaults for player $playerId" }
     }
     
     /**
@@ -193,12 +194,12 @@ class ProfessionsService(
                         }
                     }
                     
-                    logger.atFine().log("Loaded profession stats from database for player $playerId")
+                    LoggingManager.debug(logger, "professions") { "Loaded profession stats from database for player $playerId" }
                 } else {
-                    logger.atWarning().log("Player $playerId not in cache during async load - already disconnected?")
+                    LoggingManager.warn(logger, "professions") { "Player $playerId not in cache during async load - already disconnected?" }
                 }
             } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to load profession stats for player $playerId")
+                LoggingManager.warn(logger, "professions") { "Failed to load profession stats for player $playerId" }
             }
         }
     }
@@ -222,12 +223,12 @@ class ProfessionsService(
         
         val playerIdStr = playerId.toCachedString()
         val stateMap = playerStates[playerIdStr] ?: run {
-            logger.atWarning().log("Cannot award XP to $playerId - player not in cache")
+            LoggingManager.warn(logger, "professions") { "Cannot award XP to $playerId - player not in cache" }
             return XpAwardResult(didLevelUp = false, oldLevel = 1, newLevel = 1, newXp = 0L)
         }
         
         val state = stateMap[profession] ?: run {
-            logger.atWarning().log("Cannot award XP to $playerId - profession $profession not found")
+            LoggingManager.warn(logger, "professions") { "Cannot award XP to $playerId - profession $profession not found" }
             return XpAwardResult(didLevelUp = false, oldLevel = 1, newLevel = 1, newXp = 0L)
         }
         
@@ -236,7 +237,7 @@ class ProfessionsService(
         
         // Check if already at max level - no XP awarded
         if (oldLevel >= config.xpCurve.maxLevel) {
-            logger.atFine().log("Player $playerId is at max level ($oldLevel) for ${profession.displayName} - no XP awarded")
+            LoggingManager.debug(logger, "professions") { "Player $playerId is at max level ($oldLevel) for ${profession.displayName} - no XP awarded" }
             return XpAwardResult(didLevelUp = false, oldLevel = oldLevel, newLevel = oldLevel, newXp = state.xp)
         }
         
@@ -251,7 +252,7 @@ class ProfessionsService(
         val didLevelUp = newLevel > oldLevel
         
         if (didLevelUp) {
-            logger.atFine().log("Player $playerId leveled up in ${profession.displayName}: $oldLevel -> $newLevel")
+            LoggingManager.debug(logger, "professions") { "Player $playerId leveled up in ${profession.displayName}: $oldLevel -> $newLevel" }
         }
         
         return XpAwardResult(
@@ -413,7 +414,7 @@ class ProfessionsService(
             
             lostXpMap[profession] = lostXp
             
-            logger.atFine().log("Applied death penalty to ${profession.displayName} for player $playerId: -$lostXp XP (${(penaltyPercent * 100).toInt()}% penalty, death $deathCount)")
+            LoggingManager.debug(logger, "professions") { "Applied death penalty to ${profession.displayName} for player $playerId: -$lostXp XP (${(penaltyPercent * 100).toInt()}% penalty, death $deathCount)" }
         }
         
         // Send warning messages if thresholds crossed
@@ -437,15 +438,15 @@ class ProfessionsService(
         
         when (deathCount) {
             warningConfig.softWarningDeaths -> {
-                logger.atFine().log("⚠️ Soft death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
+                LoggingManager.debug(logger, "professions") { "⚠️ Soft death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty" }
                 // TODO: Send in-game message when player messaging API is available
             }
             warningConfig.hardWarningDeaths -> {
-                logger.atFine().log("🚨 Hard death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty")
+                LoggingManager.debug(logger, "professions") { "🚨 Hard death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty" }
                 // TODO: Send in-game message with actionable advice
             }
             warningConfig.criticalWarningDeaths -> {
-                logger.atFine().log("💀 Critical death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty, mercy active: $mercyActive")
+                LoggingManager.debug(logger, "professions") { "💀 Critical death warning for player $playerId: $deathCount deaths, ${(penaltyPercent * 100).toInt()}% penalty, mercy active: $mercyActive" }
                 // TODO: Send in-game message with mercy system preview
             }
         }
@@ -475,7 +476,7 @@ class ProfessionsService(
     fun clearDeathPenaltyState(playerId: UUID) {
         val playerIdStr = playerId.toCachedString()
         deathPenaltyStates.remove(playerIdStr)
-        logger.atFine().log("Cleared death penalty state for player $playerId")
+        LoggingManager.debug(logger, "professions") { "Cleared death penalty state for player $playerId" }
     }
     
     /**
@@ -522,7 +523,7 @@ class ProfessionsService(
             repository.updateStats(stats)
         }
         
-        logger.atFine().log("Set ${profession.displayName} level to $clampedLevel for player $playerId (saved to DB)")
+        LoggingManager.debug(logger, "professions") { "Set ${profession.displayName} level to $clampedLevel for player $playerId (saved to DB)" }
     }
     
     /**
@@ -543,7 +544,7 @@ class ProfessionsService(
         val state = stateMap?.get(profession)
         
         if (state == null) {
-            logger.atWarning().log("Cannot add XP to $playerId - state not found")
+            LoggingManager.warn(logger, "professions") { "Cannot add XP to $playerId - state not found" }
             return XpAwardResult(didLevelUp = false, oldLevel = 1, newLevel = 1, newXp = 0L)
         }
         
@@ -557,7 +558,7 @@ class ProfessionsService(
             // Save to database immediately
             val stats = state.toImmutableStats()
             repository.updateStats(stats)
-            logger.atFine().log("Saved ${profession.displayName} stats to DB after admin XP add")
+            LoggingManager.debug(logger, "professions") { "Saved ${profession.displayName} stats to DB after admin XP add" }
             
             res
         }
@@ -592,7 +593,7 @@ class ProfessionsService(
             repository.updateStats(stats)
         }
         
-        logger.atFine().log("Reset ${profession.displayName} for player $playerId (saved to DB)")
+        LoggingManager.debug(logger, "professions") { "Reset ${profession.displayName} for player $playerId (saved to DB)" }
     }
     
     // ============ Persistence ============
@@ -609,7 +610,7 @@ class ProfessionsService(
         val stateMap = playerStates[playerIdStr]
         
         if (stateMap == null) {
-            logger.atWarning().log("No state found for player $playerId - cannot save")
+            LoggingManager.warn(logger, "professions") { "No state found for player $playerId - cannot save" }
             return
         }
         
@@ -620,9 +621,9 @@ class ProfessionsService(
             // Save in batch transaction
             repository.saveAll(statsList)
             
-            logger.atFine().log("Saved profession stats for player $playerId")
+            LoggingManager.debug(logger, "professions") { "Saved profession stats for player $playerId" }
         } catch (e: Exception) {
-            logger.atWarning().withCause(e).log("Failed to save profession stats for player $playerId")
+            LoggingManager.warn(logger, "professions") { "Failed to save profession stats for player $playerId" }
             throw e
         }
     }
@@ -637,7 +638,7 @@ class ProfessionsService(
         val playerIdStr = playerId.toCachedString()
         playerStates.remove(playerIdStr)
         
-        logger.atFine().log("Removed player $playerId from professions cache")
+        LoggingManager.debug(logger, "professions") { "Removed player $playerId from professions cache" }
     }
     
     /**
@@ -650,11 +651,11 @@ class ProfessionsService(
         val playerIds = playerStates.keys.toList()  // Snapshot to avoid CME
         
         if (playerIds.isEmpty()) {
-            logger.atFine().log("No players in cache to save during shutdown")
+            LoggingManager.debug(logger, "professions") { "No players in cache to save during shutdown" }
             return
         }
         
-        logger.atFine().log("Saving ${playerIds.size} players' profession stats during shutdown...")
+        LoggingManager.debug(logger, "professions") { "Saving ${playerIds.size} players' profession stats during shutdown..." }
         
         var saved = 0
         var failed = 0
@@ -666,12 +667,12 @@ class ProfessionsService(
                 repository.saveAll(statsList)
                 saved++
             } catch (e: Exception) {
-                logger.atWarning().withCause(e).log("Failed to save professions for player $playerIdStr during shutdown")
+                LoggingManager.warn(logger, "professions") { "Failed to save professions for player $playerIdStr during shutdown" }
                 failed++
             }
         }
         
-        logger.atFine().log("Shutdown save complete: $saved saved, $failed failed")
+        LoggingManager.debug(logger, "professions") { "Shutdown save complete: $saved saved, $failed failed" }
     }
     
     /**
@@ -680,7 +681,7 @@ class ProfessionsService(
      */
     fun clearCache() {
         playerStates.clear()
-        logger.atFine().log("Professions cache cleared")
+        LoggingManager.debug(logger, "professions") { "Professions cache cleared" }
     }
     
     /**
