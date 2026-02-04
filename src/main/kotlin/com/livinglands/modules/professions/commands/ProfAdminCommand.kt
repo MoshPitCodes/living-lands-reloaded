@@ -11,6 +11,9 @@ import com.livinglands.core.persistence.GlobalPlayerDataRepository
 import com.livinglands.modules.professions.ProfessionsService
 import com.livinglands.modules.professions.abilities.AbilityRegistry
 import com.livinglands.modules.professions.data.Profession
+import com.livinglands.api.safeService
+import com.livinglands.modules.metabolism.MetabolismService
+import com.livinglands.modules.metabolism.MetabolismRepository
 import java.util.UUID
 
 /**
@@ -193,6 +196,17 @@ class ProfAdminCommand(
         val professionLevels = professionsService.getAllStats(playerId)
             .mapValues { (_, stats) -> stats.level }
         abilityEffectService.reapplyAllAbilities(playerId, professionLevels)
+        
+        // CRITICAL: Save metabolism stats after ability bonuses applied
+        // Abilities modify max stat capacities in MetabolismService, which needs to persist
+        val metabolismService = safeService<MetabolismService>("metabolism")
+        val metabolismRepository = safeService<MetabolismRepository>("metabolism")
+        if (metabolismService != null && metabolismRepository != null) {
+            metabolismService.savePlayer(playerId, metabolismRepository)
+            LoggingManager.debug(logger, "professions") { "Saved metabolism stats after applying abilities for ${data.playerName}" }
+        } else {
+            LoggingManager.warn(logger, "professions") { "Could not save metabolism stats - service/repository not available" }
+        }
         
         // Refresh HUD if player is online
         refreshPlayerHud(playerId)
