@@ -234,8 +234,10 @@ class MetabolismService(
      * Update player state with loaded stats from database.
      * Called asynchronously after initializePlayerWithDefaults().
      * 
+     * Also loads max stat values from Tier 2 ability bonuses.
+     * 
      * @param playerId Player's UUID
-     * @param stats Loaded stats from database
+     * @param stats Loaded stats from database (includes max stat values)
      */
     fun updatePlayerState(playerId: UUID, stats: MetabolismStats) {
         val playerIdStr = playerId.toCachedString()
@@ -244,7 +246,12 @@ class MetabolismService(
         // Update the mutable state with loaded values
         state.updateStats(stats.hunger, stats.thirst, stats.energy, stats.lastUpdated)
         
-         LoggingManager.debug(logger, "metabolism") { "Updated metabolism state from database for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}" }
+        // Load max stat values from database (Tier 2 ability bonuses)
+        state.maxHunger = stats.maxHunger
+        state.maxThirst = stats.maxThirst
+        state.maxEnergy = stats.maxEnergy
+        
+         LoggingManager.debug(logger, "metabolism") { "Updated metabolism state from database for $playerId: H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}, maxH=${stats.maxHunger}, maxT=${stats.maxThirst}, maxE=${stats.maxEnergy}" }
     }
     
     /**

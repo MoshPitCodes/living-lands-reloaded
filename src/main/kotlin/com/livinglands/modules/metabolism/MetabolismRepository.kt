@@ -36,7 +36,7 @@ class MetabolismRepository(
     
     companion object {
         private const val MODULE_ID = "metabolism"
-        private const val SCHEMA_VERSION = 3  // Updated for 3-stage debuff system
+        private const val SCHEMA_VERSION = 4  // Updated for max stat persistence (v1.4.8)
     }
     
     /**
@@ -49,15 +49,51 @@ class MetabolismRepository(
         if (currentVersion < SCHEMA_VERSION) {
             persistence.execute { conn ->
                 conn.createStatement().use { stmt ->
-                    stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS metabolism_stats (
-                            player_id TEXT PRIMARY KEY,
-                            hunger REAL NOT NULL DEFAULT 100.0,
-                            thirst REAL NOT NULL DEFAULT 100.0,
-                            energy REAL NOT NULL DEFAULT 100.0,
-                            last_updated INTEGER NOT NULL
-                        )
-                    """.trimIndent())
+                    // Check if table exists to determine migration path
+                    val tableExists = try {
+                        stmt.executeQuery("SELECT 1 FROM metabolism_stats LIMIT 1")
+                        true
+                    } catch (e: Exception) {
+                        false
+                    }
+                    
+                    if (!tableExists) {
+                        // Fresh install - create with all columns
+                        stmt.execute("""
+                            CREATE TABLE IF NOT EXISTS metabolism_stats (
+                                player_id TEXT PRIMARY KEY,
+                                hunger REAL NOT NULL DEFAULT 100.0,
+                                thirst REAL NOT NULL DEFAULT 100.0,
+                                energy REAL NOT NULL DEFAULT 100.0,
+                                max_hunger REAL NOT NULL DEFAULT 100.0,
+                                max_thirst REAL NOT NULL DEFAULT 100.0,
+                                max_energy REAL NOT NULL DEFAULT 100.0,
+                                last_updated INTEGER NOT NULL
+                            )
+                        """.trimIndent())
+                    } else {
+                        // Existing table - add new columns if missing (migration from v3 to v4)
+                        try {
+                            stmt.execute("ALTER TABLE metabolism_stats ADD COLUMN max_hunger REAL NOT NULL DEFAULT 100.0")
+                            LoggingManager.info(logger, "metabolism") { "Added max_hunger column to metabolism_stats" }
+                        } catch (e: Exception) {
+                            LoggingManager.debug(logger, "metabolism") { "max_hunger column already exists" }
+                        }
+                        
+                        try {
+                            stmt.execute("ALTER TABLE metabolism_stats ADD COLUMN max_thirst REAL NOT NULL DEFAULT 100.0")
+                            LoggingManager.info(logger, "metabolism") { "Added max_thirst column to metabolism_stats" }
+                        } catch (e: Exception) {
+                            LoggingManager.debug(logger, "metabolism") { "max_thirst column already exists" }
+                        }
+                        
+                        try {
+                            stmt.execute("ALTER TABLE metabolism_stats ADD COLUMN max_energy REAL NOT NULL DEFAULT 100.0")
+                            LoggingManager.info(logger, "metabolism") { "Added max_energy column to metabolism_stats" }
+                        } catch (e: Exception) {
+                            LoggingManager.debug(logger, "metabolism") { "max_energy column already exists" }
+                        }
+                    }
                     
                     // Create index for faster lookups
                     stmt.execute("""
@@ -120,7 +156,11 @@ class MetabolismRepository(
      */
     private fun findByIdInternal(conn: Connection, playerId: String): MetabolismStats? {
         return conn.prepareStatement("""
-            SELECT player_id, hunger, thirst, energy, last_updated
+            SELECT player_id, hunger, thirst, energy, 
+                   COALESCE(max_hunger, 100.0) as max_hunger,
+                   COALESCE(max_thirst, 100.0) as max_thirst,
+                   COALESCE(max_energy, 100.0) as max_energy,
+                   last_updated
             FROM metabolism_stats
             WHERE player_id = ?
         """.trimIndent()).use { stmt ->
@@ -132,6 +172,9 @@ class MetabolismRepository(
                         hunger = rs.getFloat("hunger"),
                         thirst = rs.getFloat("thirst"),
                         energy = rs.getFloat("energy"),
+                        maxHunger = rs.getFloat("max_hunger"),
+                        maxThirst = rs.getFloat("max_thirst"),
+                        maxEnergy = rs.getFloat("max_energy"),
                         lastUpdated = rs.getLong("last_updated")
                     )
                 } else {
@@ -147,24 +190,33 @@ class MetabolismRepository(
     override suspend fun save(entity: MetabolismStats) {
         persistence.execute { conn ->
             conn.prepareStatement("""
-                INSERT INTO metabolism_stats (player_id, hunger, thirst, energy, last_updated)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO metabolism_stats (player_id, hunger, thirst, energy, max_hunger, max_thirst, max_energy, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(player_id) DO UPDATE SET 
                     hunger = ?,
                     thirst = ?,
                     energy = ?,
+                    max_hunger = ?,
+                    max_thirst = ?,
+                    max_energy = ?,
                     last_updated = ?
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, entity.playerId)
                 stmt.setFloat(2, entity.hunger)
                 stmt.setFloat(3, entity.thirst)
                 stmt.setFloat(4, entity.energy)
-                stmt.setLong(5, entity.lastUpdated)
+                stmt.setFloat(5, entity.maxHunger)
+                stmt.setFloat(6, entity.maxThirst)
+                stmt.setFloat(7, entity.maxEnergy)
+                stmt.setLong(8, entity.lastUpdated)
                 // For update clause
-                stmt.setFloat(6, entity.hunger)
-                stmt.setFloat(7, entity.thirst)
-                stmt.setFloat(8, entity.energy)
-                stmt.setLong(9, entity.lastUpdated)
+                stmt.setFloat(9, entity.hunger)
+                stmt.setFloat(10, entity.thirst)
+                stmt.setFloat(11, entity.energy)
+                stmt.setFloat(12, entity.maxHunger)
+                stmt.setFloat(13, entity.maxThirst)
+                stmt.setFloat(14, entity.maxEnergy)
+                stmt.setLong(15, entity.lastUpdated)
                 stmt.executeUpdate()
             }
         }
@@ -176,26 +228,31 @@ class MetabolismRepository(
      * Uses INSERT OR REPLACE for robustness - if the record doesn't exist
      * for some reason (e.g., database was cleared), it will create it.
      * This ensures saves always succeed even in edge cases.
+     * 
+     * Also persists max stat values from Tier 2 abilities.
      */
     suspend fun updateStats(stats: MetabolismStats) {
         persistence.execute { conn ->
             // Use INSERT OR REPLACE for robustness - handles both update and insert cases
             conn.prepareStatement("""
                 INSERT OR REPLACE INTO metabolism_stats 
-                (player_id, hunger, thirst, energy, last_updated)
-                VALUES (?, ?, ?, ?, ?)
+                (player_id, hunger, thirst, energy, max_hunger, max_thirst, max_energy, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, stats.playerId)
                 stmt.setFloat(2, stats.hunger)
                 stmt.setFloat(3, stats.thirst)
                 stmt.setFloat(4, stats.energy)
-                stmt.setLong(5, stats.lastUpdated)
+                stmt.setFloat(5, stats.maxHunger)
+                stmt.setFloat(6, stats.maxThirst)
+                stmt.setFloat(7, stats.maxEnergy)
+                stmt.setLong(8, stats.lastUpdated)
                 val rowsAffected = stmt.executeUpdate()
                 
                 if (rowsAffected == 0) {
                     LoggingManager.warn(logger, "metabolism") { "DB WRITE FAILED: 0 rows affected when saving metabolism_stats for player ${stats.playerId}" }
                 } else {
-                    LoggingManager.debug(logger, "metabolism") { "SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}" }
+                    LoggingManager.debug(logger, "metabolism") { "SAVED metabolism_stats: player=${stats.playerId}, rows affected=$rowsAffected, H=${stats.hunger}, T=${stats.thirst}, E=${stats.energy}, maxH=${stats.maxHunger}, maxT=${stats.maxThirst}, maxE=${stats.maxEnergy}" }
                 }
             }
         }
@@ -206,20 +263,41 @@ class MetabolismRepository(
      */
     private fun insertInternal(conn: Connection, stats: MetabolismStats) {
         conn.prepareStatement("""
-            INSERT INTO metabolism_stats (player_id, hunger, thirst, energy, last_updated)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO metabolism_stats (player_id, hunger, thirst, energy, max_hunger, max_thirst, max_energy, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()).use { stmt ->
             stmt.setString(1, stats.playerId)
             stmt.setFloat(2, stats.hunger)
             stmt.setFloat(3, stats.thirst)
             stmt.setFloat(4, stats.energy)
-            stmt.setLong(5, stats.lastUpdated)
+            stmt.setFloat(5, stats.maxHunger)
+            stmt.setFloat(6, stats.maxThirst)
+            stmt.setFloat(7, stats.maxEnergy)
+            stmt.setLong(8, stats.lastUpdated)
             stmt.executeUpdate()
         }
     }
     
     /**
-     * Delete stats by player ID.
+     * Database schema (in global DB):
+     * CREATE TABLE IF NOT EXISTS metabolism_stats (
+     *     player_id TEXT PRIMARY KEY,
+     *     hunger REAL NOT NULL DEFAULT 100.0,
+     *     thirst REAL NOT NULL DEFAULT 100.0,
+     *     energy REAL NOT NULL DEFAULT 100.0,
+     *     max_hunger REAL NOT NULL DEFAULT 100.0,  -- v1.4.8: Added for Tier 2 ability persistence
+     *     max_thirst REAL NOT NULL DEFAULT 100.0,  -- v1.4.8: Added for Tier 2 ability persistence
+     *     max_energy REAL NOT NULL DEFAULT 100.0,  -- v1.4.8: Added for Tier 2 ability persistence
+     *     last_updated INTEGER NOT NULL
+     * )
+     * 
+     * Max stat fields persist bonuses from Tier 2 abilities:
+     * - Iron Stomach (Combat): +35 max hunger
+     * - Desert Nomad (Mining): +35 max thirst
+     * - Tireless Woodsman (Logging): +35 max energy
+     * 
+     * Note: Per-world configs still work - depletion rates can vary by world,
+     * but the stats themselves are shared.
      */
     override suspend fun delete(id: String) {
         persistence.execute { conn ->

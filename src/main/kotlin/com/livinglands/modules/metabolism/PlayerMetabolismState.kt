@@ -305,6 +305,9 @@ class PlayerMetabolismState(
             hunger = hunger,
             thirst = thirst,
             energy = energy,
+            maxHunger = maxHunger,
+            maxThirst = maxThirst,
+            maxEnergy = maxEnergy,
             lastUpdated = lastUpdated
         )
     }
@@ -313,6 +316,8 @@ class PlayerMetabolismState(
         /**
          * Create a PlayerMetabolismState from immutable MetabolismStats.
          * Used when loading from database.
+         * 
+         * Loads both current stat values AND max stat values (from Tier 2 abilities).
          * 
          * @param stats The immutable stats to load from
          * @return Mutable state container
@@ -324,7 +329,12 @@ class PlayerMetabolismState(
                 initialThirst = stats.thirst,
                 initialEnergy = stats.energy,
                 initialLastUpdated = stats.lastUpdated
-            )
+            ).apply {
+                // Load max stat values from database (Tier 2 ability bonuses)
+                maxHunger = stats.maxHunger
+                maxThirst = stats.maxThirst
+                maxEnergy = stats.maxEnergy
+            }
         }
         
         /**
