@@ -1,8 +1,8 @@
 # Living Lands Reloaded - Product Roadmap
 
-**Current Version:** v1.4.3  
-**Status:** Production Ready (MVP Complete + Auto-Scan Consumables + Tested)  
-**Last Updated:** 2026-02-03
+**Current Version:** v1.4.8  
+**Status:** Production Ready (MVP Complete + P0-P2 Architecture Improvements + HUD Fix)  
+**Last Updated:** 2026-02-04
 
 ---
 
@@ -23,7 +23,9 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 | **Professions System** | 100% | ✅ Complete |
 | **Announcer Module** | 100% | ✅ Complete |
 | **Modded Consumables (Phase 12)** | 100% | ✅ Complete |
-| **Polish & Testing (v1.4.3)** | 100% | ✅ Complete (Single-Player Tested) |
+| **Architecture Improvements (P0-P2)** | 100% | ✅ Complete (v1.4.4-v1.4.7) |
+| **HUD Bonus Persistence Fix** | 100% | ✅ Complete (v1.4.8) |
+| **Polish & Testing** | 100% | ✅ Complete (Single-Player Tested) |
 | **Future Modules** | 0% | 📋 Planned (Design Phase) |
 
 ---
@@ -40,7 +42,80 @@ Living Lands transforms Hytale into an immersive survival RPG where players must
 
 ---
 
-## ✅ Completed Features (v1.4.3)
+## ✅ Completed Features
+
+### P0-P2 Architecture Improvements + HUD Bonus Persistence Fix (v1.4.4-v1.4.8)
+
+**Status:** ✅ **Complete & Tested**  
+**Versions:** 1.4.4 through 1.4.8  
+**Completion Date:** 2026-02-04  
+**Completion:** 100%
+
+**Mission:** Comprehensive architecture improvements (28 story points) across infrastructure, module lifecycle, and code quality, plus critical HUD bonus persistence bug fix.
+
+#### P0 - Infrastructure Audit (v1.4.4)
+- ✅ **MPC-138: Safe Service Access** - Fixed 11 unsafe `CoreModule.services.get<T>()` calls
+  - Standardized on `safeService<T>("moduleName")` for cross-module dependencies
+  - Prevents crashes when modules are disabled
+  - Added null checks and graceful degradation
+- ✅ **MPC-139: Linting Task** - Added `checkUnsafeServiceAccess` Gradle task
+  - Prevents regression to unsafe patterns
+  - Scans all Kotlin files for `CoreModule.services.get<` pattern
+  - Build fails if unsafe patterns detected
+
+#### P1 - Module Lifecycle (v1.4.5)
+- ✅ **MPC-140: Standardized Shutdown** - All modules use `shutdownScopeWithTimeout()`
+  - 5-second timeout prevents server hangs
+  - Ensures graceful shutdown without blocking indefinitely
+  - Prevents data loss from interrupted async operations
+- ✅ **MPC-141: HUD Availability Fix** - Fixed race condition in HUD registration
+  - `ensureHudRegistered()` now public with lazy initialization
+  - Prevents crashes when modules access HUD before registration complete
+
+#### P2 - Code Quality (v1.4.6-v1.4.7)
+- ✅ **MPC-142: Dependency Validation** - Added module dependency validation at startup
+  - Fail-fast if required modules disabled
+  - Clear error messages for missing dependencies
+  - Prevents runtime failures from missing services
+- ✅ **MPC-144: Config Reload Standardization** - Lifecycle hook `onConfigReload()`
+  - Replaced ad-hoc callback pattern
+  - Consistent config reload behavior across modules
+  - Simplifies module implementation
+- ✅ **MPC-143: Logging Standardization** - Standardized 643 logging calls across 43 files
+  - All module code now uses `LoggingManager` (NOT direct `logger.atFine()`)
+  - Configurable log levels (TRACE/DEBUG/CONFIG/INFO/WARN/ERROR)
+  - Better diagnostics and debugging capabilities
+
+#### HUD Bonus Persistence Fix (v1.4.8)
+- ✅ **MPC-145: Thread Safety** - Fixed CustomUI thread violation
+  - HUD updates from async DB load now wrapped in `world.execute {}`
+  - Prevents silent UI update failures
+- ✅ **MPC-146: Database Persistence** - Max stats now saved to database
+  - Extended schema v3→v4 with `max_hunger`, `max_thirst`, `max_energy` columns
+  - `MetabolismStats` data class includes max stat fields
+  - All save/load operations persist max values
+- ✅ **MPC-146: Save Trigger** - Added missing save call after ability application
+  - `ProfAdminCommand` now calls `metabolismService.savePlayer()` after applying abilities
+  - **THE CRITICAL FIX** - bonuses now persist across disconnect/reconnect
+
+**Impact:**
+- Zero crashes from disabled modules (safe service access)
+- Zero data loss from server shutdown (standardized shutdown)
+- Zero race conditions in HUD registration (lazy init)
+- Zero silent HUD update failures (thread-safe)
+- **Profession ability bonuses now persist correctly** (Tier 2 max stat bonuses work)
+- Improved code maintainability (standardized patterns)
+- Better diagnostics (standardized logging)
+
+**Files Modified:** 50+ files across modules, core, and commands
+
+**Documentation:**
+- Updated `docs/TECHNICAL_DESIGN.md` (1,500+ lines for P0-P2)
+- Created `docs/MODULE_STRUCTURE.md` (370 lines)
+- Updated `docs/MODULE_LIFECYCLE.md`
+- Updated all changelogs and README
+
+---
 
 ### Auto-Scan Consumables & HUD Improvements (v1.4.3)
 
@@ -807,7 +882,58 @@ The original Leveling module has been fully replaced by the more comprehensive P
 
 ## 📅 Release Timeline
 
-### v1.3.1 (Current) - 2026-01-31
+### v1.4.8 (Current) - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** HUD Bonus Persistence Fix
+
+- ✅ Thread-safe HUD updates (MPC-145)
+- ✅ Database persistence for max stats (MPC-146)
+- ✅ Save trigger after ability application (MPC-146)
+- ✅ Profession Tier 2 bonuses now persist across disconnect/reconnect
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.8
+
+### v1.4.7 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Logging Standardization (P2-143)
+
+- ✅ Standardized 643 logging calls across 43 files
+- ✅ All modules use LoggingManager (configurable log levels)
+- ✅ Updated all documentation with P0-P2 improvements
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.7
+
+### v1.4.6 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Config Reload & Dependency Validation (P2)
+
+- ✅ Module dependency validation at startup (MPC-142)
+- ✅ Standardized config reload with lifecycle hook (MPC-144)
+- ✅ Fail-fast error messages for missing dependencies
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.6
+
+### v1.4.5 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Module Lifecycle Improvements (P1)
+
+- ✅ Standardized shutdown with timeout (MPC-140)
+- ✅ HUD availability race condition fix (MPC-141)
+- ✅ Graceful shutdown prevents data loss
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.5
+
+### v1.4.4 - 2026-02-04
+**Status:** ✅ Released  
+**Theme:** Infrastructure Audit (P0)
+
+- ✅ Safe service access patterns (MPC-138)
+- ✅ Gradle linting task for unsafe patterns (MPC-139)
+- ✅ Prevents crashes from disabled modules
+
+**GitHub Release:** https://github.com/MoshPitCodes/living-lands-reloaded/releases/tag/v1.4.4
+
+### v1.3.1 - 2026-01-31
 **Status:** ✅ Released  
 **Theme:** HUD Performance Hotfix
 
