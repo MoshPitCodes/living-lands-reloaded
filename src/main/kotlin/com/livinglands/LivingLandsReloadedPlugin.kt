@@ -104,10 +104,8 @@ class LivingLandsReloadedPlugin(init: JavaPluginInit) : JavaPlugin(init) {
         CoreModule.registerModule(MetabolismModule())
         CoreModule.registerModule(ProfessionsModule())
         CoreModule.registerModule(com.livinglands.modules.announcer.AnnouncerModule())
-        
-        // Future modules will be registered here:
-        // CoreModule.registerModule(ClaimsModule())
-        
+        CoreModule.registerModule(com.livinglands.modules.claims.ClaimsModule())
+
         LoggingManager.debug(logger, "core") { "Registered ${CoreModule.getModuleCount()} modules" }
     }
     

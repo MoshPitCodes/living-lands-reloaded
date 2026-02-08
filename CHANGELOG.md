@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - Unreleased
+
+### Added
+- **Claims Grid UI in Central Modal** - Interactive 6x6 chunk grid embedded in the `/ll menu` Claims tab
+  - Selection-based workflow: click cells to select, then Confirm to apply changes
+  - Color-coded cells: blue (owned), red (other player), gray (unclaimed), orange (selected to claim), dark red (selected to unclaim)
+  - Grid centered on player's current chunk position with coordinate range display
+  - Confirm/Clear buttons appear when cells are selected
+  - Batch operations: claim and unclaim multiple chunks in a single confirm
+  - Claim counter showing owned claims vs limit
+  - Status messages after confirm (e.g., "Claimed 3 | Unclaimed 1")
+  - Summary of owned claims and trusted access below the grid
+- **ModuleTab Event System** - Tabs can now handle custom UI events via `onEvent()` and `bindEvents()` methods
+  - Enables interactive tabs (like Claims grid) within the Central Modal Panel
+  - Non-interactive tabs (Metabolism, Professions) are unaffected (default no-op)
+- **Claims Repository Area Queries** - `getClaimsInArea()`, `getClaimById()`, `getClaimsByWorld()` for efficient spatial lookups
+- **Cache Warming** - Claims cache now properly pre-loads world data on startup via `getClaimsByWorld()`
+
+### Fixed
+- **Trust/Untrust Player Lookup** - Replaced UUID prefix matching hack with proper `GlobalPlayerDataRepository.findByName()` lookup
+  - Players are now looked up by exact name (case-insensitive) from the global player database
+  - Works for both online and offline players (any player who has ever joined the server)
+- **ClaimsService.trustPlayer() Hack** - Replaced `ChunkPosition(UUID.randomUUID(), 0, 0)` hack with proper `repository.getClaimById()` call
+- **ClaimsTab Render Blocking** - Pre-loads claims data in `onActivate()` instead of using `runBlocking` in `render()` method
+- **Content Area Visibility** - Central Modal Panel now properly resets content area before rendering each tab (prevents stale UI elements)
+
+### Changed
+- Claims tab completely rewritten from text-only to selection-based grid UI within the Central Modal Panel
+- Grid rendering uses pre-loaded area claims instead of per-cell queries
+- CentralModalPanel now delegates custom events to active tab and binds tab-specific events during build
+
+### Database
+- Schema remains at v3 (no migration needed)
+- New repository methods: `getClaimById()`, `getClaimsInArea()`, `getClaimsByWorld()`
+
 ## [1.4.8] - 2026-02-04
 
 ### Fixed

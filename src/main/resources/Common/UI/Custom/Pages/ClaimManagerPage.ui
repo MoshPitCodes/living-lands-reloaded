@@ -32,25 +32,25 @@
 
 // Main container - centered modal dialog
 Group #ClaimManagerPage {
-  Anchor: (Width: 420, Height: 480);
+  Anchor: (Width: 504, Height: 480);
   Background: #0a1628(0.95);
   Visible: true;
 
   // Title bar with decorative frame
   Group #TitleBar {
-    Anchor: (Top: 0, Width: 420, Height: 45);
+    Anchor: (Top: 0, Width: 504, Height: 45);
     Background: #152238;
 
     Label #Title {
       Text: "CLAIM MANAGER";
-      Anchor: (Left: 0, Top: 0, Width: 420, Height: 45);
+      Anchor: (Left: 0, Top: 0, Width: 504, Height: 45);
       Style: (FontSize: 16, RenderBold: true, RenderUppercase: true, TextColor: #ccd8e8, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 2);
     }
   }
 
   // Tab bar
   Group #TabBar {
-    Anchor: (Top: 45, Left: 0, Width: 420, Height: 32);
+    Anchor: (Top: 45, Left: 0, Width: 504, Height: 32);
     Background: #0d1117;
     LayoutMode: Left;
 
@@ -75,7 +75,7 @@ Group #ClaimManagerPage {
 
   // ==================== TAB 1: CLAIM CHUNKS ====================
   Group #ClaimTab {
-    Anchor: (Top: 77, Left: 0, Width: 420, Height: 403);
+    Anchor: (Top: 77, Left: 0, Width: 504, Height: 403);
     Visible: true;
 
     // Counter row
@@ -96,9 +96,9 @@ Group #ClaimManagerPage {
       }
     }
 
-    // Grid container - 6x6 grid centered
+    // Grid container - 6x6 grid left-aligned
     Group #GridContainer {
-      Anchor: (Top: 35, Left: 119, Width: 182, Height: 182);
+      Anchor: (Top: 35, Left: 20, Width: 182, Height: 182);
       Background: #0d1117;
 
       // 6x6 grid of chunk cells - each cell is 28x28 with 2px padding
@@ -159,6 +159,77 @@ Group #ClaimManagerPage {
         Anchor: (Left: 75, Top: 75, Width: 30, Height: 30);
         Text: "+";
         Style: (FontSize: 16, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center);
+      }
+    }
+
+    // Plot List Panel (right side)
+    Group #PlotListPanel {
+      Anchor: (Top: 35, Left: 280, Width: 200, Height: 182);
+      Background: #0d1117;
+      LayoutMode: Top;
+      Padding: (Full: 4);
+
+      Label #PlotListHeader {
+        Text: "Your Plots";
+        Anchor: (Width: 192, Height: 20);
+        Style: (FontSize: 11, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Center, VerticalAlignment: Center);
+      }
+
+      // Plot items (max 7 visible in 182px container)
+      TextButton #PlotItem0 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem1 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem2 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem3 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem4 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem5 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+      TextButton #PlotItem6 { Anchor: (Width: 192, Height: 22); Style: @ListItemStyle; Visible: false; }
+
+      Label #NoPlots {
+        Text: "No plots yet";
+        Anchor: (Width: 192, Height: 20);
+        Style: (FontSize: 10, TextColor: #666666, HorizontalAlignment: Center, VerticalAlignment: Center);
+        Visible: false;
+      }
+    }
+
+    // Plot management buttons (below plot list)
+    Group #PlotButtons {
+      Anchor: (Top: 220, Left: 280, Width: 200, Height: 32);
+      LayoutMode: Left;
+      Visible: false;
+
+      Group #RenameButtonContainer {
+        Anchor: (Width: 95, Height: 28);
+        Background: #2a4a6a;
+        Padding: (Full: 2);
+
+        TextButton #RenameBtn {
+          Text: "RENAME";
+          Anchor: (Left: 0, Top: 0, Width: 91, Height: 24);
+          Style: (
+            Default: (LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Hovered: (Background: #3a5a7a, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Pressed: (Background: #1a3a5a, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+          );
+        }
+      }
+
+      Group #Spacer { Anchor: (Width: 10); }
+
+      Group #DeleteButtonContainer {
+        Anchor: (Width: 95, Height: 28);
+        Background: #5a2727;
+        Padding: (Full: 2);
+
+        TextButton #DeleteBtn {
+          Text: "DELETE";
+          Anchor: (Left: 0, Top: 0, Width: 91, Height: 24);
+          Style: (
+            Default: (LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Hovered: (Background: #7a3737, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Pressed: (Background: #4a1717, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+          );
+        }
       }
     }
 
@@ -226,14 +297,14 @@ Group #ClaimManagerPage {
     // Instructions
     Label #Instructions {
       Text: "Click chunks to select/deselect. Green = Yours | Red = Others | Yellow = Selected";
-      Anchor: (Top: 275, Left: 0, Width: 420, Height: 16);
+      Anchor: (Top: 275, Left: 0, Width: 504, Height: 16);
       Style: (FontSize: 9, TextColor: #666666, HorizontalAlignment: Center, VerticalAlignment: Center);
     }
   }
 
   // ==================== TAB 2: MY CLAIMS ====================
   Group #MyClaimsTab {
-    Anchor: (Top: 77, Left: 0, Width: 420, Height: 403);
+    Anchor: (Top: 77, Left: 0, Width: 504, Height: 403);
     Visible: false;
 
     Label #MyClaimsHeader {
@@ -318,7 +389,7 @@ Group #ClaimManagerPage {
 
   // ==================== TAB 3: TRUSTED CLAIMS ====================
   Group #TrustedTab {
-    Anchor: (Top: 77, Left: 0, Width: 420, Height: 403);
+    Anchor: (Top: 77, Left: 0, Width: 504, Height: 403);
     Visible: false;
 
     Label #TrustedHeader {

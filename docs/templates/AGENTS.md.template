@@ -1,7 +1,7 @@
 # OpenCode Configuration Template
 
-**TEMPLATE FILE:** This is a template for creating your project-specific AGENTS.md file. 
-Replace all placeholders `[like this]` with your actual project information. 
+**TEMPLATE FILE:** This is a template for creating your project-specific AGENTS.md file.
+Replace all placeholders `[like this]` with your actual project information.
 Delete this note when you're done customizing.
 
 ---
@@ -33,12 +33,12 @@ When creating OpenCode components, always use the correct directory:
 
 | Component Type | Location | Purpose | Naming Convention |
 |----------------|----------|---------|-------------------|
-| **Plans** | `.opencode/plans/` | Implementation plans and design documents | `kebab-case.md` |
-| **Notes** | `.opencode/notes/` | Session notes, research, and observations | `YYYY-MM-DD-topic.md` |
-| **Commands** | `.opencode/commands/` | Slash commands (workflows, processes) | `kebab-case.md` |
-| **Agents** | `.opencode/agents/` | Specialized domain expertise agents | `kebab-case.md` |
-| **Skills** | `.opencode/skills/` | Bundled resources with scripts | `kebab-case/` |
-| **Documentation** | `.opencode/docs/` | Guides and reference documentation | `kebab-case.md` |
+| **Plans** | `.claude/plans/` | Implementation plans and design documents | `kebab-case.md` |
+| **Notes** | `.claude/notes/` | Session notes, research, and observations | `YYYY-MM-DD-topic.md` |
+| **Commands** | `.claude/commands/` | Slash commands (workflows, processes) | `kebab-case.md` |
+| **Agents** | `.claude/agents/` | Specialized domain expertise agents | `kebab-case.md` |
+| **Skills** | `.claude/skills/` | Bundled resources with scripts | `kebab-case/` |
+| **Documentation** | `.claude/docs/` | Guides and reference documentation | `kebab-case.md` |
 
 **Important:**
 - Never create plans, notes, or commands outside their designated directories
@@ -81,7 +81,7 @@ Git operations (branching, commits, PRs, releases) are managed by the `git-flow-
 - `chore:` - Maintenance tasks
 - `perf:` - Performance improvements
 
-**Reference:** See `.opencode/agents/git-flow-manager.md` for complete conventions.
+**Reference:** See `.claude/agents/git-flow-manager.md` for complete conventions.
 
 ---
 
@@ -129,7 +129,7 @@ Slash commands provide structured workflows and processes. Invoke with `/command
 - `/refactor-code` - Code refactoring assistance
 - `/create-architecture-docs` - Generate architecture documentation
 
-**Reference:** See `.opencode/AGENTS_INDEX.md` for complete command list.
+**Reference:** See `.claude/AGENTS_INDEX.md` for complete command list.
 
 ### Specialized Agents
 
@@ -144,10 +144,10 @@ Agents provide domain-specific expertise. Reference the agent name when requesti
 
 **Model Selection:**
 - Agents use different AI models based on task complexity
-- See `.opencode/docs/model-selection-guide.md` for rationale
+- See `.claude/docs/model-selection-guide.md` for rationale
 - Haiku (fast), Sonnet (balanced), Opus (complex reasoning)
 
-**Reference:** See `.opencode/AGENTS_INDEX.md` for complete agent catalog.
+**Reference:** See `.claude/AGENTS_INDEX.md` for complete agent catalog.
 
 ### Skills
 
@@ -162,7 +162,7 @@ Skills bundle resources, scripts, and guides for specific tasks.
 
 **Usage:** Skills are loaded dynamically when needed for specific tasks.
 
-**Reference:** See `.opencode/AGENTS_INDEX.md` for complete skill list.
+**Reference:** See `.claude/AGENTS_INDEX.md` for complete skill list.
 
 ---
 
@@ -170,7 +170,7 @@ Skills bundle resources, scripts, and guides for specific tasks.
 
 ## Project Overview
 
-**Project Name:** `[YOUR PROJECT NAME]`  
+**Project Name:** `[YOUR PROJECT NAME]`
 **Description:** `[Brief description of what your project does]`
 
 **Primary Purpose:**
@@ -198,10 +198,10 @@ Skills bundle resources, scripts, and guides for specific tasks.
 
 ### Development Tools
 
-**Package Manager:** `[e.g., npm, pnpm, pip, maven, gradle]`  
-**Version Control:** `[e.g., Git + GitHub/GitLab/Bitbucket]`  
-**Issue Tracking:** `[e.g., Linear, Jira, GitHub Issues]`  
-**Database:** `[e.g., PostgreSQL, MySQL, MongoDB]`  
+**Package Manager:** `[e.g., npm, pnpm, pip, maven, gradle]`
+**Version Control:** `[e.g., Git + GitHub/GitLab/Bitbucket]`
+**Issue Tracking:** `[e.g., Linear, Jira, GitHub Issues]`
+**Database:** `[e.g., PostgreSQL, MySQL, MongoDB]`
 **Deployment:** `[e.g., AWS, GCP, Azure, Docker, Kubernetes]`
 
 ---
@@ -210,7 +210,7 @@ Skills bundle resources, scripts, and guides for specific tasks.
 
 ```
 [your-project-name]/
-├── .opencode/                   # OpenCode components directory
+├── .claude/                   # OpenCode components directory
 │   ├── agents/                  # [Describe your agents organization]
 │   ├── commands/                # [List key commands if any]
 │   ├── skills/                  # [List key skills if any]
@@ -359,8 +359,8 @@ skill-name/
 
 ### Managing Issues
 
-**Issue Tracker:** `[e.g., Linear, Jira, GitHub Issues]`  
-**Team/Project:** `[Your team name or project identifier]`  
+**Issue Tracker:** `[e.g., Linear, Jira, GitHub Issues]`
+**Team/Project:** `[Your team name or project identifier]`
 **Issue Prefixes:** `[e.g., PROJ-1, PROJ-2, or no prefix]`
 
 **Common Labels:**
@@ -429,6 +429,6 @@ Retain these general sections as-is:
 
 ---
 
-**Last Updated:** `[YYYY-MM-DD]`  
-**Version:** `[Your project version]`  
+**Last Updated:** `[YYYY-MM-DD]`
+**Version:** `[Your project version]`
 **Maintained By:** `[Your team name]`

@@ -1,0 +1,424 @@
+// Central Modal Panel - Tabbed interface for module-specific content
+// Follows unified HUD pattern from v1.4.x (single UI file approach)
+// Reference: LivingLandsHud.ui, ClaimManagerPage.ui
+
+// Tab button styles - transparent background so Group (#TabNBg) background shows through
+// Active/inactive color is set dynamically on the #TabNBg Group element
+@TabStyle = TextButtonStyle(
+  Default: (Background: #ffffff(0.00), LabelStyle: (FontSize: 11, TextColor: #8899aa, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Hovered: (Background: #ffffff(0.08), LabelStyle: (FontSize: 11, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Pressed: (Background: #000000(0.10), LabelStyle: (FontSize: 11, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+);
+
+// Claims grid cell button style (transparent so Group background shows through)
+@CellStyle = TextButtonStyle(
+  Default: (Background: #ffffff(0.00)),
+  Hovered: (Background: #ffffff(0.10)),
+  Pressed: (Background: #000000(0.15))
+);
+
+// Action button styles
+@ConfirmBtnStyle = TextButtonStyle(
+  Default: (Background: #2d5a27, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Hovered: (Background: #3d7a37, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Pressed: (Background: #1d4a17, LabelStyle: (FontSize: 10, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+);
+
+@ClearBtnStyle = TextButtonStyle(
+  Default: (Background: #4a4a4a, LabelStyle: (FontSize: 10, TextColor: #cccccc, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Hovered: (Background: #5a5a5a, LabelStyle: (FontSize: 10, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Pressed: (Background: #3a3a3a, LabelStyle: (FontSize: 10, TextColor: #cccccc, HorizontalAlignment: Center, VerticalAlignment: Center))
+);
+
+// Plot list item style - transparent background so Group (#PlotItemBgN) background shows through
+@PlotItemStyle = TextButtonStyle(
+  Default: (Background: #ffffff(0.00), LabelStyle: (FontSize: 10, TextColor: #cccccc, HorizontalAlignment: Start, VerticalAlignment: Center)),
+  Hovered: (Background: #ffffff(0.08), LabelStyle: (FontSize: 10, TextColor: #ffffff, HorizontalAlignment: Start, VerticalAlignment: Center)),
+  Pressed: (Background: #000000(0.10), LabelStyle: (FontSize: 10, TextColor: #ffffff, HorizontalAlignment: Start, VerticalAlignment: Center))
+);
+
+// Plot management button styles
+@RenameBtnStyle = TextButtonStyle(
+  Default: (Background: #2a4a6a, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Hovered: (Background: #3a5a7a, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Pressed: (Background: #1a3a5a, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+);
+
+@DeleteBtnStyle = TextButtonStyle(
+  Default: (Background: #5a2727, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Hovered: (Background: #7a3737, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+  Pressed: (Background: #4a1717, LabelStyle: (FontSize: 9, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center))
+);
+
+// Main container - full screen overlay with backdrop
+Group #ModalOverlay {
+  Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+  Background: #000000(0.60);
+  Visible: true;
+
+  // Modal panel - centered dialog
+  Group #CentralModalPanel {
+    Anchor: (Width: 720, Height: 500);
+    Background: #0a1628(0.95);
+
+    // Title bar
+    Group #TitleBar {
+      Anchor: (Top: 0, Width: 720, Height: 50);
+      Background: #152238;
+
+      Label #Title {
+        Text: "LIVING LANDS";
+        Anchor: (Left: 0, Top: 0, Width: 720, Height: 50);
+        Style: (FontSize: 18, RenderBold: true, RenderUppercase: true, TextColor: #ccd8e8, HorizontalAlignment: Center, VerticalAlignment: Center, LetterSpacing: 3);
+      }
+    }
+
+    // Tab bar
+    Group #TabBar {
+      Anchor: (Top: 50, Left: 0, Width: 720, Height: 36);
+      Background: #0d1117;
+      LayoutMode: Left;
+      Padding: (Left: 0, Top: 0);
+
+      // Tab buttons (max 6 tabs)
+      // Each tab uses a Group (#TabNBg) for dynamic background color
+      // with a transparent TextButton (#TabN) for click events and text
+      Group #Tab1Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab1Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab1 {
+          Text: "Tab 1";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+
+      Group #Tab2Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab2Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab2 {
+          Text: "Tab 2";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+
+      Group #Tab3Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab3Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab3 {
+          Text: "Tab 3";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+
+      Group #Tab4Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab4Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab4 {
+          Text: "Tab 4";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+
+      Group #Tab5Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab5Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab5 {
+          Text: "Tab 5";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+
+      Group #Tab6Container {
+        Anchor: (Width: 100, Height: 36);
+        Visible: false;
+
+        Group #Tab6Bg {
+          Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0);
+          Background: #1a2a3a;
+        }
+        TextButton #Tab6 {
+          Text: "Tab 6";
+          Anchor: (Width: 100, Height: 36);
+          Style: @TabStyle;
+        }
+      }
+    }
+
+    // Content area - where active tab renders its content
+    Group #ContentArea {
+      Anchor: (Top: 86, Left: 0, Width: 720, Height: 414);
+      Background: #0d1117;
+      Padding: (Full: 20);
+
+      // Content container for tab-specific UI elements
+      Group #TabContent {
+        Anchor: (Width: 680, Height: 374);
+        Background: #1a1a1a(0.70);
+        Padding: (Full: 12);
+
+        // ==================== TEXT CONTENT (Metabolism, Professions) ====================
+        // Header section
+        Label #ContentTitle {
+          Text: "";
+          Anchor: (Top: 0, Left: 0, Width: 656, Height: 24);
+          Style: (FontSize: 14, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Start, VerticalAlignment: Center);
+          Visible: false;
+        }
+
+        // Content text area
+        Label #ContentText {
+          Text: "";
+          Anchor: (Top: 24, Left: 0, Width: 656, Height: 338);
+          Style: (FontSize: 11, TextColor: #cccccc, HorizontalAlignment: Start, VerticalAlignment: Center);
+          Visible: false;
+        }
+
+        // ==================== CLAIMS GRID CONTENT ====================
+        Group #ClaimsContent {
+          Anchor: (Top: 0, Left: 0, Width: 656, Height: 350);
+          Visible: false;
+
+          // Claims header with counter
+          Label #ClaimsHeader {
+            Text: "Claimed Chunks:";
+            Anchor: (Top: 0, Left: 0, Width: 130, Height: 22);
+            Style: (FontSize: 13, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Start, VerticalAlignment: Center);
+          }
+
+          Label #ClaimsCounter {
+            Text: "0/25";
+            Anchor: (Top: 0, Left: 130, Width: 80, Height: 22);
+            Style: (FontSize: 13, RenderBold: true, TextColor: #ffffff, HorizontalAlignment: Start, VerticalAlignment: Center);
+          }
+
+          Label #ClaimsCoords {
+            Text: "";
+            Anchor: (Top: 0, Left: 420, Width: 236, Height: 22);
+            Style: (FontSize: 10, TextColor: #666666, HorizontalAlignment: End, VerticalAlignment: Center);
+          }
+
+          // Grid container - 6x6 grid left-aligned
+          Group #GridContainer {
+            Anchor: (Top: 28, Left: 0, Width: 200, Height: 200);
+            Background: #0d1117;
+
+            Group #ChunkGrid {
+              Anchor: (Left: 10, Top: 10, Width: 180, Height: 180);
+
+              // Row 0 - Each cell is a Group (dynamic Background) with a transparent TextButton (click events)
+              Group #Cell0x0 { Anchor: (Left: 0, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x0 { Anchor: (Left: 30, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x0 { Anchor: (Left: 60, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x0 { Anchor: (Left: 90, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x0 { Anchor: (Left: 120, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x0 { Anchor: (Left: 150, Top: 0, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+
+              // Row 1
+              Group #Cell0x1 { Anchor: (Left: 0, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x1 { Anchor: (Left: 30, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x1 { Anchor: (Left: 60, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x1 { Anchor: (Left: 90, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x1 { Anchor: (Left: 120, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x1 { Anchor: (Left: 150, Top: 30, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+
+              // Row 2
+              Group #Cell0x2 { Anchor: (Left: 0, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x2 { Anchor: (Left: 30, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x2 { Anchor: (Left: 60, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x2 { Anchor: (Left: 90, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x2 { Anchor: (Left: 120, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x2 { Anchor: (Left: 150, Top: 60, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+
+              // Row 3
+              Group #Cell0x3 { Anchor: (Left: 0, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x3 { Anchor: (Left: 30, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x3 { Anchor: (Left: 60, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x3 { Anchor: (Left: 90, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x3 { Anchor: (Left: 120, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x3 { Anchor: (Left: 150, Top: 90, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+
+              // Row 4
+              Group #Cell0x4 { Anchor: (Left: 0, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x4 { Anchor: (Left: 30, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x4 { Anchor: (Left: 60, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x4 { Anchor: (Left: 90, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x4 { Anchor: (Left: 120, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x4 { Anchor: (Left: 150, Top: 120, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+
+              // Row 5
+              Group #Cell0x5 { Anchor: (Left: 0, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn0x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell1x5 { Anchor: (Left: 30, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn1x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell2x5 { Anchor: (Left: 60, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn2x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell3x5 { Anchor: (Left: 90, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn3x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell4x5 { Anchor: (Left: 120, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn4x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+              Group #Cell5x5 { Anchor: (Left: 150, Top: 150, Width: 28, Height: 28); Background: #3a3a3a; TextButton #CellBtn5x5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @CellStyle; } }
+            }
+          }
+
+          // Info Panel (center column - how to claim + color legend)
+          Group #InfoPanel {
+            Anchor: (Top: 28, Left: 216, Width: 208, Height: 310);
+            Background: #0d1117;
+            Padding: (Full: 8);
+
+            Label #InfoHeader {
+              Text: "How to Claim";
+              Anchor: (Left: 0, Top: 0, Width: 192, Height: 20);
+              Style: (FontSize: 11, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Center, VerticalAlignment: Center);
+            }
+
+            Label #InfoSteps {
+              Text: "";
+              Anchor: (Left: 0, Top: 24, Width: 192, Height: 90);
+              Style: (FontSize: 9, TextColor: #cccccc, HorizontalAlignment: Start, VerticalAlignment: Start);
+            }
+
+            // Color legend header
+            Label #LegendHeader {
+              Text: "Grid Colors";
+              Anchor: (Left: 0, Top: 120, Width: 192, Height: 18);
+              Style: (FontSize: 10, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Center, VerticalAlignment: Center);
+            }
+
+            // Color swatches with labels
+            Group #LegendOwned {
+              Anchor: (Left: 8, Top: 142, Width: 184, Height: 16);
+              Group #SwatchOwned { Anchor: (Left: 0, Top: 2, Width: 12, Height: 12); Background: #2a4a7a; }
+              Label #LabelOwned { Text: "Your claimed chunks"; Anchor: (Left: 20, Top: 0, Width: 164, Height: 16); Style: (FontSize: 9, TextColor: #aaaaaa, HorizontalAlignment: Start, VerticalAlignment: Center); }
+            }
+
+            Group #LegendOther {
+              Anchor: (Left: 8, Top: 162, Width: 184, Height: 16);
+              Group #SwatchOther { Anchor: (Left: 0, Top: 2, Width: 12, Height: 12); Background: #5a2727; }
+              Label #LabelOther { Text: "Other player's chunks"; Anchor: (Left: 20, Top: 0, Width: 164, Height: 16); Style: (FontSize: 9, TextColor: #aaaaaa, HorizontalAlignment: Start, VerticalAlignment: Center); }
+            }
+
+            Group #LegendFree {
+              Anchor: (Left: 8, Top: 182, Width: 184, Height: 16);
+              Group #SwatchFree { Anchor: (Left: 0, Top: 2, Width: 12, Height: 12); Background: #3a3a3a; }
+              Label #LabelFree { Text: "Unclaimed (free)"; Anchor: (Left: 20, Top: 0, Width: 164, Height: 16); Style: (FontSize: 9, TextColor: #aaaaaa, HorizontalAlignment: Start, VerticalAlignment: Center); }
+            }
+
+            Group #LegendClaim {
+              Anchor: (Left: 8, Top: 202, Width: 184, Height: 16);
+              Group #SwatchClaim { Anchor: (Left: 0, Top: 2, Width: 12, Height: 12); Background: #b87333; }
+              Label #LabelClaim { Text: "Selected to claim"; Anchor: (Left: 20, Top: 0, Width: 164, Height: 16); Style: (FontSize: 9, TextColor: #aaaaaa, HorizontalAlignment: Start, VerticalAlignment: Center); }
+            }
+
+            Group #LegendUnclaim {
+              Anchor: (Left: 8, Top: 222, Width: 184, Height: 16);
+              Group #SwatchUnclaim { Anchor: (Left: 0, Top: 2, Width: 12, Height: 12); Background: #8b2020; }
+              Label #LabelUnclaim { Text: "Selected to unclaim"; Anchor: (Left: 20, Top: 0, Width: 164, Height: 16); Style: (FontSize: 9, TextColor: #aaaaaa, HorizontalAlignment: Start, VerticalAlignment: Center); }
+            }
+          }
+
+          // Plot List Panel (right side)
+          Group #PlotListPanel {
+            Anchor: (Top: 28, Left: 440, Width: 216, Height: 200);
+            Background: #0d1117;
+            LayoutMode: Top;
+            Padding: (Full: 4);
+
+            Label #PlotListHeader {
+              Text: "Your Plots";
+              Anchor: (Width: 208, Height: 20);
+              Style: (FontSize: 11, RenderBold: true, TextColor: #f0c674, HorizontalAlignment: Center, VerticalAlignment: Center);
+            }
+
+            // Plot items (max 7 visible) - Group wrapper for dynamic background highlight
+            Group #PlotItemBg0 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem0 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg1 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem1 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg2 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem2 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg3 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem3 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg4 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem4 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg5 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem5 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+            Group #PlotItemBg6 { Anchor: (Width: 208, Height: 22); Background: #1a2a3a; Visible: false; TextButton #PlotItem6 { Anchor: (Left: 0, Top: 0, Right: 0, Bottom: 0); Style: @PlotItemStyle; } }
+
+            Label #NoPlots {
+              Text: "No plots yet";
+              Anchor: (Width: 208, Height: 20);
+              Style: (FontSize: 10, TextColor: #666666, HorizontalAlignment: Center, VerticalAlignment: Center);
+              Visible: false;
+            }
+          }
+
+          // Plot management buttons (below plot list, hidden until plot selected)
+          Group #PlotButtons {
+            Anchor: (Top: 232, Left: 440, Width: 216, Height: 28);
+            Visible: false;
+
+            TextButton #RenameBtn {
+              Text: "RENAME";
+              Anchor: (Left: 0, Top: 0, Width: 100, Height: 28);
+              Style: @RenameBtnStyle;
+            }
+
+            TextButton #DeleteBtn {
+              Text: "DELETE";
+              Anchor: (Left: 116, Top: 0, Width: 100, Height: 28);
+              Style: @DeleteBtnStyle;
+            }
+          }
+
+          // Action buttons (below grid, left-aligned, stacked vertically)
+          Group #ActionButtons {
+            Anchor: (Top: 234, Left: 0, Width: 200, Height: 58);
+            Visible: false;
+
+            TextButton #ConfirmBtn {
+              Text: "Confirm";
+              Anchor: (Left: 0, Top: 0, Width: 200, Height: 26);
+              Style: @ConfirmBtnStyle;
+            }
+
+            TextButton #ClearBtn {
+              Text: "Clear";
+              Anchor: (Left: 0, Top: 30, Width: 200, Height: 26);
+              Style: @ClearBtnStyle;
+            }
+          }
+
+          // Status message (very bottom of claims area)
+          Label #ClaimsStatus {
+            Text: "";
+            Anchor: (Top: 332, Left: 0, Width: 656, Height: 18);
+            Style: (FontSize: 9, TextColor: #f0c674, HorizontalAlignment: Center, VerticalAlignment: Center);
+            Visible: false;
+          }
+
+
+        }
+      }
+    }
+  }
+}
