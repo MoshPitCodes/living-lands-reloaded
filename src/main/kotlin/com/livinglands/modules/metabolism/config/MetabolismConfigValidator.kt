@@ -26,7 +26,7 @@ object MetabolismConfigValidator {
             return  // Nothing to validate
         }
         
-        logger.atFine().log("Validating ${config.worldOverrides.size} world override(s)...")
+        LoggingManager.debug(logger, "metabolism") { "Validating ${config.worldOverrides.size} world override(s)..." }
         
         // Check for conflicting overrides (same world identified multiple ways)
         validateNoConflictingOverrides(config, logger)
@@ -57,20 +57,20 @@ object MetabolismConfigValidator {
             
             if (uuid != null) {
                 if (!uuidKeys.add(uuid)) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides: Duplicate UUID override detected: '$key'. " +
                         "Only the last override will be used."
-                    )
+                    }
                 }
             } else {
                 // It's a name
                 val lowerKey = key.lowercase()
                 val existing = nameKeys[lowerKey]
                 if (existing != null && existing != key) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides: Duplicate world name detected (case-insensitive): '$existing' and '$key'. " +
                         "These will be treated as the same world. Only the last override will be used."
-                    )
+                    }
                 }
                 nameKeys[lowerKey] = key
             }
@@ -97,10 +97,10 @@ object MetabolismConfigValidator {
         }
         
         if (!isKnownWorld && !isValidUuid) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides: Unknown world '$key'. This override will only apply if a world with this name is created later. " +
                 "Known worlds: ${knownWorldNames.joinToString(", ") { "'$it'" }}"
-            )
+            }
         }
     }
     
@@ -153,32 +153,32 @@ object MetabolismConfigValidator {
         // Validate depletion rate
         stat.baseDepletionRateSeconds?.let { rate ->
             if (rate <= 0) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$statName.baseDepletionRateSeconds: " +
                     "Invalid value $rate (must be > 0). Will clamp to minimum 1.0 second."
-                )
+                }
             }
             if (rate > 1_000_000) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$statName.baseDepletionRateSeconds: " +
                     "Very large value $rate (> 1 million seconds = 11.5 days). Is this intentional?"
-                )
+                }
             }
         }
         
         // Validate activity multipliers
         stat.activityMultipliers?.forEach { (activity, multiplier) ->
             if (multiplier < 0) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$statName.activityMultipliers.$activity: " +
                     "Negative multiplier $multiplier. Will clamp to 0.0."
-                )
+                }
             }
             if (multiplier > 100) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$statName.activityMultipliers.$activity: " +
                     "Very large multiplier $multiplier (> 100x). Is this intentional?"
-                )
+                }
             }
         }
     }
@@ -213,17 +213,17 @@ object MetabolismConfigValidator {
     ) {
         multiplier?.let { mult ->
             if (mult < 1.0) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$path.multiplier: " +
                     "Value $mult is less than 1.0. Buffs typically use multipliers >= 1.0 (e.g., 1.132 = +13.2%). " +
                     "Did you mean to use a debuff instead?"
-                )
+                }
             }
             if (mult > 10.0) {
-                logger.atWarning().log(
+                LoggingManager.warn(logger, "metabolism") {
                     "worldOverrides.$worldKey.$path.multiplier: " +
                     "Very large multiplier $mult (> 10x). Is this intentional?"
-                )
+                }
             }
         }
     }
@@ -289,16 +289,16 @@ object MetabolismConfigValidator {
         logger: HytaleLogger
     ) {
         if (damage < 0) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Negative damage value $damage. Will clamp to 0.0."
-            )
+            }
         }
         if (damage > 100) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Very high damage value $damage (can kill in one tick). Is this intentional?"
-            )
+            }
         }
     }
     
@@ -315,18 +315,18 @@ object MetabolismConfigValidator {
         override.hunger?.let { hunger ->
             if (hunger.enabled == false) {
                 if (hunger.baseDepletionRateSeconds != null) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides.$worldKey.hunger: " +
                         "Stat is disabled but baseDepletionRateSeconds is set. " +
                         "This setting will be ignored."
-                    )
+                    }
                 }
                 if (hunger.activityMultipliers?.isNotEmpty() == true) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides.$worldKey.hunger: " +
                         "Stat is disabled but activityMultipliers are set. " +
                         "These settings will be ignored."
-                    )
+                    }
                 }
             }
         }
@@ -335,10 +335,10 @@ object MetabolismConfigValidator {
         override.thirst?.let { thirst ->
             if (thirst.enabled == false) {
                 if (thirst.baseDepletionRateSeconds != null || thirst.activityMultipliers?.isNotEmpty() == true) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides.$worldKey.thirst: " +
                         "Stat is disabled but has config values. These will be ignored."
-                    )
+                    }
                 }
             }
         }
@@ -347,10 +347,10 @@ object MetabolismConfigValidator {
         override.energy?.let { energy ->
             if (energy.enabled == false) {
                 if (energy.baseDepletionRateSeconds != null || energy.activityMultipliers?.isNotEmpty() == true) {
-                    logger.atWarning().log(
+                    LoggingManager.warn(logger, "metabolism") {
                         "worldOverrides.$worldKey.energy: " +
                         "Stat is disabled but has config values. These will be ignored."
-                    )
+                    }
                 }
             }
         }
@@ -366,16 +366,16 @@ object MetabolismConfigValidator {
         logger: HytaleLogger
     ) {
         if (interval <= 0) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Invalid interval $interval ms (must be > 0). Will clamp to minimum 100ms."
-            )
+            }
         }
         if (interval < 100) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Very short interval $interval ms (< 100ms). This may cause performance issues."
-            )
+            }
         }
     }
     
@@ -389,17 +389,17 @@ object MetabolismConfigValidator {
         logger: HytaleLogger
     ) {
         if (multiplier < 0) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Negative multiplier $multiplier. Will clamp to 0.0."
-            )
+            }
         }
         if (multiplier > 1.0) {
-            logger.atWarning().log(
+            LoggingManager.warn(logger, "metabolism") {
                 "worldOverrides.$worldKey.$path: " +
                 "Multiplier $multiplier is greater than 1.0. Debuffs typically use multipliers < 1.0 (e.g., 0.65 = 65% of base). " +
                 "Did you mean to use a buff instead?"
-            )
+            }
         }
     }
 }

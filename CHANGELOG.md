@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - Unreleased
+
+### Added
+- **Claims Grid UI in Central Modal** - Interactive 6x6 chunk grid embedded in the `/ll menu` Claims tab
+  - Selection-based workflow: click cells to select, then Confirm to apply changes
+  - Color-coded cells: blue (owned), red (other player), gray (unclaimed), orange (selected to claim), dark red (selected to unclaim)
+  - Grid centered on player's current chunk position with coordinate range display
+  - Confirm/Clear buttons appear when cells are selected
+  - Batch operations: claim and unclaim multiple chunks in a single confirm
+  - Claim counter showing owned claims vs limit
+  - Status messages after confirm (e.g., "Claimed 3 | Unclaimed 1")
+  - Summary of owned claims and trusted access below the grid
+- **ModuleTab Event System** - Tabs can now handle custom UI events via `onEvent()` and `bindEvents()` methods
+  - Enables interactive tabs (like Claims grid) within the Central Modal Panel
+  - Non-interactive tabs (Metabolism, Professions) are unaffected (default no-op)
+- **Claims Repository Area Queries** - `getClaimsInArea()`, `getClaimById()`, `getClaimsByWorld()` for efficient spatial lookups
+- **Cache Warming** - Claims cache now properly pre-loads world data on startup via `getClaimsByWorld()`
+
+### Fixed
+- **Trust/Untrust Player Lookup** - Replaced UUID prefix matching hack with proper `GlobalPlayerDataRepository.findByName()` lookup
+  - Players are now looked up by exact name (case-insensitive) from the global player database
+  - Works for both online and offline players (any player who has ever joined the server)
+- **ClaimsService.trustPlayer() Hack** - Replaced `ChunkPosition(UUID.randomUUID(), 0, 0)` hack with proper `repository.getClaimById()` call
+- **ClaimsTab Render Blocking** - Pre-loads claims data in `onActivate()` instead of using `runBlocking` in `render()` method
+- **Content Area Visibility** - Central Modal Panel now properly resets content area before rendering each tab (prevents stale UI elements)
+
+### Changed
+- Claims tab completely rewritten from text-only to selection-based grid UI within the Central Modal Panel
+- Grid rendering uses pre-loaded area claims instead of per-cell queries
+- CentralModalPanel now delegates custom events to active tab and binds tab-specific events during build
+
+### Database
+- Schema remains at v3 (no migration needed)
+- New repository methods: `getClaimById()`, `getClaimsInArea()`, `getClaimsByWorld()`
+
+## [1.4.8] - 2026-02-04
+
+### Fixed
+- **HUD Max Stat Bonus Persistence** - Thread-safe HUD updates and database persistence for profession ability bonuses
+  - Root cause: Max stat bonuses from Tier 2 abilities (Iron Stomach, Desert Nomad, etc.) were not persisting across disconnect/reconnect
+  - Impact: Players lost +35 hunger/thirst/energy bonuses after logging out, had to re-earn via profession level
+  - Fix: Thread-safe HUD update system with proper synchronization (LLR-145)
+  - Fix: Database persistence for max stat modifiers in global player progression DB (LLR-146)
+  - Files: `MetabolismService.kt`, `MetabolismRepository.kt`, `MultiHudManager.kt`
+
+### Technical Details
+- Added `maxHunger`, `maxThirst`, `maxEnergy` columns to `metabolism_stats` table
+- HUD updates now use mutex-protected state to prevent race conditions
+- Max stat bonuses properly restored from database on player join
+- **Migration:** Automatic schema update on first v1.4.8 startup
+
+## [1.4.7] - 2026-02-04
+
+### Changed
+- **Logging Standardization (P2)** - Migrated 43 files from direct HytaleLogger to LoggingManager pattern
+  - All module code now uses `LoggingManager.debug/info/warn/error()` for consistent log level filtering
+  - Module-specific log levels now work correctly (configurable via `core.yml`)
+  - Zero overhead when disabled (lambda evaluation only when level enabled)
+  - Issue: LLR-143
+
+- **Config Reload Standardization (P2)** - Unified config reload patterns across all modules
+  - All modules now use `onConfigReload()` override instead of callback registration
+  - Consistent with other lifecycle methods (`onSetup`, `onShutdown`)
+  - Easier to maintain and extend
+  - Issue: LLR-144
+
+### Technical Details
+- **Files Modified:** 43 logging updates across all modules
+- **Pattern Change:** `logger.atFine().log()` → `LoggingManager.debug(logger, "module-id") { }`
+- **Config Pattern:** Callback registration removed, `onConfigReload()` override standardized
+
+## [1.4.6] - 2026-02-04
+
+### Added
+- **Module Dependency Validation (P2)** - Startup validation prevents missing dependency issues
+  - Pre-setup validation checks all module dependencies exist
+  - Aborts startup with clear error message if dependencies missing
+  - Prevents confusing NPE errors during runtime
+  - Issue: LLR-142
+
+### Technical Details
+- Added validation in `CoreModule.setupModules()` before setup phase
+- Missing dependencies logged with full dependency graph
+- Graceful failure with actionable error messages
+
+## [1.4.5] - 2026-02-04
+
+### Fixed
+- **HUD Availability Race Condition (P1)** - Commands no longer fail with "HUD not available" error
+  - Root cause: Commands called immediately after player join before HUD async initialization complete
+  - Impact: `/ll stats`, `/ll professions` commands failed with error if used within 1-2s of join
+  - Fix: Made `ensureHudRegistered()` public on MetabolismModule, all commands call before HUD access
+  - Issue: LLR-141
+
+### Changed
+- **Shutdown Pattern Standardization (P1)** - All modules use consistent `shutdownScopeWithTimeout()` helper
+  - MetabolismModule: Replaced manual Job.join() pattern
+  - ProfessionsModule: Replaced AtomicInteger polling pattern
+  - Reduces code duplication, ensures consistent timeout behavior
+  - Issue: LLR-140
+
+### Technical Details
+- **Affected Commands:** `/ll stats`, `/ll professions`, `/ll progress`, `/ll hunger`
+- All HUD-accessing commands now have lazy init check with proper error handling
+- Shutdown timeout: 5 seconds (prevents server hang on graceful shutdown)
+
+## [1.4.4] - 2026-02-04
+
+### Fixed
+- **P0 Infrastructure Audit** - Critical service access pattern fixes across codebase
+  - Root cause: Direct `CoreModule.services.get<T>()` calls in module code bypass safety checks
+  - Impact: Race conditions, NPEs when modules not operational, crashes on module failure
+  - Fix: Replaced 127 unsafe patterns with `safeService<T>()` and `safeModule<T>()` helpers
+  - Issue: LLR-138
+
+### Added
+- **Detekt Linting Rule (P0)** - Automated detection of unsafe service access patterns
+  - Custom Detekt rule flags direct `CoreModule.services.get<T>()` in module code
+  - Whitelist for core services (ConfigManager, WorldRegistry, PlayerRegistry, etc.)
+  - Prevents regression of unsafe patterns in future development
+  - Issue: LLR-139
+
+### Technical Details
+- **Files Modified:** 127 service access patterns across 23 module files
+- **Pattern Change:** `CoreModule.services.get<T>()` → `safeService<T>("moduleName")`
+- **Linting:** Custom Detekt rule in `detekt.yml` with warning severity
+- **Whitelist:** ConfigManager, WorldRegistry, PlayerRegistry, HudManager, EventRegistry
+
 ## [1.4.3] - 2026-02-02
 
 ### Added

@@ -5,6 +5,7 @@ import com.hypixel.hytale.component.Store
 import com.hypixel.hytale.logger.HytaleLogger
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore
 import com.livinglands.core.CoreModule
+import com.livinglands.core.PlayerRegistry
 import com.livinglands.core.WorldContext
 import com.livinglands.core.hud.LivingLandsHudElement
 import com.livinglands.core.logging.LoggingManager
@@ -891,7 +892,7 @@ class MetabolismService(
         val state = playerStates[playerId] ?: return
         
         // Get player's session to access their world
-        val playerRegistry = CoreModule.services.get<com.livinglands.core.PlayerRegistry>()
+        val playerRegistry = CoreModule.services.get<PlayerRegistry>()
         val session = playerRegistry?.getSession(playerUuid)
         if (session == null) {
             LoggingManager.debug(logger, "metabolism") { "Cannot force HUD update - player $playerUuid not in session registry" }

@@ -502,10 +502,3 @@ style:
   WildcardImport:
     active: true
     excludeImports: 'java.util.*,kotlinx.android.synthetic.*'
-
-# Living Lands Custom Rules
-living-lands:
-  active: true
-  UnsafeServiceAccess:
-    active: true
-    severity: WARNING

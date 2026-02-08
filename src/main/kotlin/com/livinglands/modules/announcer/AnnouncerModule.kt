@@ -76,19 +76,14 @@ class AnnouncerModule : AbstractModule(
             }
         }
         
-        // Register config reload callback
-        CoreModule.config.onReload(AnnouncerConfig.MODULE_ID) {
-            onConfigReloaded()
-        }
-        
         LoggingManager.info(logger, "announcer") { "AnnouncerModule setup complete" }
     }
     
     /**
-     * Handle config reload (called by ConfigManager).
-     * Runs in regular context (not suspend), so we can directly update config.
+     * Handle config reload (standard lifecycle hook).
+     * Called automatically by CoreModule when config is reloaded.
      */
-    private fun onConfigReloaded() {
+    override fun onConfigReload() {
         LoggingManager.info(logger, "announcer") { "Reloading announcer config..." }
         
         // Reload config

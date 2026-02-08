@@ -1,5 +1,6 @@
 package com.livinglands.modules.claims.config
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.livinglands.core.config.ConfigMigration
 import com.livinglands.core.config.VersionedConfig
 
@@ -35,10 +36,15 @@ data class ClaimsConfig(
     companion object {
         /** Current config version */
         const val CURRENT_VERSION = 1
-        
+
         /** Config module ID for migration registry */
         const val MODULE_ID = "claims"
-        
+
+        /**
+         * Get default configuration.
+         */
+        fun default(): ClaimsConfig = ClaimsConfig()
+
         /**
          * Get all migrations for ClaimsConfig.
          */
@@ -48,19 +54,34 @@ data class ClaimsConfig(
 
 /**
  * Claim limit configuration.
+ * JsonIgnoreProperties allows old config files with removed fields (e.g., maxClaimsPerPlayer)
+ * to deserialize without errors.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class LimitsConfig(
-    /** Maximum claims per player */
-    val maxClaimsPerPlayer: Int = 10,
-    
+    /** Maximum plots (multi-chunk claims) per player */
+    val maxPlotsPerPlayer: Int = 10,
+
+    /** Maximum chunks per single plot */
+    val maxChunksPerPlot: Int = 25,
+
+    /** Maximum total chunks a player can claim across all plots */
+    val maxTotalChunks: Int = 100,
+
     /** Starting claims for new players */
     val startingClaims: Int = 2,
-    
+
     /** Additional claims granted per hour played */
     val claimsPerHourPlayed: Double = 0.1,
-    
+
     /** Maximum trusted players per claim */
-    val maxTrustedPerClaim: Int = 20
+    val maxTrustedPerClaim: Int = 20,
+
+    /** Maximum groups per player */
+    val maxGroupsPerPlayer: Int = 5,
+
+    /** Maximum members per group */
+    val maxMembersPerGroup: Int = 50
 )
 
 /**

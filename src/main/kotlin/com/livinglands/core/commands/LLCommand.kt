@@ -20,9 +20,10 @@ class LLCommand : CommandBase(
     init {
         // Allow all game modes (like v2.6.0 did)
         setPermissionGroups(GameMode.Adventure.toString(), GameMode.Creative.toString())
-        
-        // Add reload subcommand
+
+        // Add core subcommands
         addSubCommand(ReloadCommand())
+        addSubCommand(MenuCommand())
     }
     
     /**
@@ -41,8 +42,14 @@ class LLCommand : CommandBase(
         
         MessageFormatter.commandRaw(ctx, "=== Living Lands v1.1.0 ===", gold)
         MessageFormatter.commandRaw(ctx, "", gray)
-        MessageFormatter.commandRaw(ctx, "Commands:", gold)
+        MessageFormatter.commandRaw(ctx, "Main Commands:", gold)
+        MessageFormatter.commandRaw(ctx, "/ll menu - Open the central menu panel", aqua)
         MessageFormatter.commandRaw(ctx, "/ll reload - Reload configuration files", aqua)
+        MessageFormatter.commandRaw(ctx, "", gray)
+        MessageFormatter.commandRaw(ctx, "Claims:", gold)
+        MessageFormatter.commandRaw(ctx, "/ll trust <player> - Allow a player to build", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll untrust <player> - Revoke build permission", aqua)
+        MessageFormatter.commandRaw(ctx, "/ll claims - List all your claim plots", aqua)
         MessageFormatter.commandRaw(ctx, "", gray)
         MessageFormatter.commandRaw(ctx, "HUD Toggles:", gold)
         MessageFormatter.commandRaw(ctx, "/ll stats - Toggle metabolism stats display", aqua)
